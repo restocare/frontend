@@ -1,14 +1,20 @@
 /**
  * Google Maps platform config.
  *
- * This is the partner app's key (FE_partner AndroidManifest) — its Google
- * project actually serves: Geocoding API, legacy Places API (autocomplete +
- * details) and the Android Maps SDK (all verified live 2026-07-05). The old
- * key shared with the customer app (AIzaSyCE-dq…) has NO Maps APIs enabled
- * and every call with it is rejected.
- *
- * Override per-environment with NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+ * Required: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, restricted to this app's origin
+ * in the Google Cloud console. There is no fallback — a key that works for
+ * one environment (e.g. the partner Android app's key) is wrong for others
+ * and, being unrestricted, is billable by anyone who lifts it from the
+ * bundle. See PR description for the key each environment should use.
  */
-export const GOOGLE_MAPS_API_KEY =
-  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ??
-  "AIzaSyDSnnf9q7vfPc9ROItgYNFkWSuBoOF2x6Q";
+export const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+if (!GOOGLE_MAPS_API_KEY) {
+  const message =
+    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set — maps features (checkout geocoding, address autocomplete) will fail.";
+  if (process.env.NODE_ENV === "development") {
+    throw new Error(message);
+  } else {
+    console.error(message);
+  }
+}
