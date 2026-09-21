@@ -2519,6 +2519,8 @@ export interface CreateBookingPayload {
   variantId: number | null;
   bookingDate: string;
   startTime: string;
+  /** "HH:mm". Sent by the hourly flow; the admin create call has the same field. */
+  endTime?: string;
   totalAmount: number;
   serviceLat: number;
   serviceLng: number;

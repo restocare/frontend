@@ -8,6 +8,7 @@ import { CartProvider } from "@/src/lib/cart";
 import { ProductCartProvider } from "@/src/lib/product-cart";
 import { CustomerAuthProvider } from "@/src/lib/customer-auth";
 import { CartLayer } from "@/src/components/cart/cart-layer";
+import { BookingFlowSync } from "@/src/components/booking-flow-sync";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -31,6 +32,7 @@ export function Providers({ children }: { children: ReactNode }) {
             <ProductCartProvider>
               {children}
               <CartLayer />
+              <BookingFlowSync />
             </ProductCartProvider>
           </CartProvider>
         </CustomerAuthProvider>
