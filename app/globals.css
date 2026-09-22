@@ -93,6 +93,17 @@
 
 /* Map CSS variables to Tailwind color utilities (bg-card, text-muted-foreground, ...) */
 @theme inline {
+  /* Storefront booking flow 2 (prototype palette), prefixed rc- */
+  --color-rc-yellow: #F4B400;
+  --color-rc-yellow-deep: #B57F00;
+  --color-rc-yellow-tint: #FFF3CC;
+  --color-rc-ink: #1C1A17;
+  --color-rc-ink-2: #4A4642;
+  --color-rc-muted: #7A7570;
+  --color-rc-ground: #F5F6FA;
+  --color-rc-line: #E7E8EE;
+  --color-rc-green: #1E8E3E;
+  --color-rc-red: #C0392B;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

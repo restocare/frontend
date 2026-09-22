@@ -11,11 +11,16 @@ import {
   parseVariantShift,
 } from "@/src/lib/booking-shifts";
 import { SpinnerIcon } from "@/src/components/icons";
+import { useBookingFlow } from "@/src/lib/booking-flow";
+import { BookingWizard } from "@/src/components/booking-v2/wizard";
 
 export default function BookingSchedulePage() {
+  // Flow 2 (see src/lib/booking-flow.ts) replaces the shift picker with the
+  // three-step hourly wizard at the same address.
+  const flow = useBookingFlow();
   return (
     <Suspense fallback={null}>
-      <BookingScheduleContent />
+      {flow === 2 ? <BookingWizard /> : <BookingScheduleContent />}
     </Suspense>
   );
 }

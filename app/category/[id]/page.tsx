@@ -9,13 +9,17 @@ import {
   queryKeys,
   type CategoryTreeNode,
   type CategoryTreeService,
+  type CategoryTreeVariant,
 } from "@/src/api/api";
+import { parseVariantShift } from "@/src/lib/booking-shifts";
 import { useCurrentLocation } from "@/src/lib/location";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
 import { SpinnerIcon, StarIcon, ArrowRightIcon } from "@/src/components/icons";
 import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
+import { useBookingFlow } from "@/src/lib/booking-flow";
+import { CategoryPageV2 } from "@/src/components/booking-v2/category-page-v2";
 
 /** A service flattened out of the category → group → service tree. */
 interface FlatService extends CategoryTreeService {
@@ -45,9 +49,16 @@ function formatPrice(price: number | null): string {
 }
 
 export default function CategoryPage() {
+  // Flow 2 (see src/lib/booking-flow.ts) swaps in the hourly booking page for
+  // staffing categories; every other category falls back to this page.
+  const flow = useBookingFlow();
   return (
     <Suspense fallback={null}>
-      <CategoryPageContent />
+      {flow === 2 ? (
+        <CategoryPageV2 fallback={<CategoryPageContent />} />
+      ) : (
+        <CategoryPageContent />
+      )}
     </Suspense>
   );
 }
@@ -218,6 +229,15 @@ function CategoryPageContent() {
   );
 }
 
+/** Shortest shift among a staffing service's variants, read from names like
+ *  "5 Hour Shift (11 AM – 4 PM)". Week-long shifts carry no hour count. */
+function shortestShiftHours(variants: CategoryTreeVariant[]): number | null {
+  const hours = variants
+    .map((v) => parseVariantShift(v.name).durationHours)
+    .filter((h): h is number => h != null && h > 0);
+  return hours.length ? Math.min(...hours) : null;
+}
+
 function ServiceCard({
   service,
   fallbackEmoji,
@@ -230,13 +250,58 @@ function ServiceCard({
   const { requestAdd } = useCart();
   const router = useRouter();
   const hasImage = Boolean(service.profileImage);
-  const lowestVariant =
-    service.variants.length > 0
-      ? Math.min(...service.variants.map((v) => v.price))
-      : null;
-  const displayPrice =
-    service.price != null && service.price > 0 ? service.price : lowestVariant;
   const hasVariants = service.variants.length > 0;
+  const lowestVariant = hasVariants
+    ? Math.min(...service.variants.map((v) => v.price))
+    : null;
+  const basePrice =
+    service.price != null && service.price > 0 ? service.price : null;
+
+  // Staffing categories quote a rate per hour and sell it in shifts. The base
+  // price is that rate only when every shift costs more than it. A base price
+  // equal to the cheapest shift is a package price and must not say "/hour".
+  const isHourly =
+    useSlots &&
+    basePrice != null &&
+    lowestVariant != null &&
+    basePrice < lowestVariant;
+  const minShiftHours = useSlots ? shortestShiftHours(service.variants) : null;
+  const displayPrice = basePrice ?? lowestVariant;
+  const showFrom = !isHourly && hasVariants && displayPrice != null;
+
+  const book = () => {
+    if (hasVariants) {
+      // Open the variant picker. For slot categories it then routes
+      // to the schedule step; otherwise it adds straight to the cart.
+      requestAdd({
+        serviceId: service.serviceId,
+        name: service.name,
+        price: service.price,
+        profileImage: service.profileImage,
+        useSlots,
+        variants: service.variants,
+      });
+      return;
+    }
+    if (useSlots) {
+      // Slot category, no variants — go straight to the date & shift step.
+      const qs = new URLSearchParams({
+        name: service.name,
+        image: service.profileImage ?? "",
+      });
+      router.push(`/booking/${service.serviceId}?${qs.toString()}`);
+      return;
+    }
+    // Non-slot category, no variants — instant add to cart.
+    requestAdd({
+      serviceId: service.serviceId,
+      name: service.name,
+      price: service.price,
+      profileImage: service.profileImage,
+      useSlots,
+      variants: [],
+    });
+  };
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -281,65 +346,58 @@ function ServiceCard({
         ) : null}
 
         {/* meta row */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        <div className="mb-4 mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
           {service.durationMinutes ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1">
               <ClockIcon className="h-3.5 w-3.5" /> {service.durationMinutes} mins
             </span>
           ) : null}
-          {service.variants.length > 0 ? (
+          {hasVariants ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1">
-              {service.variants.length} option
-              {service.variants.length === 1 ? "" : "s"}
+              {service.variants.length}{" "}
+              {useSlots
+                ? service.variants.length === 1
+                  ? "shift"
+                  : "shifts"
+                : service.variants.length === 1
+                  ? "option"
+                  : "options"}
             </span>
           ) : null}
         </div>
 
         {/* price + cta */}
-        <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-          <div>
-            <span className="text-[11px] uppercase tracking-wide text-gray-400">
-              {lowestVariant != null && service.price ? "Starts at" : "Price"}
-            </span>
-            <p className="text-lg font-bold text-gray-900">
-              {formatPrice(displayPrice)}
-            </p>
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+          <div className="min-w-0">
+            {displayPrice == null ? (
+              <p className="text-base font-semibold text-gray-900">
+                {formatPrice(null)}
+              </p>
+            ) : (
+              <p className="flex items-baseline gap-1 text-gray-900">
+                {showFrom ? (
+                  <span className="text-sm text-gray-500">From</span>
+                ) : null}
+                <span className="text-2xl font-bold leading-none tracking-tight">
+                  {formatPrice(displayPrice)}
+                </span>
+                {isHourly ? (
+                  <span className="text-sm font-medium text-gray-500">/hour</span>
+                ) : null}
+              </p>
+            )}
+            {isHourly ? (
+              <p className="mt-1.5 text-xs text-gray-500">
+                {minShiftHours
+                  ? `Minimum ${minShiftHours}-hour shift`
+                  : "Booked by the shift"}
+                {lowestVariant != null ? `, from ${formatPrice(lowestVariant)}` : ""}
+              </p>
+            ) : null}
           </div>
           <button
-            onClick={() => {
-              if (hasVariants) {
-                // Open the variant picker. For slot categories it then routes
-                // to the schedule step; otherwise it adds straight to the cart.
-                requestAdd({
-                  serviceId: service.serviceId,
-                  name: service.name,
-                  price: service.price,
-                  profileImage: service.profileImage,
-                  useSlots,
-                  variants: service.variants,
-                });
-                return;
-              }
-              if (useSlots) {
-                // Slot category, no variants — go straight to the date & shift step.
-                const qs = new URLSearchParams({
-                  name: service.name,
-                  image: service.profileImage ?? "",
-                });
-                router.push(`/booking/${service.serviceId}?${qs.toString()}`);
-                return;
-              }
-              // Non-slot category, no variants — instant add to cart.
-              requestAdd({
-                serviceId: service.serviceId,
-                name: service.name,
-                price: service.price,
-                profileImage: service.profileImage,
-                useSlots,
-                variants: [],
-              });
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+            onClick={book}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
           >
             {hasVariants ? "Select" : useSlots ? "Book" : "Add"}
             <ArrowRightIcon className="h-4 w-4" />
