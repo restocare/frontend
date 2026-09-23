@@ -145,6 +145,8 @@ export interface AdminBooking {
   /** The booked slot window ("HH:mm") + the shift the customer picked. */
   startTime: string | null;
   endTime: string | null;
+  /** Total booked time in minutes — 300 for a 5-hour shift, 660 for 08:00–19:00. */
+  totalMinutes: number | null;
   /** Variant name, e.g. "5 Hour Shift (11 AM – 4 PM)". */
   shift: string | null;
   /** Day-part bucket derived from startTime: Morning/Afternoon/Evening/Night. */

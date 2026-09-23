@@ -85,6 +85,15 @@ const PERIOD_STYLES: Record<string, string> = {
 };
 
 /** "19:00" → "7:00 PM"; tolerates the "24:00" midnight end our slots use. */
+/** Total booked time: 300 → "5 h", 330 → "5 h 30 min", 45 → "45 min". */
+function formatTotalTime(minutes: number | null | undefined): string | null {
+  if (!minutes || minutes <= 0) return null;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
 function formatTime(t: string | null): string {
   if (!t) return "";
   const [hStr, mStr = "00"] = t.split(":");
@@ -838,6 +847,14 @@ export function BookingsView() {
                                         {b.endTime
                                           ? ` – ${formatTime(b.endTime)}`
                                           : ""}
+                                      </span>
+                                    )}
+                                    {formatTotalTime(b.totalMinutes) && (
+                                      <span
+                                        className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground"
+                                        title="Total booked time"
+                                      >
+                                        {formatTotalTime(b.totalMinutes)}
                                       </span>
                                     )}
                                   </div>
@@ -2342,6 +2359,9 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
             <Detail label="Slot">
               {b.startTime && b.endTime ? `${b.startTime} – ${b.endTime}` : "—"}
               {b.slotPeriod ? ` · ${b.slotPeriod}` : ""}
+            </Detail>
+            <Detail label="Total time">
+              {formatTotalTime(b.totalMinutes) ?? "—"}
             </Detail>
             <Detail label="Payment">{b.paymentMode}</Detail>
             {b.addons.length > 0 && (
