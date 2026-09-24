@@ -15,11 +15,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.restocare.in"),
   title: {
     default: "RestoCare",
     template: "%s | RestoCare",
   },
-  description: "Admin dashboard for RestoCare",
+  description:
+    "Book verified restaurant services in Delhi NCR — staffing, kitchen deep cleaning and supplies, booked and tracked online.",
+  openGraph: {
+    siteName: "RestoCare",
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({

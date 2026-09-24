@@ -1,81 +1,28 @@
-"use client";
+import type { Metadata } from "next";
+import { HomeContent } from "./_home-content";
 
-import { useEffect, useState } from "react";
-import { LandingHeader } from "@/src/components/landing/landing-header";
-import { Reveal } from "@/src/components/landing/reveal";
-import { CursorFollower } from "@/src/components/landing/cursor-follower";
-import { Hero } from "@/src/components/landing/hero";
-import { PhoneShowcase } from "@/src/components/landing/phone-showcase";
-import { StatsBand } from "@/src/components/landing/stats-band";
-import { Brands } from "@/src/components/landing/brands";
-import { PopularCategories } from "@/src/components/landing/popular-categories";
-import { HowItWorks } from "@/src/components/landing/how-it-works";
-import { ServiceGrid } from "@/src/components/landing/service-grid";
-import { WhyChooseUs } from "@/src/components/landing/why-choose-us";
-import { TopProviders } from "@/src/components/landing/top-providers";
-import { RestaurantRepair } from "@/src/components/landing/restaurant-repair";
-import { VideoBanner } from "@/src/components/landing/video-banner";
-import { PartnerCTA, Testimonials } from "@/src/components/landing/testimonials";
-import { FAQs } from "@/src/components/landing/faqs";
-import { Footer } from "@/src/components/landing/footer";
+// TODO: update title and description once repair categories (Plumber, Electrician,
+// Technician, AC & Appliance Repair) are published — they are "Coming soon" as of now.
+export const metadata: Metadata = {
+  title: {
+    absolute: "RestoCare — Restaurant Staff & Kitchen Services, Delhi NCR",
+  },
+  description:
+    "Book verified chefs, kitchen helpers and waiters by the shift, and commercial kitchen deep cleaning, across Delhi NCR. Clear pricing, booked and tracked online.",
+  alternates: {
+    canonical: "https://www.restocare.in",
+  },
+  openGraph: {
+    title: "RestoCare — Restaurant Staff & Kitchen Services, Delhi NCR",
+    description:
+      "Book verified chefs, kitchen helpers and waiters by the shift, and commercial kitchen deep cleaning, across Delhi NCR. Clear pricing, booked and tracked online.",
+    url: "https://www.restocare.in",
+    siteName: "RestoCare",
+    locale: "en_IN",
+    type: "website",
+  },
+};
 
 export default function Home() {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-
-  // Debounce the search input so the vendor query isn't refetched on every keystroke.
-  useEffect(() => {
-    const id = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(id);
-  }, [search]);
-
-  return (
-    <div data-theme="light" className="min-h-dvh bg-white">
-      <CursorFollower />
-      <LandingHeader search={search} onSearchChange={setSearch} />
-      <main>
-        <Hero />
-       
-        <Reveal>
-          <PopularCategories selectedCategoryId={categoryId} onSelect={setCategoryId} />
-        </Reveal>
-         <PhoneShowcase />
-        <VideoBanner />
-        <Reveal>
-          <HowItWorks />
-        </Reveal>
-        <Reveal>
-          <ServiceGrid search={debouncedSearch} categoryId={categoryId} />
-        </Reveal>
-        <Reveal>
-          <WhyChooseUs />
-        </Reveal>
-        <Reveal>
-          <StatsBand />
-        </Reveal>
-        <Reveal>
-          <TopProviders />
-        </Reveal>
-        <Reveal>
-          <Brands />
-        </Reveal>
-        <Reveal>
-          <RestaurantRepair />
-        </Reveal>
-
-        <Reveal>
-          <PartnerCTA />
-        </Reveal>
-        <Reveal>
-          <Testimonials />
-        </Reveal>
-        <Reveal>
-          <FAQs />
-        </Reveal>
-      </main>
-
-      <Footer />
-    </div>
-  );
+  return <HomeContent />;
 }
