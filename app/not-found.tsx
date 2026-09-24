@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NotFoundContent, type CategoryLink } from "./_not-found-content";
 
 export const metadata: Metadata = {
-  title: "Page not found | RestoCare",
+  title: { absolute: "Page not found | RestoCare" },
   robots: { index: false, follow: false },
 };
 
