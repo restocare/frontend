@@ -32,6 +32,7 @@ const NAV_LINKS = [
   { label: "Services", href: "/#services" },
   { label: "Products", href: "/products" },
   { label: "Careers", href: "/careers" },
+  { label: "About", href: "/about" },
 ];
 
 const EMOJI_BY_NAME: Record<string, string> = {
