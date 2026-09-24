@@ -226,7 +226,15 @@ function CustomerLoginContent() {
       </div>
 
       <p className="mt-6 text-center text-xs text-gray-400">
-        By continuing you agree to RestoCare&apos;s Terms &amp; Privacy Policy.
+        By continuing you agree to RestoCare&apos;s{" "}
+        <a href="/terms-and-conditions" className="underline underline-offset-2 hover:text-gray-600">
+          Terms
+        </a>{" "}
+        &amp;{" "}
+        <a href="/privacy-policy" className="underline underline-offset-2 hover:text-gray-600">
+          Privacy Policy
+        </a>
+        .
       </p>
 
       {/* Admins / super admins sign in with email + password instead of OTP. */}
