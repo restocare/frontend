@@ -57,8 +57,8 @@ export function Footer() {
             <h3 className="mb-4 text-lg font-bold text-white">Quick Links</h3>
             <ul className="space-y-3">
               <li><Link href="#" className="hover:text-white transition">Become Our Partner</Link></li>
-              <li><Link href="#" className="hover:text-white transition">Refund & Cancellation Policy</Link></li>
-              <li><Link href="#" className="hover:text-white transition">Terms And Conditions</Link></li>
+              <li><Link href="/refund-cancellation-policy" className="hover:text-white transition">Refund &amp; Cancellation Policy</Link></li>
+              <li><Link href="/terms-and-conditions" className="hover:text-white transition">Terms And Conditions</Link></li>
               <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link></li>
               <li><Link href="/about" className="hover:text-white transition">About Us</Link></li>

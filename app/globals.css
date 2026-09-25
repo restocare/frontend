@@ -525,6 +525,28 @@ body {
   border-color: transparent !important;
 }
 
+/* ---------------------------------------------------------------- *
+ *  Legal page prose                                                 *
+ * ---------------------------------------------------------------- */
+.legal-prose h2 { margin-top: 2.5rem; margin-bottom: 1rem; font-size: 1.125rem; font-weight: 700; color: #1f4e79; scroll-margin-top: 6rem; }
+.legal-prose h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; color: #1e293b; }
+.legal-prose p  { margin-top: 0.75rem; font-size: 0.875rem; line-height: 1.75; color: #4b5563; }
+.legal-prose ul { margin-top: 0.75rem; padding-left: 1.5rem; list-style-type: disc; }
+.legal-prose ol { margin-top: 0.75rem; padding-left: 1.5rem; list-style-type: decimal; }
+.legal-prose li { font-size: 0.875rem; line-height: 1.75; color: #4b5563; margin-top: 0.25rem; }
+.legal-prose strong { font-weight: 600; color: #1e293b; }
+.legal-prose em    { font-style: italic; }
+.legal-prose a  { color: #e2563b; text-underline-offset: 2px; }
+.legal-prose a:hover { text-decoration: underline; }
+.legal-prose hr { margin: 2rem 0; border-color: #e2e8f0; }
+
+/* Table scroll wrapper injected by renderLegalMd */
+.table-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem -0.5rem; padding: 0 0.5rem; }
+.legal-prose table { width: 100%; min-width: 36rem; border-collapse: collapse; font-size: 0.875rem; color: #4b5563; }
+.legal-prose th   { background: #f8fafc; padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #1e293b; border: 1px solid #e2e8f0; }
+.legal-prose td   { padding: 0.75rem 1rem; border: 1px solid #e2e8f0; vertical-align: top; }
+.legal-prose tr:hover td { background: #f8fafc; }
+
 /* For pagination active state (without hover scale, custom border) */
 .btn-pagination-active {
   background-color: #131517 !important;

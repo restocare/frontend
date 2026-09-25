@@ -952,6 +952,29 @@ export default function CheckoutPage() {
               </p>
             ) : null}
 
+            {/* Consent */}
+            <p className="text-center text-xs text-gray-400">
+              By paying, you agree to our{" "}
+              <a
+                href="/terms-and-conditions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-gray-600"
+              >
+                Terms &amp; Conditions
+              </a>{" "}
+              and{" "}
+              <a
+                href="/refund-cancellation-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-gray-600"
+              >
+                Refund &amp; Cancellation Policy
+              </a>
+              .
+            </p>
+
             {/* Place order */}
             <button
               onClick={handlePlaceOrder}
