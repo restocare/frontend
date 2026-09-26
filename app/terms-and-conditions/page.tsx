@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import { notFound } from "next/navigation";
 import { LegalPageChrome } from "@/src/components/legal/legal-page-chrome";
 import { renderLegalMd } from "@/src/lib/render-legal-md";
 
@@ -8,7 +9,15 @@ export default function TermsAndConditionsPage() {
     join(process.cwd(), "content/legal/terms-and-conditions.md"),
     "utf-8"
   );
-  const html = renderLegalMd(source);
+
+  // renderLegalMd throws in production while [[CONFIRM]] markers remain.
+  // Catch it here so this one page 404s instead of failing the whole build.
+  let html: string;
+  try {
+    html = renderLegalMd(source);
+  } catch {
+    notFound();
+  }
 
   return (
     <LegalPageChrome title="Terms & Conditions">
