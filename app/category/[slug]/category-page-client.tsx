@@ -20,6 +20,7 @@ import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { useBookingFlow } from "@/src/lib/booking-flow";
 import { CategoryPageV2 } from "@/src/components/booking-v2/category-page-v2";
+import { categoryIdForSlug } from "@/lib/category-slugs";
 
 /** A service flattened out of the category → group → service tree. */
 interface FlatService extends CategoryTreeService {
@@ -48,7 +49,7 @@ function formatPrice(price: number | null): string {
   return `₹${price.toLocaleString("en-IN")}`;
 }
 
-export default function CategoryPage() {
+export function CategoryPageClient() {
   // Flow 2 (see src/lib/booking-flow.ts) swaps in the hourly booking page for
   // staffing categories; every other category falls back to this page.
   const flow = useBookingFlow();
@@ -64,8 +65,8 @@ export default function CategoryPage() {
 }
 
 function CategoryPageContent() {
-  const params = useParams<{ id: string }>();
-  const categoryId = Number(params?.id);
+  const params = useParams<{ slug: string }>();
+  const categoryId = categoryIdForSlug(params?.slug ?? "");
   const searchParams = useSearchParams();
 
   // Pre-fill the filter when arriving from a service search (…/category/5?q=Tandoor).

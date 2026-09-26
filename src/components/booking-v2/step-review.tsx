@@ -24,6 +24,7 @@ import { loadRazorpayScript, openRazorpay } from "@/src/lib/razorpay";
 import { SpinnerIcon } from "@/src/components/icons";
 import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
+import { categoryHref } from "@/lib/category-slugs";
 import {
   BillRow,
   Card,
@@ -200,7 +201,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
 
   const crumbs = [
     { label: "Home", href: "/" },
-    { label: draft.categoryName, href: `/category/${draft.categoryId}` },
+    { label: draft.categoryName, href: categoryHref(draft.categoryId) },
     { label: "Date & time", onClick: () => goTo("time") },
     { label: "Address", onClick: () => goTo("address") },
     { label: "Review" },

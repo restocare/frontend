@@ -24,6 +24,7 @@ import { minShiftMinutes } from "@/src/lib/booking-v2/schedule";
 import { hourlyRate, saveDraft, startDraft } from "@/src/lib/booking-v2/draft";
 import { SpinnerIcon } from "@/src/components/icons";
 import { CheckGlyph, ClockGlyph, StorefrontShell } from "./shell";
+import { categoryIdForSlug } from "@/lib/category-slugs";
 
 /** Emoji stand-in when a service has no image. */
 export function emojiForCategory(name: string): string {
@@ -56,8 +57,8 @@ function Empty({ title, text }: { title: string; text: string }) {
 }
 
 export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
-  const params = useParams<{ id: string }>();
-  const categoryId = Number(params?.id);
+  const params = useParams<{ slug: string }>();
+  const categoryId = categoryIdForSlug(params?.slug ?? "");
   const router = useRouter();
   const searchParams = useSearchParams();
 

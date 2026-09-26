@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { REDIRECT_RULES } from "./lib/redirects";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return REDIRECT_RULES;
+  },
   images: {
     remotePatterns: [
       {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
+import { categoryHref } from "@/lib/category-slugs";
 
 interface PopularCategoriesProps {
   /** Kept for backwards-compat with the landing page; clicking a tile now
@@ -210,7 +211,7 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
 
   return (
     <Link
-      href={`/category/${category.categoryId}`}
+      href={categoryHref(category.categoryId)}
       className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-md"
     >
       {icon}

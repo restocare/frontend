@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { categoryIdForSlug } from "@/lib/category-slugs";
 
 const SITE = "https://www.restocare.in";
 const API_BASE =
@@ -48,19 +49,22 @@ async function fetchCategories(): Promise<CategoryNode[]> {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { slug } = await params;
+  const categoryId = categoryIdForSlug(slug);
+  if (categoryId === undefined) notFound();
+
   const categories = await fetchCategories();
 
   // If the API returns an empty list the fetch likely failed — we can't tell
   // whether the category exists, so don't 404 speculatively.
   if (categories.length > 0) {
-    const exists = categories.some((c) => c.categoryId === Number(id));
+    const exists = categories.some((c) => c.categoryId === categoryId);
     if (!exists) notFound();
   }
 
-  const category = categories.find((c) => c.categoryId === Number(id));
+  const category = categories.find((c) => c.categoryId === categoryId);
 
   // API error path: categories empty → we don't know if this ID is valid.
   // Return generic metadata rather than 404-ing on an outage.
@@ -89,7 +93,7 @@ export async function generateMetadata({
       ? category.description.slice(0, 155)
       : `Book ${category.name} services for your restaurant in Delhi NCR.`);
 
-  const canonical = `${SITE}/category/${id}`;
+  const canonical = `${SITE}/category/${slug}`;
 
   return {
     title,
