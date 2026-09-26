@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NotFoundContent, type CategoryLink } from "./_not-found-content";
+import { categoryHref } from "@/lib/category-slugs";
 
 export const metadata: Metadata = {
   title: { absolute: "Page not found | RestoCare" },
@@ -38,7 +39,7 @@ async function fetchCategoryLinks(): Promise<CategoryLink[]> {
           c.isPublished !== false &&
           c.name.trim().toLowerCase().includes(namePart),
       );
-      if (match) links.push({ name: label, href: `/category/${match.categoryId}` });
+      if (match) links.push({ name: label, href: categoryHref(match.categoryId) });
     }
     return links.length > 0 ? links : fallbackLinks();
   } catch {

@@ -26,6 +26,7 @@ import { isCleaningCategory } from "@/src/lib/booking-v2/cleaning";
 import { useDeepCleaningFlow } from "@/src/lib/deep-cleaning-flow";
 import { SpinnerIcon } from "@/src/components/icons";
 import { CheckGlyph, ClockGlyph, StorefrontShell } from "./shell";
+import { categoryIdForSlug } from "@/lib/category-slugs";
 import { CleaningPageV2 } from "./cleaning-page";
 
 /** Emoji stand-in when a service has no image. */
@@ -59,8 +60,8 @@ function Empty({ title, text }: { title: string; text: string }) {
 }
 
 export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
-  const params = useParams<{ id: string }>();
-  const categoryId = Number(params?.id);
+  const params = useParams<{ slug: string }>();
+  const categoryId = categoryIdForSlug(params?.slug ?? "");
   const router = useRouter();
   const searchParams = useSearchParams();
 

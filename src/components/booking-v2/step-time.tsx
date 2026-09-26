@@ -25,6 +25,7 @@ import {
 } from "@/src/lib/booking-v2/schedule";
 import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
+import { categoryHref } from "@/lib/category-slugs";
 import {
   BillRow,
   Card,
@@ -151,7 +152,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
       title={`Book a ${draft.serviceName}`}
       crumbs={[
         { label: "Home", href: "/" },
-        { label: draft.categoryName, href: `/category/${draft.categoryId}` },
+        { label: draft.categoryName, href: categoryHref(draft.categoryId) },
         { label: "Date & time" },
       ]}
       sidebar={

@@ -10,6 +10,7 @@ import {
 } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
 import { useCart } from "@/src/lib/cart";
+import { categoryHref } from "@/lib/category-slugs";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import {
   CartIcon,
@@ -230,7 +231,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
                       {matchedCategories.map((c) => (
                         <Link
                           key={`c-${c.categoryId}`}
-                          href={`/category/${c.categoryId}`}
+                          href={categoryHref(c.categoryId)}
                           onClick={close}
                           className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-gray-50"
                         >
@@ -259,7 +260,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
                       {matchedServices.map((s) => (
                         <Link
                           key={`s-${s.serviceId}`}
-                          href={`/category/${s.categoryId}?q=${encodeURIComponent(s.name)}`}
+                          href={`${categoryHref(s.categoryId)}?q=${encodeURIComponent(s.name)}`}
                           onClick={close}
                           className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-gray-50"
                         >

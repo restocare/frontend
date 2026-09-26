@@ -26,6 +26,7 @@ import {
   type BookingDraft,
 } from "@/src/lib/booking-v2/draft";
 import { SpinnerIcon } from "@/src/components/icons";
+import { categoryHref } from "@/lib/category-slugs";
 import { StorefrontShell } from "./shell";
 import { StepTime } from "./step-time";
 import { StepAddress } from "./step-address";
@@ -111,7 +112,7 @@ export function BookingWizard() {
   );
 
   const leave = useCallback(() => {
-    router.push(draft ? `/category/${draft.categoryId}` : "/");
+    router.push(draft ? categoryHref(draft.categoryId) : "/");
   }, [router, draft]);
 
   if (draft === undefined || (draft === null && (tree.isLoading || !tree.data))) {
@@ -140,7 +141,7 @@ export function BookingWizard() {
               : "The service you’re looking for doesn’t exist or was removed."}
           </p>
           <Link
-            href={located ? `/category/${located.category.categoryId}` : "/"}
+            href={located ? categoryHref(located.category.categoryId) : "/"}
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
           >
             {located ? `Back to ${located.category.name}` : "Back to home"}

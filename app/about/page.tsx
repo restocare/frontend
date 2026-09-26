@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AboutShell } from "./_about-shell";
+import { categoryHref } from "@/lib/category-slugs";
 
 export const metadata: Metadata = {
   title: { absolute: "About RestoCare" },
@@ -47,7 +48,7 @@ function findCategoryHref(categories: CategoryNode[], namePart: string): string 
       c.isPublished !== false &&
       c.name.trim().toLowerCase().includes(namePart.toLowerCase()),
   );
-  return match ? `/category/${match.categoryId}` : "/#categories";
+  return match ? categoryHref(match.categoryId) : "/#categories";
 }
 
 // ─── Icons (inline SVG, no emoji) ─────────────────────────────────────────────

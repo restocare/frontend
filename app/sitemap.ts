@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { categoryTreeApi } from "@/src/api/api";
+import { categoryHref } from "@/lib/category-slugs";
 
 const SITE_URL = "https://www.restocare.in";
 
@@ -29,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     categoryEntries = categories
       .filter((category) => category.isPublished)
       .map((category) => ({
-        url: `${SITE_URL}/category/${category.categoryId}`,
+        url: `${SITE_URL}${categoryHref(category.categoryId)}`,
         lastModified: new Date(),
       }));
   } catch (error) {
