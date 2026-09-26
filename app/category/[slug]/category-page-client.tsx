@@ -19,6 +19,7 @@ import { SpinnerIcon, StarIcon, ArrowRightIcon } from "@/src/components/icons";
 import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { useBookingFlow } from "@/src/lib/booking-flow";
+import { useDeepCleaningFlow } from "@/src/lib/deep-cleaning-flow";
 import { CategoryPageV2 } from "@/src/components/booking-v2/category-page-v2";
 import { categoryIdForSlug } from "@/lib/category-slugs";
 
@@ -53,9 +54,10 @@ export function CategoryPageClient() {
   // Flow 2 (see src/lib/booking-flow.ts) swaps in the hourly booking page for
   // staffing categories; every other category falls back to this page.
   const flow = useBookingFlow();
+  const cleaningFlow = useDeepCleaningFlow();
   return (
     <Suspense fallback={null}>
-      {flow === 2 ? (
+      {flow === 2 || cleaningFlow === 2 ? (
         <CategoryPageV2 fallback={<CategoryPageContent />} />
       ) : (
         <CategoryPageContent />

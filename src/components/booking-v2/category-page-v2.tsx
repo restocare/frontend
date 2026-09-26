@@ -22,9 +22,12 @@ import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { formatInr } from "@/src/lib/booking-v2/pricing";
 import { minShiftMinutes } from "@/src/lib/booking-v2/schedule";
 import { hourlyRate, saveDraft, startDraft } from "@/src/lib/booking-v2/draft";
+import { isCleaningCategory } from "@/src/lib/booking-v2/cleaning";
+import { useDeepCleaningFlow } from "@/src/lib/deep-cleaning-flow";
 import { SpinnerIcon } from "@/src/components/icons";
 import { CheckGlyph, ClockGlyph, StorefrontShell } from "./shell";
 import { categoryIdForSlug } from "@/lib/category-slugs";
+import { CleaningPageV2 } from "./cleaning-page";
 
 /** Emoji stand-in when a service has no image. */
 export function emojiForCategory(name: string): string {
@@ -66,6 +69,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [openId, setOpenId] = useState<number | null>(null);
 
+  const cleaningFlow = useDeepCleaningFlow();
   const { coords } = useCurrentLocation();
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.categoryTreeAt(coords),
@@ -92,7 +96,11 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
     );
   }, [services, search]);
 
-  // Only the hourly categories get this page; everything else keeps flow 1.
+  // Deep Cleaning has its own switch (NEXT_PUBLIC_DEEP_CLEANING_FLOW): 2 shows the
+  // new page, 1 keeps production's. Other non-hourly categories always keep flow 1.
+  if (category && isCleaningCategory(category.name)) {
+    return cleaningFlow === 2 ? <CleaningPageV2 /> : <>{fallback}</>;
+  }
   if (category && !categoryUsesSlots(category.name)) return <>{fallback}</>;
 
   const book = (service: CategoryTreeService) => {
