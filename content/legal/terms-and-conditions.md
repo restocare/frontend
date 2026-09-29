@@ -252,7 +252,7 @@ We may update these Terms from time to time. We'll post the new version on this 
 
 ## 27. Contact us
 
-- **WhatsApp / Phone:** [[CONFIRM: one support number, the same one used on the Contact page and in the Refund & Cancellation Policy]]
+- **WhatsApp / Phone:** +91 99535 32995
 - **Email:** [[CONFIRM: support email address]]
 - **Support hours:** [[CONFIRM: must match the Contact page, e.g. Monday–Saturday, 9:00 AM – 7:00 PM]]
 

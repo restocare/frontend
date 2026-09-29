@@ -23,11 +23,11 @@ export function Brands() {
   return (
     <section className="bg-linear-to-b from-white to-gray-50 py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <h2 className="text-center text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
-          Our Associated Brands
+        <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
+          Our associated brands
         </h2>
 
-        <p className="mx-auto mt-2 max-w-xl text-center text-sm text-gray-500">
+        <p className="mt-2 max-w-xl text-sm text-gray-500">
           Trusted by leading restaurants, institutions and hospitality brands.
         </p>
 

@@ -348,6 +348,19 @@ export const ShieldIcon = (p: IconProps) => (
   </svg>
 );
 
+export const BoltIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z" />
+  </svg>
+);
+
+export const BadgeCheckIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 2.5l2.1 1.8 2.7-.4 1 2.6 2.6 1-.4 2.7 1.8 2.1-1.8 2.1.4 2.7-2.6 1-1 2.6-2.7-.4-2.1 1.8-2.1-1.8-2.7.4-1-2.6-2.6-1 .4-2.7L2.5 12l1.8-2.1-.4-2.7 2.6-1 1-2.6 2.7.4L12 2.5z" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
 export const ClipboardIcon = (p: IconProps) => (
   <svg {...base} {...p}>
     <rect x="5" y="4" width="14" height="17" rx="2" />

@@ -2,6 +2,13 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  BadgeCheckIcon,
+  BoltIcon,
+  ShieldIcon,
+  StarIcon,
+} from "@/src/components/icons";
 
 const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.restocare.customer&pcampaignid=web_share";
@@ -44,10 +51,10 @@ const SLIDES: HeroSlide[] = [
 
 // Service highlights surfaced on the banner (Pronto-style trust strip).
 const HIGHLIGHTS = [
-  { icon: "⚡", label: "Instant Service" },
-  { icon: "✅", label: "Verified Staff" },
-  { icon: "⭐", label: "Certified Staff" },
-  { icon: "🛡️", label: "Quality Assured" },
+  { Icon: BoltIcon, label: "Instant Service" },
+  { Icon: BadgeCheckIcon, label: "Verified Staff" },
+  { Icon: StarIcon, label: "Certified Staff" },
+  { Icon: ShieldIcon, label: "Quality Assured" },
 ];
 
 const SLIDE_INTERVAL_MS = 5000;
@@ -92,18 +99,33 @@ function StoreButton({
   icon: React.ReactNode;
 }) {
   return (
-    <a
+    <motion.a
       href={href}
       target={href === "#" ? undefined : "_blank"}
       rel="noopener noreferrer"
-      className="flex items-center gap-2.5 rounded-xl bg-gray-900 px-4 py-2 shadow-lg transition hover:bg-gray-700"
+      initial="rest"
+      animate="rest"
+      whileHover="hover"
+      whileTap={{ scale: 0.97 }}
+      className="group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-gray-900 px-4 py-2 shadow-lg"
     >
-      {icon}
-      <span className="text-left leading-tight">
-        <span className="block text-[10px] uppercase tracking-wide text-gray-400">{top}</span>
-        <span className="block text-sm font-bold text-white">{bottom}</span>
+      {/* Brand colour sweeps in from the left on hover */}
+      <motion.span
+        aria-hidden
+        variants={{ rest: { scaleX: 0 }, hover: { scaleX: 1 } }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="absolute inset-0 origin-left bg-orange-600"
+      />
+      <span className="relative z-10 flex items-center gap-2.5">
+        {icon}
+        <span className="text-left leading-tight">
+          <span className="block text-[10px] uppercase tracking-wide text-gray-400 transition-colors duration-200 group-hover:text-orange-100">
+            {top}
+          </span>
+          <span className="block text-sm font-bold text-white">{bottom}</span>
+        </span>
       </span>
-    </a>
+    </motion.a>
   );
 }
 
@@ -125,42 +147,63 @@ function AppStoreIcon() {
 
 export function Hero() {
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (SLIDES.length < 2) return;
+    if (SLIDES.length < 2 || paused) return;
     const id = setInterval(
       () => setIndex((i) => (i + 1) % SLIDES.length),
       SLIDE_INTERVAL_MS,
     );
     return () => clearInterval(id);
-  }, []);
+  }, [paused]);
 
-  const active = SLIDES[index % SLIDES.length];
+  const activeIndex = index % SLIDES.length;
 
   return (
     <section className="w-full">
-      <div className="relative flex min-h-[80dvh] flex-col overflow-hidden bg-white">
-        <div className="relative z-10 grid flex-1 items-end gap-x-10 px-6 pt-10 sm:px-10 lg:grid-cols-2 lg:px-16 lg:pt-12">
-          {/* Left: text content (re-keyed per slide to replay entrance animations) */}
-          <div key={index} className="self-center pb-8 lg:pb-16">
-            <p className="animate-fade-up inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-600 sm:text-xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
-              {active.tagline}
-            </p>
+      <div
+        className="relative flex flex-col overflow-hidden bg-white lg:min-h-[80dvh]"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {/* Same container as every other home section, so the hero text sits
+            on the page grid instead of full-bleed padding. Below lg the hero
+            is content-height (no dead space); on lg it fills 80dvh. */}
+        <div className="relative z-10 mx-auto grid w-full max-w-7xl flex-1 items-end gap-x-10 gap-y-6 px-4 pt-8 sm:px-6 lg:grid-cols-2 lg:pt-12">
+          <div className="self-center pb-2 lg:pb-16">
+            {/* All slides stay mounted in one grid cell, so the hero keeps the
+                height of the tallest slide and the page never shifts. */}
+            <div className="grid">
+              {SLIDES.map((slide, i) => (
+                <div
+                  key={i}
+                  aria-hidden={i !== activeIndex}
+                  className={`col-start-1 row-start-1 transition-opacity duration-700 ${
+                    i === activeIndex ? "opacity-100" : "pointer-events-none opacity-0"
+                  }`}
+                >
+                  <p className="animate-fade-up inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-600 sm:text-xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                    {slide.tagline}
+                  </p>
 
-            <h1
-              className="animate-fade-up mt-4 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl xl:text-6xl"
-              style={{ animationDelay: "0.08s" }}
-            >
-              <HighlightedTitle title={active.title} />
-            </h1>
+                  <h1
+                    className="animate-fade-up mt-4 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl xl:text-6xl"
+                    style={{ animationDelay: "0.08s" }}
+                  >
+                    <HighlightedTitle title={slide.title} />
+                  </h1>
 
-            <p
-              className="animate-fade-up mt-4 max-w-lg text-sm text-gray-600 sm:text-base lg:text-lg"
-              style={{ animationDelay: "0.16s" }}
-            >
-              {active.subtitle}
-            </p>
+                  <p
+                    className="animate-fade-up mt-4 max-w-lg text-sm text-gray-600 sm:text-base lg:text-lg"
+                    style={{ animationDelay: "0.16s" }}
+                  >
+                    {slide.subtitle}
+                  </p>
+                </div>
+              ))}
+            </div>
 
             <div
               className="animate-fade-up mt-7 flex flex-wrap items-center gap-3"
@@ -190,53 +233,59 @@ export function Hero() {
                 Rated by 2,000+ restaurant owners
               </span>
             </div>
+
+            {/* Slide dots — in the text column, on the page grid */}
+            {SLIDES.length > 1 && (
+              <div className="mt-7 flex items-center">
+                {SLIDES.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setIndex(i)}
+                    aria-label={`Show slide ${i + 1}`}
+                    className="group flex h-8 w-8 items-center justify-center"
+                  >
+                    <span
+                      className={`h-2 rounded-full transition-all ${
+                        i === activeIndex
+                          ? "w-6 bg-amber-500"
+                          : "w-2 bg-gray-300 group-hover:bg-gray-400"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Right: local Banner image container */}
-          <div className="relative mx-auto aspect-2/3 w-full max-w-[22rem] ml-auto mr-0 overflow-hidden sm:max-w-sm lg:mb-0  xl:max-w-md">
+          {/* Right: local Banner image container — centred below lg, anchored
+              to the right column edge on desktop. */}
+          <div className="relative mx-auto aspect-2/3 w-full max-w-72 overflow-hidden sm:max-w-sm lg:ml-auto lg:mr-0 xl:max-w-md">
             {SLIDES.map((slide, i) => (
               <Image
                 key={i}
                 src={slide.image}
                 alt="Restocare service professional"
                 fill
-                sizes="(max-width: 1024px) 90vw, 38vw"
+                sizes="(max-width: 1024px) 90vw, 448px"
                 className={`object-cover object-center transition-opacity duration-700 ${
-                  i === index % SLIDES.length ? "opacity-100" : "opacity-0"
+                  i === activeIndex ? "opacity-100" : "opacity-0"
                 }`}
                 preload={i === 0}
+                loading={i === 0 ? undefined : "eager"}
               />
             ))}
           </div>
         </div>
 
-        {/* Slide dots */}
-        {SLIDES.length > 1 && (
-          <div className="absolute bottom-16 left-6 z-20 flex gap-2 sm:left-10 lg:left-16">
-            {SLIDES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIndex(i)}
-                aria-label={`Show slide ${i + 1}`}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === index % SLIDES.length
-                    ? "w-6 bg-amber-500"
-                    : "w-1.5 bg-gray-300 hover:bg-gray-400"
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
         {/* Service highlights strip */}
-        <div className="relative z-10 hidden border-t border-gray-100 bg-white px-6 py-3.5 sm:block sm:px-10 lg:px-16">
-          <div className="flex flex-wrap gap-x-8 gap-y-2">
+        <div className="relative z-10 hidden border-t border-gray-100 bg-white sm:block">
+          <div className="mx-auto flex max-w-7xl flex-wrap gap-x-8 gap-y-2 px-4 py-3.5 sm:px-6">
             {HIGHLIGHTS.map((h) => (
               <span
                 key={h.label}
-                className="flex items-center gap-1.5 text-sm font-semibold text-gray-800"
+                className="flex items-center gap-2 text-sm font-semibold text-gray-800"
               >
-                <span className="text-base">{h.icon}</span>
+                <h.Icon className="h-4 w-4 text-amber-500" aria-hidden />
                 {h.label}
               </span>
             ))}
@@ -249,9 +298,9 @@ export function Hero() {
         {HIGHLIGHTS.map((h) => (
           <span
             key={h.label}
-            className="flex items-center gap-1.5 rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-800"
+            className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-800"
           >
-            <span className="text-sm">{h.icon}</span>
+            <h.Icon className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
             {h.label}
           </span>
         ))}

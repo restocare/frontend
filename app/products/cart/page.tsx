@@ -8,7 +8,7 @@ import { useProductCart } from "@/src/lib/product-cart";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { formatInr } from "@/src/data/products";
 
-const WHATSAPP_NUMBER = "919899300646";
+const WHATSAPP_NUMBER = "919953532995";
 
 export default function ProductCartPage() {
   const [search, setSearch] = useState("");

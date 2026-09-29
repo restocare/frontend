@@ -10,8 +10,8 @@ import { contactApi } from "@/src/api/api";
 import { SpinnerIcon } from "@/src/components/icons";
 
 const SUPPORT_EMAIL = "support@restocare.in";
-const SUPPORT_PHONE = "+91 98993 00646";
-const SUPPORT_PHONE_TEL = "+919899300646";
+const SUPPORT_PHONE = "+91 99535 32995";
+const SUPPORT_PHONE_TEL = "+919953532995";
 const OFFICE_ADDRESS = "KD-180 Kohat Enclave, Pitampura, Delhi";
 
 const CONTACT_DETAILS = [
