@@ -15,7 +15,30 @@ import { parseVariantShift } from "@/src/lib/booking-shifts";
 import { useCurrentLocation } from "@/src/lib/location";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
-import { SpinnerIcon, StarIcon, ArrowRightIcon } from "@/src/components/icons";
+import {
+  ArrowRightIcon,
+  BadgeCheckIcon,
+  BoltIcon,
+  SpinnerIcon,
+  StarIcon,
+  WalletIcon,
+} from "@/src/components/icons";
+import {
+  CategoryBanner,
+  type BannerTrustItem,
+} from "@/src/components/booking-v2/category-banner";
+import { ServiceImage } from "@/src/components/booking-v2/service-image";
+import {
+  BookingSteps,
+  CANCEL_FAQ,
+  FaqSection,
+  GST_PERCENT,
+  HelpCard,
+  VERIFIED_FAQ,
+  type Faq,
+  type Step,
+} from "@/src/components/booking-v2/category-extras";
+import { cleanDescription, summarizeDescription } from "@/src/lib/service-description";
 import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { useBookingFlow } from "@/src/lib/booking-flow";
@@ -43,6 +66,48 @@ const EMOJI_BY_NAME: Record<string, string> = {
 function emojiFor(name: string): string {
   return EMOJI_BY_NAME[name.trim().toLowerCase()] ?? "🧰";
 }
+
+const DEFAULT_TRUST: BannerTrustItem[] = [
+  { Icon: BadgeCheckIcon, label: "Verified pros" },
+  { Icon: BoltIcon, label: "Quick booking" },
+  { Icon: WalletIcon, label: "Clear pricing" },
+];
+
+/** These categories are booked through the cart, for right away. */
+const ON_DEMAND_STEPS: Step[] = [
+  { title: "Pick a service", text: "Choose the service and option you need from the list above." },
+  { title: "Add your address", text: "Tell us where the job is when you check out." },
+  { title: "Confirm and pay", text: "Pay online or COD. The nearest verified professional is assigned." },
+];
+
+const ON_DEMAND_FAQS: Faq[] = [
+  {
+    q: "When will the professional come?",
+    a: "Bookings are for right away: the nearest available professional is assigned as soon as you confirm. You can follow the status in My Orders.",
+  },
+  {
+    q: "How is the price worked out?",
+    a: `The price of the service or option you pick, plus ${GST_PERCENT}% GST. You see the full total before you confirm.`,
+  },
+  {
+    q: "How do I pay?",
+    a: "Online by UPI, card or net banking, or Cash on Delivery (COD).",
+  },
+  VERIFIED_FAQ,
+  {
+    q: "Will I get a GST invoice?",
+    a: (
+      <>
+        Yes. Add your GST number at checkout (optional), then download the invoice from{" "}
+        <Link href="/account/orders" className="font-semibold text-rc-yellow-deep hover:underline">
+          My Orders
+        </Link>
+        .
+      </>
+    ),
+  },
+  CANCEL_FAQ,
+];
 
 function formatPrice(price: number | null): string {
   if (price == null || price <= 0) return "On request";
@@ -106,8 +171,17 @@ function CategoryPageContent() {
     );
   }, [services, search]);
 
+  // Banner "From" price: the cheapest base or variant price in the category.
+  const fromPrice = useMemo(() => {
+    const prices = services.flatMap((s) => [
+      ...(s.price != null && s.price > 0 ? [s.price] : []),
+      ...s.variants.map((v) => v.price).filter((p) => p > 0),
+    ]);
+    return prices.length ? Math.min(...prices) : 0;
+  }, [services]);
+
   return (
-    <div data-theme="light" className="min-h-dvh bg-gray-50">
+    <div data-theme="light" className="min-h-dvh bg-white">
       <LandingHeader search={search} onSearchChange={setSearch} />
 
       <main>
@@ -152,54 +226,41 @@ function CategoryPageContent() {
           </div>
         ) : category ? (
           <>
-            {/* ===== Category banner ===== */}
-            <section className="relative h-80 w-full overflow-hidden sm:h-112 lg:h-128">
-              {category.bannerVideo ? (
-                <video
-                  src={category.bannerVideo}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  poster={category.bannerImage || category.profileImage}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- external category image
-                <img
-                  src={category.bannerImage || category.profileImage}
-                  alt={category.name}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              )}
-              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/55 to-black/30" />
-
-              <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-8 sm:px-6">
-                {/* breadcrumb */}
-                <nav className="mb-3 flex items-center gap-2 text-sm text-white/80">
-                  <Link href="/" className="hover:text-white">
-                    Home
-                  </Link>
-                  <span>/</span>
-                  <span className="font-medium text-white">{category.name}</span>
-                </nav>
-
-                <h1 className="text-xl font-bold tracking-tight text-white sm:text-4xl">
-                  {category.name}
-                </h1>
-                {category.description ? (
-                  <p className="mt-2 max-w-2xl text-sm text-white/85 sm:text-base">
-                    {category.description}
-                  </p>
-                ) : null}
-                <p className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                  {services.length} {services.length === 1 ? "service" : "services"} available
-                </p>
-              </div>
-            </section>
+            <CategoryBanner
+              category={category}
+              description="Verified professionals for your restaurant, booked online in a few taps."
+              price={
+                fromPrice > 0
+                  ? {
+                      amount: fromPrice,
+                      note: `${services.length} ${services.length === 1 ? "service" : "services"} · Taxes extra`,
+                    }
+                  : null
+              }
+              ctaLabel="View services"
+              ctaHref="#services-list"
+              trust={DEFAULT_TRUST}
+              fallbackEmoji={emojiFor(category.name)}
+            />
 
             {/* ===== Services list ===== */}
-            <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+            <section id="services-list" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+              <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                    Choose a service
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500 sm:text-base">
+                    Pick what you need to see its options and price.
+                  </p>
+                </div>
+                {search.trim() ? (
+                  <p className="text-sm text-gray-500">
+                    {filtered.length} of {services.length} match “{search.trim()}”
+                  </p>
+                ) : null}
+              </div>
+
               {filtered.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">
                   <p className="text-4xl">🗂️</p>
@@ -211,17 +272,32 @@ function CategoryPageContent() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {filtered.map((service) => (
+                  {filtered.map((service, i) => (
                     <ServiceCard
                       key={service.serviceId}
                       service={service}
+                      eager={i < 3}
                       fallbackEmoji={emojiFor(category.name)}
                       useSlots={categoryUsesSlots(category.name)}
                     />
                   ))}
+                  {/* Fills the last row's empty slots instead of leaving a hole */}
+                  <HelpCard
+                    cardCount={filtered.length}
+                    columns={{ sm: 2, lg: 3 }}
+                    title="Can’t find what you need?"
+                    text="Tell us about the job and we’ll help you book the right service."
+                    whatsappText={`Hi, I need help with a ${category.name} job on RestoCare.`}
+                  />
                 </div>
               )}
             </section>
+
+            <BookingSteps steps={ON_DEMAND_STEPS} />
+            <FaqSection
+              intro={`Everything about booking ${category.name.toLowerCase()} services.`}
+              faqs={ON_DEMAND_FAQS}
+            />
           </>
         ) : null}
       </main>
@@ -242,10 +318,12 @@ function shortestShiftHours(variants: CategoryTreeVariant[]): number | null {
 
 function ServiceCard({
   service,
+  eager,
   fallbackEmoji,
   useSlots,
 }: {
   service: FlatService;
+  eager: boolean;
   fallbackEmoji: string;
   useSlots: boolean;
 }) {
@@ -270,6 +348,8 @@ function ServiceCard({
   const minShiftHours = useSlots ? shortestShiftHours(service.variants) : null;
   const displayPrice = basePrice ?? lowestVariant;
   const showFrom = !isHourly && hasVariants && displayPrice != null;
+  // Whole sentences only, never cut mid-sentence.
+  const summary = summarizeDescription(cleanDescription(service.description, service.name));
 
   const book = () => {
     if (hasVariants) {
@@ -310,11 +390,10 @@ function ServiceCard({
       {/* Image / fallback */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-50">
         {hasImage ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external service image
-          <img
+          <ServiceImage
             src={service.profileImage as string}
             alt={service.name}
-            loading="lazy"
+            eager={eager}
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (
@@ -341,11 +420,7 @@ function ServiceCard({
           </span>
         </div>
 
-        {service.description ? (
-          <p className="mt-2 line-clamp-3 text-sm text-gray-500">
-            {service.description}
-          </p>
-        ) : null}
+        {summary ? <p className="mt-2 text-sm text-gray-500">{summary}</p> : null}
 
         {/* meta row */}
         <div className="mb-4 mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
@@ -399,7 +474,7 @@ function ServiceCard({
           </div>
           <button
             onClick={book}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rc-yellow px-4 py-2 text-sm font-bold text-gray-900 transition hover:brightness-95"
           >
             {hasVariants ? "Select" : useSlots ? "Book" : "Add"}
             <ArrowRightIcon className="h-4 w-4" />

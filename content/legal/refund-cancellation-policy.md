@@ -101,7 +101,7 @@ Tell us within 48 hours of delivery, with photos of the product, its label and t
 
 - **WhatsApp / Phone:** +91 99535 32995
 - **Email:** [[CONFIRM: support email address]]
-- **Support hours:** [[CONFIRM: e.g. Monday–Saturday, 9:00 AM – 7:00 PM. Must match the Contact page.]] You can cancel in the app at any time.
+- **Support hours:** Monday–Saturday, 10:00 AM – 6:00 PM. You can cancel in the app at any time.
 
 If you're not happy with how we've handled a refund or cancellation, you can escalate to our Grievance Officer. Their details are in section 25 of our [Terms & Conditions](/terms-and-conditions#25-grievance-officer).
 

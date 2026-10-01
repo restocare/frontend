@@ -283,7 +283,7 @@ function ServiceCard({ service }: { service: FlatService }) {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.93 }}
             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-            className="group/btn inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700"
+            className="group/btn inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rc-yellow px-4 py-2 text-sm font-bold text-gray-900 transition-[filter] hover:brightness-95"
           >
             Book
             <ArrowRightIcon className="h-4 w-4 transition-transform duration-200 group-hover/btn:translate-x-0.5" />

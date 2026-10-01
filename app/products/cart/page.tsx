@@ -48,7 +48,7 @@ export default function ProductCartPage() {
             <p className="mt-3 text-sm text-gray-500">Your product cart is empty.</p>
             <Link
               href="/products"
-              className="mt-6 inline-flex rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"
+              className="mt-6 inline-flex rounded-full bg-rc-yellow px-5 py-2.5 text-sm font-bold text-gray-900 hover:brightness-95"
             >
               Browse products
             </Link>
@@ -120,7 +120,7 @@ export default function ProductCartPage() {
 
               <button
                 onClick={placeOrder}
-                className="mt-4 w-full rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                className="mt-4 w-full rounded-full bg-rc-yellow px-6 py-3 text-sm font-bold text-gray-900 transition hover:brightness-95"
               >
                 Place Order via WhatsApp
               </button>

@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next";
 import { categoryTreeApi } from "@/src/api/api";
+import { SHOW_PRODUCTS } from "@/src/lib/features";
 
 const SITE_URL = "https://www.restocare.in";
 
 const STATIC_PATHS = [
   "",
   "/about",
-  "/products",
+  ...(SHOW_PRODUCTS ? ["/products"] : []),
   "/careers",
   "/privacy-policy",
   "/terms-and-conditions",
