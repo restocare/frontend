@@ -2022,10 +2022,20 @@ export const categoryTreeApi = {
    * attached, so nothing is loaded for a category nobody could be sent to.
    */
   tree: (coords?: { lat: number; lng: number } | null) =>
-    apiClient.get<CategoryTreeNode[]>(
-      `/v1/catagories${coords ? toQueryString({ lat: coords.lat, lng: coords.lng }) : ""}`,
-      { skipAuth: true },
-    ),
+    apiClient
+      .get<CategoryTreeNode[]>(
+        `/v1/catagories${coords ? toQueryString({ lat: coords.lat, lng: coords.lng }) : ""}`,
+        { skipAuth: true },
+      )
+      // Display-side patch for a CMS typo ("Pest Controll"); the real fix
+      // belongs in the category data, after which this is a no-op.
+      .then((categories) =>
+        categories.map((c) =>
+          /\bcontroll\b/i.test(c.name)
+            ? { ...c, name: c.name.replace(/\bControll\b/gi, "Control") }
+            : c,
+        ),
+      ),
 };
 
 /* ============================== Banners ================================= */

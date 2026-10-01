@@ -1,56 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Float, Html, RoundedBox } from "@react-three/drei";
+import { motion } from "framer-motion";
 import { PhoneScreens } from "./phone-screens";
 
-function Phone() {
-  return (
-    <Float speed={1.5} rotationIntensity={0.35} floatIntensity={0.45}>
-      <group rotation={[0, -0.28, 0]}>
-        {/* Phone body */}
-        <RoundedBox args={[3.15, 6.25, 0.36]} radius={0.28} smoothness={8}>
-          <meshStandardMaterial color="#0b1020" metalness={0.65} roughness={0.3} />
-        </RoundedBox>
-
-        {/* Black screen bezel */}
-        <RoundedBox args={[2.92, 6.02, 0.38]} radius={0.22} position={[0, 0, 0.01]}>
-          <meshStandardMaterial color="#05070d" metalness={0.2} roughness={0.7} />
-        </RoundedBox>
-
-        {/* Side button accents */}
-        <mesh position={[1.6, 0.8, 0]}>
-          <boxGeometry args={[0.06, 0.7, 0.18]} />
-          <meshStandardMaterial color="#1b2540" metalness={0.7} roughness={0.4} />
-        </mesh>
-
-        {/* The live UI screen.
-            drei transform Html renders at ~1px = 0.025 world units, so the
-            290×600 screen is ~7.25×15 units at scale 1 — scale ~0.4 fills the
-            phone face (~2.92 × 6 units) so no black bezel shows below it. */}
-        <Html
-          transform
-          position={[0, 0, 0.21]}
-          scale={0.4}
-          zIndexRange={[10, 0]}
-          occlude={false}
-        >
-          <PhoneScreens />
-        </Html>
-      </group>
-    </Float>
-  );
-}
-
+/**
+ * "See it in action" section. The phone is a pure CSS mockup: the live UI
+ * (PhoneScreens) renders at its natural 290×600px inside a rounded frame, so
+ * text stays pixel-crisp and the screen can never poke out of the body —
+ * both of which the old 3D (three.js) phone kept getting wrong.
+ */
 export function PhoneShowcase() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    queueMicrotask(() => setMounted(true));
-  }, []);
-
   return (
-    <section className="relative overflow-hidden border-b border-gray-100 bg-gradient-to-b from-gray-50 via-white to-white">
+    <section className="relative overflow-hidden border-b border-gray-100 bg-linear-to-b from-gray-50 via-white to-white">
       {/* soft accent glows */}
       <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-orange-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-blue-200/30 blur-3xl" />
@@ -78,20 +39,23 @@ export function PhoneShowcase() {
           </div>
         </div>
 
-        {/* 3D phone */}
-        <div className="relative h-[520px] w-full sm:h-[640px] lg:order-1">
-          {mounted && (
-            <Canvas
-              camera={{ position: [0, 0, 11.5], fov: 32 }}
-              dpr={[1, 2]}
-              gl={{ antialias: true, alpha: true }}
-            >
-              <ambientLight intensity={0.9} />
-              <directionalLight position={[5, 6, 6]} intensity={1.3} />
-              <directionalLight position={[-6, -2, 4]} intensity={0.5} color="#9bb8ff" />
-              <Phone />
-            </Canvas>
-          )}
+        {/* CSS phone mockup */}
+        <div className="flex w-full items-center justify-center py-6 lg:order-1">
+          <div className="animate-float-slow relative rounded-[42px] bg-gray-950 p-2.5 shadow-2xl ring-1 ring-black/10">
+            {/* Side buttons */}
+            <span
+              className="absolute -right-1 top-28 h-16 w-1 rounded-full bg-gray-800"
+              aria-hidden
+            />
+            <span
+              className="absolute -left-1 top-24 h-10 w-1 rounded-full bg-gray-800"
+              aria-hidden
+            />
+            {/* Screen — natural size, never scaled, never clipped */}
+            <div className="overflow-hidden rounded-[34px]">
+              <PhoneScreens />
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -100,14 +64,28 @@ export function PhoneShowcase() {
 
 function FlowStep({ step, title, desc }: { step: string; title: string; desc: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-3 text-left shadow-sm">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-xs font-bold text-white">
+    <motion.div
+      initial="rest"
+      animate="rest"
+      whileHover="hover"
+      variants={{ rest: { y: 0 }, hover: { y: -4 } }}
+      transition={{ type: "spring", stiffness: 320, damping: 22 }}
+      className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-3 text-left shadow-sm transition-shadow duration-200 hover:shadow-md"
+    >
+      <motion.span
+        variants={{
+          rest: { scale: 1, rotate: 0 },
+          hover: { scale: 1.15, rotate: [0, -8, 8, -4, 0] },
+        }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-xs font-bold text-white"
+      >
         {step}
-      </span>
+      </motion.span>
       <div>
         <p className="text-sm font-semibold text-gray-900">{title}</p>
         <p className="text-xs text-gray-500">{desc}</p>
       </div>
-    </div>
+    </motion.div>
   );
 }

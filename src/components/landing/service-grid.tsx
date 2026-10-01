@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -63,6 +64,8 @@ function priceLabel(service: FlatService): string {
 
 export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Arrows only make sense when the row actually overflows.
+  const [canScroll, setCanScroll] = useState(false);
 
   const scrollByCards = (direction: 1 | -1) => {
     const el = scrollRef.current;
@@ -96,9 +99,20 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
     );
   }, [data, categoryId, search]);
 
+  // Watch the row for overflow so the arrows appear only when needed.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setCanScroll(el.scrollWidth > el.clientWidth + 4);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [services.length]);
+
   return (
     <section id="services" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6">
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
             {categoryId ? "Services in this category" : "Popular services"}
@@ -109,6 +123,28 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
               : "Book trusted professionals near you"}
           </p>
         </div>
+
+        {/* Row controls — beside the heading, never on top of the cards */}
+        {canScroll && (
+          <div className="hidden shrink-0 gap-2 sm:flex">
+            <button
+              type="button"
+              aria-label="Scroll left"
+              onClick={() => scrollByCards(-1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50"
+            >
+              <ArrowRightIcon className="h-5 w-5 rotate-180" />
+            </button>
+            <button
+              type="button"
+              aria-label="Scroll right"
+              onClick={() => scrollByCards(1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50"
+            >
+              <ArrowRightIcon className="h-5 w-5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -133,39 +169,19 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
           </p>
         </div>
       ) : (
-        <div className="group/scroller relative">
-          {/* Left / right controls */}
-          <button
-            type="button"
-            aria-label="Scroll left"
-            onClick={() => scrollByCards(-1)}
-            className="absolute left-0 top-1/2 z-10 hidden h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md transition hover:bg-gray-50 sm:flex"
-          >
-            <ArrowRightIcon className="h-5 w-5 rotate-180" />
-          </button>
-          <button
-            type="button"
-            aria-label="Scroll right"
-            onClick={() => scrollByCards(1)}
-            className="absolute right-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md transition hover:bg-gray-50 sm:flex"
-          >
-            <ArrowRightIcon className="h-5 w-5" />
-          </button>
-
-          {/* Single-line horizontally scrollable row of service cards */}
-          <div
-            ref={scrollRef}
-            className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {services.map((service) => (
-              <div
-                key={service.serviceId}
-                className="w-64 shrink-0 snap-start sm:w-72"
-              >
-                <ServiceCard service={service} />
-              </div>
-            ))}
-          </div>
+        // Single-line horizontally scrollable row of service cards
+        <div
+          ref={scrollRef}
+          className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-2 scrollbar-none"
+        >
+          {services.map((service) => (
+            <div
+              key={service.serviceId}
+              className="w-64 shrink-0 snap-start sm:w-72"
+            >
+              <ServiceCard service={service} />
+            </div>
+          ))}
         </div>
       )}
     </section>
@@ -213,7 +229,14 @@ function ServiceCard({ service }: { service: FlatService }) {
   };
 
   return (
-    <article className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg">
+    <motion.article
+      initial="rest"
+      animate="rest"
+      whileHover="hover"
+      variants={{ rest: { y: 0 }, hover: { y: -5 } }}
+      transition={{ type: "spring", stiffness: 320, damping: 22 }}
+      className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition-[border-color,box-shadow] duration-200 hover:border-orange-200 hover:shadow-lg"
+    >
       <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-linear-to-br from-gray-100 to-gray-200">
         {service.profileImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external service images
@@ -248,22 +271,25 @@ function ServiceCard({ service }: { service: FlatService }) {
             <span className="block text-sm font-semibold text-gray-900">
               {priceLabel(service)}
             </span>
-            {hasVariants && (
-              <span className="text-xs text-gray-500">
-                {service.variants.length}{" "}
-                {service.variants.length === 1 ? "option" : "options"}
-              </span>
-            )}
+            {/* Always present so every card has the same height */}
+            <span className="text-xs text-gray-500">
+              {hasVariants
+                ? `${service.variants.length} ${service.variants.length === 1 ? "option" : "options"}`
+                : "Fixed price"}
+            </span>
           </div>
-          <button
+          <motion.button
             onClick={handleAdd}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.93 }}
+            transition={{ type: "spring", stiffness: 400, damping: 22 }}
+            className="group/btn inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700"
           >
-            {hasVariants ? "Select" : useSlots ? "Book" : "Add"}
-            <ArrowRightIcon className="h-4 w-4" />
-          </button>
+            Book
+            <ArrowRightIcon className="h-4 w-4 transition-transform duration-200 group-hover/btn:translate-x-0.5" />
+          </motion.button>
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }

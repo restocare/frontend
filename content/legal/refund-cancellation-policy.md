@@ -99,7 +99,7 @@ Tell us within 48 hours of delivery, with photos of the product, its label and t
 
 ## 7. Contact us
 
-- **WhatsApp / Phone:** [[CONFIRM: one support number. The site currently shows both +91 98993 00646 and 9217919991. Pick one and use it everywhere.]]
+- **WhatsApp / Phone:** +91 99535 32995
 - **Email:** [[CONFIRM: support email address]]
 - **Support hours:** [[CONFIRM: e.g. Monday–Saturday, 9:00 AM – 7:00 PM. Must match the Contact page.]] You can cancel in the app at any time.
 

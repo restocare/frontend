@@ -21,31 +21,43 @@ function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
 const faqs = [
   {
     num: "01",
-    question: "What Is RestoCare?",
+    question: "What is RestoCare?",
     answer:
       "RestoCare is an on-demand service marketplace where you can discover verified professionals, compare options, and book services in just a few clicks.",
   },
   {
     num: "02",
-    question: "How Do I Book A Service?",
+    question: "How do I book a service?",
     answer:
       "Search your required service, choose a provider based on ratings and pricing, select your preferred date and time, then confirm your booking securely.",
   },
   {
     num: "03",
-    question: "Can I Track My Booking In Real Time?",
+    question: "Are your professionals verified?",
+    answer:
+      "Yes — every professional is background-checked and certified before they take a booking.",
+  },
+  {
+    num: "04",
+    question: "Can I track my booking in real time?",
     answer:
       "Yes, you can monitor booking status, provider assignment, and service progress from your account dashboard in real time.",
   },
   {
-    num: "04",
-    question: "How Can I Register As A Service Provider?",
+    num: "05",
+    question: "How do I get an invoice?",
     answer:
-      "Click on \"Become a Service Partner\", complete the onboarding form, submit required documents, and our team will review and activate your profile.",
+      "Open My Orders in your account, find the booking and tap “Download Invoice”. You can print it or save it as a PDF.",
   },
   {
-    num: "05",
-    question: "Is My Payment Information Secure?",
+    num: "06",
+    question: "How can I register as a service provider?",
+    answer:
+      "Click on \"Become a service partner\", complete the onboarding form, submit required documents, and our team will review and activate your profile.",
+  },
+  {
+    num: "07",
+    question: "Is my payment information secure?",
     answer:
       "Absolutely. We use secure encrypted payment gateways and never store sensitive card details on our application servers.",
   },
@@ -57,9 +69,9 @@ export function FAQs() {
   return (
     <section className="bg-white py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mb-8 text-center">
-          <h2 className="text-xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">
-            FREQUENTLY ASKED <span className="text-[#FA5C7C]">QUESTIONS</span>
+        <div className="mb-8">
+          <h2 className="text-xl font-bold tracking-tight text-[#0A192F] sm:text-[38px]">
+            Frequently asked <span className="text-orange-600">questions</span>
           </h2>
           <p className="mt-4 text-sm text-gray-500 sm:text-base">
             Everything you need to know about RestoCare - bookings, providers, and payments.
@@ -77,10 +89,26 @@ export function FAQs() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0A192F]/90 to-transparent"></div>
             <div className="relative z-10 p-8 text-center sm:p-12">
-              <h3 className="mb-2 text-xl font-bold text-white sm:text-3xl">Need Help Fast?</h3>
+              <h3 className="mb-2 text-xl font-bold text-white sm:text-3xl">Need help fast?</h3>
               <p className="text-sm font-medium text-gray-300 sm:text-base">
-                Watch on-demand booking flow and quick support guide.
+                Our team usually replies within a few minutes.
               </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                <a
+                  href="https://wa.me/919953532995"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700"
+                >
+                  Chat on WhatsApp
+                </a>
+                <a
+                  href="/contact"
+                  className="inline-flex items-center rounded-full border border-white/30 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                >
+                  Contact us
+                </a>
+              </div>
             </div>
           </div>
 
@@ -100,7 +128,7 @@ export function FAQs() {
                     className="flex w-full items-center justify-between p-5 text-left focus:outline-none"
                   >
                     <div className="flex items-center gap-4">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FA5C7C]/10 text-xs font-bold text-[#FA5C7C]">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 text-xs font-bold text-orange-600">
                         {faq.num}
                       </span>
                       <span
@@ -113,7 +141,7 @@ export function FAQs() {
                     </div>
                     <span
                       className={`ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-all duration-200 ${
-                        isOpen ? "bg-[#FA5C7C]/10 text-[#FA5C7C]" : "bg-gray-100 text-gray-400"
+                        isOpen ? "bg-orange-50 text-orange-600" : "bg-gray-100 text-gray-400"
                       }`}
                     >
                       <ChevronDownIcon

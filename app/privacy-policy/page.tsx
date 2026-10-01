@@ -236,7 +236,7 @@ export default function PrivacyPolicyPage() {
             This Privacy Policy explains how Restocare collects, uses, stores,
             shares, and protects your information when you access, use, register
             on, or make bookings through the Restocare mobile application,
-            website, or related services (collectively, the "Platform").
+            website, or related services (collectively, the &ldquo;Platform&rdquo;).
           </p>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/80">
             Restocare is a service-booking platform designed for restaurants and
@@ -330,10 +330,10 @@ export default function PrivacyPolicyPage() {
                     <p className="mt-1">
                       <span className="font-semibold">Phone:</span>{" "}
                       <a
-                        href="tel:9217919991"
+                        href="tel:+919953532995"
                         className="text-[#e2563b] hover:underline"
                       >
-                        9217919991
+                        +91 99535 32995
                       </a>
                     </p>
                     <p className="mt-1">
