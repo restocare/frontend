@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import {
   useEffect,
@@ -52,7 +53,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
-    if (authed === false) router.replace("/login");
+    if (authed === false) router.replace(ADMIN_LOGIN_PATH);
   }, [authed, router]);
 
   // 🔐 Permissions are the SERVER's answer, kept current while the panel is
@@ -98,7 +99,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     },
     onSettled: () => {
       clearSession();
-      router.replace("/login");
+      router.replace(ADMIN_LOGIN_PATH);
     },
   });
 

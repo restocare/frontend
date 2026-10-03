@@ -28,6 +28,7 @@ const LOGO_URL =
   "https://imgproxy.royodispatch.com/insecure/fit/300/100/sm/0/plain/https://restocare-asset.s3.ap-south-1.amazonaws.com/assets/Clientlogo/FE4tX1iKGv1yJIk1JijoEtq11jm1yGTIdMPIUjpa.png";
 
 const RESEND_TIMEOUT = 30;
+const OTP_LENGTH = 6;
 
 const BENEFITS = [
   {
@@ -87,13 +88,14 @@ function CustomerLoginContent() {
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
+  const [otpFocused, setOtpFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(RESEND_TIMEOUT);
   const isDesktop = useIsDesktop();
 
   const normalizedMobile = normalizeMobileNumber(mobile);
   const isMobileValid = normalizedMobile.length === 10;
-  const isOtpValid = otp.replace(/\D/g, "").length >= 4;
+  const isOtpValid = otp.length === OTP_LENGTH;
 
   // Already logged in → bounce to the redirect target.
   useEffect(() => {
@@ -130,7 +132,7 @@ function CustomerLoginContent() {
     e?.preventDefault();
     setError(null);
     if (!isOtpValid) {
-      setError("Please enter the OTP sent to your mobile.");
+      setError(`Please enter the ${OTP_LENGTH}-digit OTP sent to your mobile.`);
       return;
     }
     try {
@@ -412,18 +414,53 @@ function CustomerLoginContent() {
                       <label htmlFor="otp" className="text-sm font-semibold text-rc-ink">
                         OTP code
                       </label>
-                      <input
-                        id="otp"
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        autoFocus
-                        maxLength={8}
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                        placeholder="• • • •"
-                        className="w-full rounded-2xl border border-rc-line bg-white px-4 py-3.5 text-center text-2xl font-bold tracking-[0.5em] text-rc-ink outline-none transition placeholder:text-gray-300 focus:border-rc-yellow focus:ring-4 focus:ring-rc-yellow/20"
-                      />
+                      {/* Six digit boxes drawn over one real (invisible) input, so
+                          paste, SMS autofill and the numeric keyboard keep working. */}
+                      <div className="relative">
+                        <div className="grid grid-cols-6 gap-2 sm:gap-2.5" aria-hidden>
+                          {Array.from({ length: OTP_LENGTH }, (_, i) => {
+                            const digit = otp[i] ?? "";
+                            const active =
+                              otpFocused && i === Math.min(otp.length, OTP_LENGTH - 1);
+                            return (
+                              <div
+                                key={i}
+                                className={`flex h-14 items-center justify-center rounded-2xl border bg-white text-2xl font-bold text-rc-ink transition sm:h-16 ${
+                                  active
+                                    ? "border-rc-yellow ring-4 ring-rc-yellow/20"
+                                    : digit
+                                      ? "border-rc-ink/30"
+                                      : "border-rc-line"
+                                }`}
+                              >
+                                {digit ? (
+                                  digit
+                                ) : active ? (
+                                  <span className="h-6 w-px animate-pulse bg-rc-ink" />
+                                ) : (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <input
+                          id="otp"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          autoFocus
+                          maxLength={OTP_LENGTH}
+                          value={otp}
+                          onChange={(e) =>
+                            setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
+                          }
+                          onFocus={() => setOtpFocused(true)}
+                          onBlur={() => setOtpFocused(false)}
+                          aria-label={`${OTP_LENGTH}-digit OTP code`}
+                          className="absolute inset-0 h-full w-full cursor-text opacity-0"
+                        />
+                      </div>
                     </div>
 
                     <ErrorNote error={error} />
@@ -468,18 +505,11 @@ function CustomerLoginContent() {
             </motion.div>
           </div>
 
-          {/* Admins / super admins sign in with email + password instead of OTP. */}
           <div className="mt-8 flex flex-col items-center gap-3 text-xs text-rc-muted lg:mt-0">
             <a href="tel:+919953532995" className="flex items-center gap-1.5 lg:hidden">
               <PhoneIcon className="h-3.5 w-3.5 text-rc-yellow-deep" />
               Need help? <span className="font-semibold text-rc-ink">+91 99535 32995</span>
             </a>
-            <Link
-              href="/login"
-              className="font-medium underline-offset-2 hover:text-rc-ink hover:underline"
-            >
-              Are you an admin? Sign in with email &amp; password →
-            </Link>
           </div>
         </main>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
@@ -85,7 +86,7 @@ function SetPasswordInner() {
     try {
       await authApi.setPassword(token, password);
       setDone(true);
-      setTimeout(() => router.push("/login"), 2500);
+      setTimeout(() => router.push(ADMIN_LOGIN_PATH), 2500);
     } catch (err) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -115,7 +116,7 @@ function SetPasswordInner() {
             Your password has been set. Redirecting you to sign in…
           </p>
           <Link
-            href="/login"
+            href={ADMIN_LOGIN_PATH}
             className="mt-6 block rounded-xl bg-primary py-2.5 text-center text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             Go to sign in
@@ -147,7 +148,7 @@ function SetPasswordInner() {
             </button>
           ) : (
             <Link
-              href="/login"
+              href={ADMIN_LOGIN_PATH}
               className="mt-6 block rounded-xl border border-border py-2.5 text-center text-sm font-medium text-foreground transition-colors hover:bg-muted"
             >
               Back to sign in

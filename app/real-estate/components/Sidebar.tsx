@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import Link from "next/link";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -272,7 +273,7 @@ export default function Sidebar({
       // sees a valid token via getToken() and bounces straight back in.
       clearSession();
       document.cookie = "accessToken=; path=/; max-age=0; SameSite=Lax";
-      window.location.href = "/login";
+      window.location.href = ADMIN_LOGIN_PATH;
     },
   });
 
