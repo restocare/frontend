@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { MailIcon, MapPinIcon, PhoneIcon } from "@/src/components/icons";
 import { SHOW_PRODUCTS } from "@/src/lib/features";
 
+// Legal pages that render (no [[CONFIRM]] markers left); set at build time in
+// next.config.ts. Unlisted ones 404, so their links stay hidden.
+const PUBLISHED_LEGAL_PATHS = (process.env.PUBLISHED_LEGAL_PATHS ?? "").split(",");
+
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
   // Official WhatsApp glyph (Font Awesome brands path).
   return (
@@ -155,8 +159,12 @@ export function Footer() {
           <div>
             <h3 className="mb-4 text-lg font-bold text-white">Quick Links</h3>
             <ul className="space-y-3">
-              <li><Link href="/refund-cancellation-policy" className="hover:text-white transition">Refund &amp; Cancellation Policy</Link></li>
-              <li><Link href="/terms-and-conditions" className="hover:text-white transition">Terms And Conditions</Link></li>
+              {PUBLISHED_LEGAL_PATHS.includes("/refund-cancellation-policy") ? (
+                <li><Link href="/refund-cancellation-policy" className="hover:text-white transition">Refund &amp; Cancellation Policy</Link></li>
+              ) : null}
+              {PUBLISHED_LEGAL_PATHS.includes("/terms-and-conditions") ? (
+                <li><Link href="/terms-and-conditions" className="hover:text-white transition">Terms And Conditions</Link></li>
+              ) : null}
               {SHOW_PRODUCTS ? (
                 <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
               ) : null}

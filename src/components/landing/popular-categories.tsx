@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
+import { categoryHref } from "@/lib/category-slugs";
 
 interface PopularCategoriesProps {
   /** Kept for backwards-compat with the landing page; clicking a tile now
@@ -191,7 +192,7 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
 
   return (
     <MotionLink
-      href={`/category/${category.categoryId}`}
+      href={categoryHref(category.categoryId)}
       initial="rest"
       animate="rest"
       whileHover="hover"

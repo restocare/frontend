@@ -1,0 +1,63 @@
+URL,GSC last crawled,Live status 26 Sep,Priority group,Action
+https://www.restocare.in/services?category=helper_waiter,Jul 25,404,1 Category,301 → /category/kitchen-helpers-waiters
+https://www.restocare.in/services?category=expert_technician,Jul 6,404,1 Category,301 → /category/kitchen-equipment-repair
+https://www.restocare.in/categories/69d5c41afed655ae07d6c2cb,Jul 6,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://www.restocare.in/categories/69f4578a1d6c0724bd2602d1,Jul 3,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://www.restocare.in/categories/69d5c41efed655ae07d6c2f1,Jul 3,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://restocare.in/services,Jun 28,404,1 Category,301 → /
+https://www.restocare.in/categories/69d5c428fed655ae07d6c3ff,Jun 27,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://restocare.in/services?category=deep_cleaning,Jun 25,404,1 Category,301 → /category/deep-cleaning
+https://www.restocare.in/categories/69d5c42afed655ae07d6c409,Jun 25,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://www.restocare.in/categories/69d5c41dfed655ae07d6c2d7,Jun 25,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://www.restocare.in/categories/69d5c41ffed655ae07d6c2fb,Jun 25,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://restocare.in/categories/69d5c41efed655ae07d6c2f1,Jun 20,404,1 Category,"DB lookup (same ID as www) → 301 to slug, else 410"
+https://restocare.in/categories/69d5c42afed655ae07d6c409,Jun 20,404,1 Category,"DB lookup (same ID as www) → 301 to slug, else 410"
+https://restocare.in/categories/69d5c427fed655ae07d6c3f7,Jun 20,404,1 Category,"DB lookup → 301 to slug, else 410"
+https://www.restocare.in/services?category=deep_cleaning,Jun 15,404,1 Category,301 → /category/deep-cleaning
+https://restocare.in/category/helpersnwaiters,Jun 5,200 soft-404,1 Category,301 → /category/kitchen-helpers-waiters
+https://restocare.in/category/cheff,Jun 4,200 soft-404,1 Category,301 → /category/chef
+https://restocare.in/category/electrician?page=3,Jun 3,200 soft-404,1 Category,Resolves once /category/electrician is the live slug
+https://restocare.in/category/electrician,May 31,200 soft-404,1 Category,Becomes the live slug (no redirect needed)
+https://restocare.in/category/plumbing,May 27,200 soft-404,1 Category,301 → /category/plumber
+https://restocare.in/category/washing?page=3,Apr 25,200 soft-404,1 Category,Covered by /category/washing rule
+https://restocare.in/category/chef,Apr 23,200 soft-404,1 Category,Becomes the live slug (no redirect needed)
+https://restocare.in/category/washing,Apr 22,200 soft-404,1 Category,"❓ Ask ops what ""washing"" was → 301 to deep-cleaning or helpers"
+https://restocare.in/category/hire,Apr 7,200 soft-404,1 Category,❓ Probably staffing → 301 to /category/kitchen-helpers-waiters
+https://www.restocare.in/privacy,Jul 1,404,2 Legal,301 → /privacy-policy
+https://www.restocare.in/terms,Jun 29,404,2 Legal,301 → /terms-and-conditions (deploy page first)
+https://www.restocare.in/refund,Jun 24,404,2 Legal,301 → /refund-cancellation-policy (deploy page first)
+https://restocare.in/refund,Jun 19,404,2 Legal,301 → /refund-cancellation-policy (deploy page first)
+https://restocare.in/refund-policy,May 15,404,2 Legal,301 → /refund-cancellation-policy (deploy page first)
+https://restocare.in/user/register,Sep 20,404,3 Signup/login,301 → /account/login
+https://restocare.in/partner,Jul 12,404,3 Signup/login,301 → partner page (or /contact for now)
+https://www.restocare.in/partner,Jun 26,404,3 Signup/login,301 → partner page (or /contact for now)
+https://www.restocare.in/register,Jun 20,404,3 Signup/login,301 → /account/login
+https://restocare.in/user/login,Jun 1,404,3 Signup/login,301 → /account/login
+https://restocare.in/page/freelancer-registration,May 28,404,3 Signup/login,301 → partner page (or /careers)
+https://tsk.restocare.in/,Aug 4,502,4 Subdomain,Remove DNS or nginx 301 → www; server_tokens off
+https://web.restocare.in/,Jun 20,DNS fail,4 Subdomain,"Remove DNS, or nginx 301 host → www"
+https://web.restocare.in/register,Jun 20,DNS fail,4 Subdomain,Covered by host rule
+https://web.restocare.in/services,Jun 20,DNS fail,4 Subdomain,Covered by host rule
+https://api.restocare.in/,Jun 19,404 (live API),4 Subdomain,Correct to 404. Add X-Robots-Tag: noindex header on API host
+https://apis.restocare.in/,Jun 12,DNS fail,4 Subdomain,Remove DNS record
+https://web.restocare.in/contact,Jun 10,DNS fail,4 Subdomain,Covered by host rule
+https://restocare.in/homeTemplateOne,Jun 19,404,5 Leftover,301 → /
+https://www.restocare.in/$,Jun 6,404,5 Leftover,Leave 404 (junk href from old template)
+https://restocare.in/technician/product/TC-10008,May 27,404,5 Leftover,301 → /category/kitchen-equipment-repair
+https://restocare.in/technician/product/TC-10006,May 16,404,5 Leftover,301 → /category/kitchen-equipment-repair
+https://restocare.in/payment/userede/page,Aug 4,404,6 Leave dead,Old-template gateway (Rede). Leave 404
+https://restocare.in/payment/braintree/page,Jun 22,404,6 Leave dead,Old-template gateway. Leave 404
+https://restocare.in/product/updateCartQuantity,Jun 21,404,6 Leave dead,Old cart endpoint. Leave 404
+https://restocare.in/cartProducts,Jun 21,404,6 Leave dead,Old cart endpoint. Leave 404
+https://restocare.in/make-payment,Jun 20,404,6 Leave dead,Old payment endpoint. Leave 404
+https://restocare.in/payment/razorpay/pay,Jun 20,404,6 Leave dead,"Leave 404, but confirm current Razorpay callback isn't this path"
+https://restocare.in/cartDelete,Jun 19,404,6 Leave dead,Old cart endpoint. Leave 404
+https://restocare.in/user/verifyPhoneLoginOtp,Jun 17,404,6 Leave dead,Old auth endpoint. Leave 404
+https://restocare.in/product/deletecartproduct,Jun 17,404,6 Leave dead,Old cart endpoint. Leave 404
+https://restocare.in/updateCartSlot,Jun 17,404,6 Leave dead,Old cart endpoint. Leave 404
+https://restocare.in/viewcart,May 29,404,6 Leave dead,Old cart page. Leave 404
+https://restocare.in/payment/ozow,May 22,404,6 Leave dead,Old-template gateway (South Africa). Leave 404
+https://restocare.in/payment/easypaisa,May 17,404,6 Leave dead,Old-template gateway (Pakistan). Leave 404
+https://www.restocare.in/about,Jul 4,200,✅ Already fixed,Validate fix in GSC
+https://restocare.in/contact,Jun 27,200,✅ Already fixed,Validate fix in GSC
+https://www.restocare.in/contact,Jun 15,200,✅ Already fixed,Validate fix in GSC

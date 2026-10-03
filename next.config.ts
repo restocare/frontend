@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
+import { REDIRECT_RULES } from "./lib/redirects";
+import { publishedLegalPaths } from "./lib/legal-pages";
 
 const nextConfig: NextConfig = {
+  env: {
+    PUBLISHED_LEGAL_PATHS: publishedLegalPaths().join(","),
+  },
+  async redirects() {
+    return REDIRECT_RULES;
+  },
   images: {
     remotePatterns: [
       {

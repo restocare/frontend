@@ -42,6 +42,7 @@ import {
   hourlySteps,
 } from "./category-extras";
 import { cleanDescription, summarizeDescription } from "@/src/lib/service-description";
+import { categoryIdForSlug } from "@/lib/category-slugs";
 
 const HOURLY_TRUST: BannerTrustItem[] = [
   { Icon: BadgeCheckIcon, label: "Verified pros" },
@@ -103,8 +104,8 @@ function Empty({
 }
 
 export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
-  const params = useParams<{ id: string }>();
-  const categoryId = Number(params?.id);
+  const params = useParams<{ slug: string }>();
+  const categoryId = categoryIdForSlug(params?.slug ?? "");
   const router = useRouter();
   const searchParams = useSearchParams();
 

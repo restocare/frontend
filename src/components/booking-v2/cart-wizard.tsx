@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { categoryHref } from "@/lib/category-slugs";
 import { useQuery } from "@tanstack/react-query";
 import {
   bookingApi,
@@ -137,7 +138,7 @@ export function CartWizard() {
     },
     [router, categoryId],
   );
-  const backToCategory = useCallback(() => router.push(`/category/${categoryId}`), [router, categoryId]);
+  const backToCategory = useCallback(() => router.push(categoryHref(categoryId)), [router, categoryId]);
 
   if (outcome) {
     return (
@@ -164,7 +165,7 @@ export function CartWizard() {
         title="Something went wrong"
         text={`We couldn't load the catalog (${messageOf(tree.error, "network error")}). Your cart is safe; try again.`}
         action={{ label: "Try again", onClick: () => void tree.refetch() }}
-        href={`/category/${categoryId}`}
+        href={categoryHref(categoryId)}
         link="Back to the category"
       />
     );
@@ -177,7 +178,7 @@ export function CartWizard() {
       <Message
         title="Your cart is empty"
         text={notice ?? "Add the packages you need, then come back here to book them together."}
-        href={`/category/${categoryId}`}
+        href={categoryHref(categoryId)}
         link={`Browse ${category.name}`}
       />
     );
