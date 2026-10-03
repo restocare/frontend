@@ -1762,12 +1762,27 @@ export interface Category {
   name: string;
 }
 
+/**
+ * Create/update body for a category or sub-category. Every field but `name`
+ * is optional: `undefined` leaves it as it is, `null` clears it.
+ */
 export interface CategoryInput {
   name: string;
-  description?: string;
-  /** Parent category id; omit/0 for a top-level category. */
+  description?: string | null;
+  /** Parent category id: set it for a sub-category; omit/0 for top-level. */
   parentId?: number | null;
-  /** Square icon image — required on create, optional on update. */
+  /** Section heading on the storefront (falls back to the name). */
+  title?: string | null;
+  /** Line under the heading, e.g. "Priced by fixture count". */
+  subtitle?: string | null;
+  /** Small print after the list. */
+  note?: string | null;
+  sortOrder?: number | null;
+  /** false = shown as "Coming soon". */
+  isPublished?: boolean;
+  /** Free-form extras. */
+  attributes?: Record<string, unknown> | null;
+  /** Square icon image — optional. */
   image?: File | null;
   /** Wide banner image shown on the category page — optional. */
   banner?: File | null;
@@ -1778,8 +1793,20 @@ export interface CategoryInput {
 function categoryFormData(body: CategoryInput): FormData {
   const fd = new FormData();
   fd.append("name", body.name);
-  if (body.description) fd.append("description", body.description);
+  // Multipart has no null: an empty string is the "clear it" signal.
+  const text = (key: string, value: string | null | undefined) => {
+    if (value !== undefined) fd.append(key, value ?? "");
+  };
+  text("description", body.description);
+  text("title", body.title);
+  text("subtitle", body.subtitle);
+  text("note", body.note);
   if (body.parentId != null) fd.append("parentId", String(body.parentId));
+  if (body.sortOrder != null) fd.append("sortOrder", String(body.sortOrder));
+  if (body.isPublished !== undefined) fd.append("isPublished", String(body.isPublished));
+  if (body.attributes !== undefined) {
+    fd.append("attributes", body.attributes === null ? "" : JSON.stringify(body.attributes));
+  }
   if (body.image) fd.append("catagoryImage", body.image);
   if (body.banner) fd.append("bannerImage", body.banner);
   if (body.video) fd.append("bannerVideo", body.video);
@@ -1790,7 +1817,11 @@ export const categoryApi = {
   // GET /v1/catagories (public) — returns the full category tree.
   list: () => apiClient.get<Category[]>("/v1/catagories"),
 
-  /** POST /v1/catagories/create-categories — multipart, image required. */
+  /** GET /v1/catagories/:id — one category (or sub-category) with its services and groups. */
+  get: (id: number) =>
+    apiClient.get<CategoryTreeNode>(`/v1/catagories/${id}`, { skipAuth: true }),
+
+  /** POST /v1/catagories/create-categories — multipart; only the name is required. */
   create: (body: CategoryInput) =>
     uploadFile<CategoryTreeNode>(
       "/v1/catagories/create-categories",
@@ -1836,6 +1867,10 @@ export interface ServiceVariant {
   price: number;
   durationMinutes: number | null;
   profileImage: string | null;
+  subtitle?: string | null;
+  originalPrice?: number | null;
+  sortOrder?: number;
+  attributes?: Record<string, unknown> | null;
 }
 
 export interface CatalogService {
@@ -1850,7 +1885,15 @@ export interface CatalogService {
   isFeatured: boolean;
   profileImage: string | null;
   createdAt: string;
-  category?: { categoryId: number; name: string } | null;
+  subtitle?: string | null;
+  originalPrice?: number | null;
+  isStartingPrice?: boolean;
+  highlights?: string[];
+  inclusions?: string[];
+  exclusions?: string[];
+  sortOrder?: number;
+  attributes?: Record<string, unknown> | null;
+  category?: { categoryId: number; name: string; parentId?: number | null } | null;
   vendor?: { vendorId: number; name: string } | null;
   variantsCount?: number;
   variants?: ServiceVariant[];
@@ -1872,35 +1915,79 @@ export interface ServiceListResponse {
   };
 }
 
+/** Variant body: `undefined` leaves a field alone, `null` clears it. */
 export interface ServiceVariantInput {
   name: string;
   price: number;
-  durationMinutes?: number;
+  durationMinutes?: number | null;
+  subtitle?: string | null;
+  originalPrice?: number | null;
+  sortOrder?: number | null;
+  profileImage?: string | null;
 }
 
+/** Service body: only name + categoryId are required; null clears a field. */
 export interface ServiceInput {
   name: string;
   categoryId: number;
   vendorId?: number;
-  description?: string;
-  basePrice?: number;
-  durationMinutes?: number;
+  description?: string | null;
+  basePrice?: number | null;
+  durationMinutes?: number | null;
   isActive?: boolean;
   isFeatured?: boolean;
-  profileImage?: string;
+  profileImage?: string | null;
+  subtitle?: string | null;
+  originalPrice?: number | null;
+  isStartingPrice?: boolean;
+  highlights?: string[];
+  inclusions?: string[];
+  exclusions?: string[];
+  sortOrder?: number | null;
+  attributes?: Record<string, unknown> | null;
   variants?: ServiceVariantInput[];
 }
 
+/** One problem with one row of an imported workbook. */
+export interface ImportIssue {
+  /** Sheet name ("Services", …); "" for a workbook-level note. */
+  sheet?: string;
+  /** Excel row number; 0 for a workbook-level note. */
+  row: number;
+  message: string;
+}
+
+export type ImportEntity = "categories" | "subcategories" | "services" | "variants" | "vendors";
+
+export interface ImportChange {
+  sheet: string;
+  row: number;
+  action: "create" | "update";
+  entity: "category" | "subcategory" | "service" | "variant" | "vendor";
+  label: string;
+}
+
 export interface ImportResult {
+  /** True for a preview: nothing was written. */
+  dryRun?: boolean;
+  /** Services created + updated. */
   imported: number;
+  /** Rows skipped for errors. */
   failed: number;
-  errors: { row: number; message: string }[];
+  errors: ImportIssue[];
+  warnings?: ImportIssue[];
+  summary?: Record<ImportEntity, { create: number; update: number }>;
+  /** The first planned changes (up to 500); totalChanges counts them all. */
+  changes?: ImportChange[];
+  totalChanges?: number;
   message: string;
 }
 
 export interface ServiceListParams {
   vendorId?: number;
   categoryId?: number;
+  /** With categoryId: include the services of its sub-categories. */
+  includeSubcategories?: boolean;
   search?: string;
   /** The backend defaults to 50 per page — pass a higher limit to show a whole
    *  catalog (a category can hold 100+ services). */
@@ -1914,6 +2001,7 @@ export const serviceApi = {
       `/v1/service${toQueryString({
         vendorId: params.vendorId,
         categoryId: params.categoryId,
+        includeSubcategories: params.includeSubcategories,
         search: params.search,
         limit: params.limit,
         page: params.page,
@@ -1940,19 +2028,45 @@ export const serviceApi = {
     ),
   addVariant: (serviceId: number, body: ServiceVariantInput) =>
     apiClient.post<ServiceVariant>(`/v1/service/${serviceId}/variants`, body),
+  updateVariant: (variantId: number, body: Partial<ServiceVariantInput>) =>
+    apiClient.patch<ServiceVariant>(`/v1/service/variants/${variantId}`, body),
+  /** PATCH /v1/service/:id/variants — several of one service's variants in one transaction. */
+  updateVariants: (
+    serviceId: number,
+    variants: (Partial<ServiceVariantInput> & { variantId: number })[],
+  ) =>
+    apiClient.patch<{ updated: number; variants: ServiceVariant[] }>(
+      `/v1/service/${serviceId}/variants`,
+      { variants },
+    ),
   removeVariant: (variantId: number) =>
     apiClient.delete<{ message: string }>(`/v1/service/variants/${variantId}`),
 
-  import: (file: File, opts?: { vendorId?: number; categoryId?: number }) => {
+  /** POST /v1/service/variants/:id/image — multipart image upload. */
+  uploadVariantImage: (variantId: number, image: File) => {
+    const fd = new FormData();
+    fd.append("variantImage", image);
+    return uploadFile<ServiceVariant>(`/v1/service/variants/${variantId}/image`, fd);
+  },
+
+  /**
+   * POST /v1/service/import — the catalog workbook (Subcategories, Services,
+   * Variants sheets). `dryRun` returns the preview and writes nothing.
+   */
+  import: (file: File, opts?: { vendorId?: number; categoryId?: number; dryRun?: boolean }) => {
     const fd = new FormData();
     fd.append("file", file);
     const qs = toQueryString({
       vendorId: opts?.vendorId,
       categoryId: opts?.categoryId,
+      dryRun: opts?.dryRun || undefined,
     });
     return uploadFile<ImportResult>(`/v1/service/import${qs}`, fd);
   },
   downloadTemplate: () => downloadFile("/v1/service/import/template"),
+  /** GET /v1/service/export — the catalog in the import layout, ids included. */
+  exportCatalog: (categoryId?: number) =>
+    downloadFile(`/v1/service/export${toQueryString({ categoryId })}`),
 };
 
 /* ================== Category tree (public landing) ===================== */
@@ -1962,11 +2076,20 @@ export const serviceApi = {
  * is driven entirely from this, so no separate storefront/vendor API is needed.
  */
 
+// Fields marked optional below arrived with the flexible catalog; older API
+// builds omit them, so readers must not assume they are there.
+
 export interface CategoryTreeVariant {
   variantId: number;
   name: string;
   price: number;
   profileImage: string | null;
+  subtitle?: string | null;
+  /** List price, shown struck through when above `price`. */
+  originalPrice?: number | null;
+  durationMinutes?: number | null;
+  sortOrder?: number;
+  attributes?: Record<string, unknown> | null;
 }
 
 export interface CategoryTreeService {
@@ -1978,6 +2101,20 @@ export interface CategoryTreeService {
   profileImage: string | null;
   /** When true, the service appears in the landing "Popular services" row. */
   isFeatured?: boolean;
+  /** false = a draft the admin hasn't published. */
+  isActive?: boolean;
+  /** Size or scope line under the name. */
+  subtitle?: string | null;
+  /** List price, shown struck through when above `price`. */
+  originalPrice?: number | null;
+  /** Show "from" before the price: the final price is confirmed at booking. */
+  isStartingPrice?: boolean;
+  sortOrder?: number;
+  /** Card bullets. */
+  highlights?: string[];
+  inclusions?: string[];
+  exclusions?: string[];
+  attributes?: Record<string, unknown> | null;
   variants: CategoryTreeVariant[];
 }
 
@@ -1985,13 +2122,33 @@ export interface CategoryTreeGroup {
   groupId: number;
   name: string;
   profileImage: string | null;
+  description?: string | null;
+  /** Section heading (falls back to the name). */
+  title?: string | null;
+  /** Line under the heading, e.g. "Priced by fixture count". */
+  subtitle?: string | null;
+  /** Small print after the list. */
+  note?: string | null;
+  bannerImage?: string | null;
+  bannerVideo?: string | null;
+  /** false = show as "Coming soon". */
+  isPublished?: boolean;
+  sortOrder?: number;
+  attributes?: Record<string, unknown> | null;
   services: CategoryTreeService[];
 }
 
 export interface CategoryTreeNode {
   categoryId: number;
+  /** Set when this node is itself a sub-category (GET /catagories/:id). */
+  parentId?: number | null;
   name: string;
   description: string | null;
+  title?: string | null;
+  subtitle?: string | null;
+  note?: string | null;
+  sortOrder?: number;
+  attributes?: Record<string, unknown> | null;
   profileImage: string;
   /** Wide banner image shown on the category page (optional). */
   bannerImage?: string | null;

@@ -298,12 +298,13 @@ export function Footer() {
         </div>
       </div>
 
-      {/* Floating WhatsApp Button — the one contact button */}
+      {/* Floating WhatsApp Button — the one contact button. On phones it
+          lifts above a page's fixed bottom bar (marked data-bottom-bar). */}
       <a
         href="https://wa.me/919953532995"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl transition-transform hover:scale-110"
+        className="fixed bottom-6 right-6 z-50 max-lg:[body:has([data-bottom-bar])_&]:bottom-24 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl transition-transform hover:scale-110"
         aria-label="Contact us on WhatsApp"
       >
         <WhatsAppIcon className="h-8 w-8" />
@@ -312,7 +313,7 @@ export function Footer() {
       {/* Floating Scroll to Top Button (appears after one screen of scroll) */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-24 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFD13B] text-white shadow-xl transition-all duration-300 hover:bg-[#FFC107] ${
+        className={`fixed bottom-24 right-6 z-50 max-lg:[body:has([data-bottom-bar])_&]:bottom-42 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFD13B] text-white shadow-xl transition-all duration-300 hover:bg-[#FFC107] ${
           showTopBtn ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
         }`}
         aria-label="Scroll to top"

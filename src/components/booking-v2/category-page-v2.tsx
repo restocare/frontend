@@ -63,18 +63,41 @@ export function categoryNoun(name: string): string {
   return /^[A-Za-z]+$/.test(trimmed) ? trimmed.toLowerCase() : "service";
 }
 
-function Empty({ title, text }: { title: string; text: string }) {
+function Empty({
+  title,
+  text,
+  onRetry,
+  retrying,
+}: {
+  title: string;
+  text: string;
+  /** Offer "Try again" (a failed load) next to "Back to home". */
+  onRetry?: () => void;
+  retrying?: boolean;
+}) {
   return (
     <div className="mx-auto flex h-[60vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
       <p className="text-5xl">🔍</p>
       <h1 className="mt-4 text-xl font-bold sm:text-2xl">{title}</h1>
       <p className="mt-2 text-gray-500">{text}</p>
-      <Link
-        href="/"
-        className="mt-6 inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
-      >
-        Back to home
-      </Link>
+      <div className="mt-6 flex gap-3">
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-100 disabled:opacity-60"
+          >
+            {retrying ? "Retrying…" : "Try again"}
+          </button>
+        ) : null}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+        >
+          Back to home
+        </Link>
+      </div>
     </div>
   );
 }
@@ -91,7 +114,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
 
   const cleaningFlow = useDeepCleaningFlow();
   const { coords } = useCurrentLocation();
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.categoryTreeAt(coords),
     queryFn: () => categoryTreeApi.tree(coords),
   });
@@ -160,6 +183,8 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
                 ? "We couldn’t load this category. Please try again."
                 : "The category you’re looking for doesn’t exist or was removed."
             }
+            onRetry={isError ? () => void refetch() : undefined}
+            retrying={isFetching}
           />
         ) : category.comingSoon ? (
           <Empty
