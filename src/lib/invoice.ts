@@ -17,7 +17,7 @@ const COMPANY = {
   name: "RestoCare",
   legal: "Restroedge Private Limited",
   address: "KD-180 Kohat Enclave, Pitampura, Delhi",
-  phone: "+91 98993 00646",
+  phone: "+91 99535 32995",
   email: "support@restocare.in",
   gstin: "07AAOCR0865M1ZR",
 };

@@ -58,9 +58,13 @@ brief. Per explicit confirmation, the original brief wins on both:
 - Technician → `/category/technician` (not `kitchen-equipment-repair`)
 
 `/category/washing` and `/category/hire` (flagged in the triage doc as
-"ask ops") have no confirmed live equivalent → 410, per the no-guessing
-redirect rule. Update `lib/redirects.ts` if ops later identifies a real
-target.
+"ask ops") were confirmed with ops on 2026-10-03:
+
+- `/category/washing` → 308 to `/category/deep-cleaning`.
+- `/category/hire` → 308 to `/` (homepage). "Hire" covers every staffing
+  category — chefs, helpers, waiters, and more planned — so it lands on the
+  full category list rather than any single one. Point it at a dedicated
+  hiring page in `lib/redirects.ts` if one is built later.
 
 **Electrician** is live in the API as `isPublished: true` (confirmed via
 `GET /v1/catagories`) and already ranks in GSC — this contradicts the
@@ -70,7 +74,7 @@ nothing to it: the existing `isPublished`-driven noindex/sitemap logic in
 `app/category/[slug]/layout.tsx` and `app/sitemap.ts` already reflects
 whatever the backend says. If Electrician should actually be noindexed to
 match the "unpublished" framing, that's a backend data change, not a
-frontend one — flagging for a decision, not resolving it here.
+frontend one. Decision (2026-10-03): keep Electrician published and indexed.
 
 ## Table
 
@@ -96,10 +100,10 @@ frontend one — flagging for a decision, not resolving it here.
 | https://restocare.in/category/electrician?page=3 | A, already fixed | — | `/category/electrician` is now the live slug; the stray `?page=3` is inert. |
 | https://restocare.in/category/electrician | A, already fixed | — | Becomes the live slug as of this PR. |
 | https://restocare.in/category/plumbing | C → 308 | `/category/plumber` | Old platform category slug (misspelling). |
-| https://restocare.in/category/washing?page=3 | E → 410 | — | No confirmed equivalent (ops question, unanswered) — see Slug decisions above. |
+| https://restocare.in/category/washing?page=3 | C → 308 | `/category/deep-cleaning` | Old platform category slug — see Slug decisions above. |
 | https://restocare.in/category/chef | A, already fixed | — | Already the live slug. |
-| https://restocare.in/category/washing | E → 410 | — | No confirmed equivalent — see Slug decisions above. |
-| https://restocare.in/category/hire | E → 410 | — | No confirmed equivalent — see Slug decisions above. |
+| https://restocare.in/category/washing | C → 308 | `/category/deep-cleaning` | Old platform category slug — see Slug decisions above. |
+| https://restocare.in/category/hire | C → 308 | `/` | Old platform slug spanning all staffing categories — see Slug decisions above. |
 | https://www.restocare.in/privacy | B → 308 | `/privacy-policy` | Old path; page now lives at `/privacy-policy`. |
 | https://www.restocare.in/terms | B → 308 | `/terms-and-conditions` | Old path; page published in commit `ca9d315`. |
 | https://www.restocare.in/refund | B → 308 | `/refund-cancellation-policy` | Old path; page published in commit `ca9d315`. |
@@ -111,13 +115,13 @@ frontend one — flagging for a decision, not resolving it here.
 | https://www.restocare.in/register | B → 308 | `/account/login` | No current in-repo link. |
 | https://restocare.in/user/login | B → 308 | `/account/login` | No current in-repo link. |
 | https://restocare.in/page/freelancer-registration | B → 308 | `/contact` | No current in-repo link (footer's "Freelancer Registration" is a dead `href="#"`, not this URL — flagged separately). |
-| https://tsk.restocare.in/ | F | — | Other host — returns 502 (nginx/1.24.0). Listed separately below. |
-| https://web.restocare.in/ | F | — | Other host — DNS dead. Listed separately below. |
-| https://web.restocare.in/register | F | — | Other host — DNS dead. |
-| https://web.restocare.in/services | F | — | Other host — DNS dead. |
+| https://tsk.restocare.in/ | F | — | Other host — DNS records removed 2026-10-03. Listed separately below. |
+| https://web.restocare.in/ | F | — | Other host — resolves to the API server without a valid certificate. Listed separately below. |
+| https://web.restocare.in/register | F | — | Other host — see `web.restocare.in` below. |
+| https://web.restocare.in/services | F | — | Other host — see `web.restocare.in` below. |
 | https://api.restocare.in/ | F | — | Other host — correctly 404 (live API root); recommend `X-Robots-Tag: noindex` at the API host, outside this repo. |
 | https://apis.restocare.in/ | F | — | Other host — DNS dead. |
-| https://web.restocare.in/contact | F | — | Other host — DNS dead. |
+| https://web.restocare.in/contact | F | — | Other host — see `web.restocare.in` below. |
 | https://restocare.in/homeTemplateOne | E → 410 | — | Old template leftover. No current in-repo link. |
 | https://www.restocare.in/$ | E → 410 | — | Junk href from old template. No current in-repo link. |
 | https://restocare.in/technician/product/TC-10008 | B → 308 | `/category/technician` | Old product-detail URL. No current in-repo link. |
@@ -143,10 +147,10 @@ frontend one — flagging for a decision, not resolving it here.
 
 | Host | Status | Recommendation |
 |---|---|---|
-| `tsk.restocare.in` | 502 (nginx/1.24.0) | Remove the DNS record, or add an nginx 301 to `www.restocare.in`. |
-| `web.restocare.in` (`/`, `/register`, `/services`, `/contact`) | DNS dead | Remove the DNS record, or add an nginx host-level 301 to `www.restocare.in`. |
-| `apis.restocare.in` | DNS dead | Remove the DNS record. |
-| `api.restocare.in` | 404 (correct — it's the live API root) | Add `X-Robots-Tag: noindex` and `server_tokens off` at the API host so it stops surfacing in search results. |
+| `tsk.restocare.in` | **Done 2026-10-03** — A and AAAA records removed in GoDaddy (was 502; no references in any RestoCare repo). | — |
+| `web.restocare.in` (`/`, `/register`, `/services`, `/contact`) | Resolves to the API server (187.127.148.38), which serves only the `api.restocare.in` certificate → TLS error | **Pending (server):** add a certificate for `web.restocare.in` and an nginx `return 301 https://www.restocare.in$request_uri;`. Remove the DNS record once GSC stops reporting these URLs. |
+| `apis.restocare.in` | No DNS record | Nothing to do. |
+| `api.restocare.in` | 404 (correct — it's the live API root) | **Pending (server):** add `X-Robots-Tag: noindex` and `server_tokens off` at the API host so it stops surfacing in search results. |
 
 ## Not fixed here (flagged, out of scope for this PR)
 
@@ -155,5 +159,3 @@ frontend one — flagging for a decision, not resolving it here.
   point anywhere. They don't produce a crawlable URL so they're not in the
   GSC 404 list, but they're a live UX dead end. Worth a follow-up once a real
   partner/freelancer page exists.
-- Electrician's publish state (see "Slug decisions" above) — backend data
-  decision, not a frontend change.

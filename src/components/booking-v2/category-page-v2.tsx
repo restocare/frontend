@@ -20,14 +20,35 @@ import {
 import { useCurrentLocation } from "@/src/lib/location";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { formatInr } from "@/src/lib/booking-v2/pricing";
-import { minShiftMinutes } from "@/src/lib/booking-v2/schedule";
+import { MAX_MINUTES, minShiftMinutes } from "@/src/lib/booking-v2/schedule";
 import { hourlyRate, saveDraft, startDraft } from "@/src/lib/booking-v2/draft";
 import { isCleaningCategory } from "@/src/lib/booking-v2/cleaning";
 import { useDeepCleaningFlow } from "@/src/lib/deep-cleaning-flow";
-import { SpinnerIcon } from "@/src/components/icons";
-import { CheckGlyph, ClockGlyph, StorefrontShell } from "./shell";
-import { categoryIdForSlug } from "@/lib/category-slugs";
+import {
+  BadgeCheckIcon,
+  ClockIcon,
+  SpinnerIcon,
+  WalletIcon,
+} from "@/src/components/icons";
+import { ClockGlyph, StorefrontShell } from "./shell";
 import { CleaningPageV2 } from "./cleaning-page";
+import { CategoryBanner, type BannerTrustItem } from "./category-banner";
+import { ServiceImage } from "./service-image";
+import {
+  BookingSteps,
+  FaqSection,
+  HelpCard,
+  hourlyFaqs,
+  hourlySteps,
+} from "./category-extras";
+import { cleanDescription, summarizeDescription } from "@/src/lib/service-description";
+import { categoryIdForSlug } from "@/lib/category-slugs";
+
+const HOURLY_TRUST: BannerTrustItem[] = [
+  { Icon: BadgeCheckIcon, label: "Verified pros" },
+  { Icon: ClockIcon, label: "Book by the hour" },
+  { Icon: WalletIcon, label: "Online or COD" },
+];
 
 /** Emoji stand-in when a service has no image. */
 export function emojiForCategory(name: string): string {
@@ -43,18 +64,41 @@ export function categoryNoun(name: string): string {
   return /^[A-Za-z]+$/.test(trimmed) ? trimmed.toLowerCase() : "service";
 }
 
-function Empty({ title, text }: { title: string; text: string }) {
+function Empty({
+  title,
+  text,
+  onRetry,
+  retrying,
+}: {
+  title: string;
+  text: string;
+  /** Offer "Try again" (a failed load) next to "Back to home". */
+  onRetry?: () => void;
+  retrying?: boolean;
+}) {
   return (
     <div className="mx-auto flex h-[60vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
       <p className="text-5xl">🔍</p>
       <h1 className="mt-4 text-xl font-bold sm:text-2xl">{title}</h1>
       <p className="mt-2 text-gray-500">{text}</p>
-      <Link
-        href="/"
-        className="mt-6 inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
-      >
-        Back to home
-      </Link>
+      <div className="mt-6 flex gap-3">
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-100 disabled:opacity-60"
+          >
+            {retrying ? "Retrying…" : "Try again"}
+          </button>
+        ) : null}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+        >
+          Back to home
+        </Link>
+      </div>
     </div>
   );
 }
@@ -71,7 +115,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
 
   const cleaningFlow = useDeepCleaningFlow();
   const { coords } = useCurrentLocation();
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.categoryTreeAt(coords),
     queryFn: () => categoryTreeApi.tree(coords),
   });
@@ -96,6 +140,22 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
     );
   }, [services, search]);
 
+  // Banner price anchor: the cheapest hourly rate, and the cheapest whole
+  // booking (rate × that service's minimum hours) so the real minimum spend
+  // is visible up front, not first on the review step.
+  const { fromRate, minBooking, minHours } = useMemo(() => {
+    const priced = services
+      .map((s) => ({ rate: hourlyRate(s), hours: minShiftMinutes(s.variants) / 60 }))
+      .filter((p) => p.rate > 0);
+    return {
+      fromRate: priced.length ? Math.min(...priced.map((p) => p.rate)) : 0,
+      minBooking: priced.length
+        ? priced.reduce((best, p) => (p.rate * p.hours < best.rate * best.hours ? p : best))
+        : null,
+      minHours: Math.min(...services.map((s) => minShiftMinutes(s.variants) / 60)),
+    };
+  }, [services]);
+
   // Deep Cleaning has its own switch (NEXT_PUBLIC_DEEP_CLEANING_FLOW): 2 shows the
   // new page, 1 keeps production's. Other non-hourly categories always keep flow 1.
   if (category && isCleaningCategory(category.name)) {
@@ -111,7 +171,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
 
   return (
     <StorefrontShell search={search} onSearchChange={setSearch}>
-      <main>
+      <main className="bg-white">
         {isLoading ? (
           <div className="flex h-[60vh] items-center justify-center text-gray-400">
             <SpinnerIcon className="h-7 w-7" />
@@ -124,6 +184,8 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
                 ? "We couldn’t load this category. Please try again."
                 : "The category you’re looking for doesn’t exist or was removed."
             }
+            onRetry={isError ? () => void refetch() : undefined}
+            retrying={isFetching}
           />
         ) : category.comingSoon ? (
           <Empty
@@ -132,57 +194,23 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
           />
         ) : (
           <>
-            {/* Banner, as on every category page */}
-            <section className="relative h-72 w-full overflow-hidden sm:h-96 lg:h-[26rem]">
-              {category.bannerVideo ? (
-                <video
-                  src={category.bannerVideo}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  poster={category.bannerImage || category.profileImage}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- external category image
-                <img
-                  src={category.bannerImage || category.profileImage}
-                  alt={category.name}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              )}
-              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/55 to-black/30" />
+            <CategoryBanner
+              category={category}
+              description="Quality-checked professionals, booked by the hour for the date and time you need."
+              price={{
+                amount: fromRate,
+                unit: "/hour",
+                note: minBooking
+                  ? `Minimum booking ${formatInr(minBooking.rate * minBooking.hours)} (${minBooking.hours} hrs) + taxes`
+                  : "Taxes extra",
+              }}
+              ctaLabel={`Choose a ${categoryNoun(category.name)}`}
+              ctaHref="#choose"
+              trust={HOURLY_TRUST}
+              fallbackEmoji={emojiForCategory(category.name)}
+            />
 
-              <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-8 sm:px-6">
-                <nav className="mb-3 flex items-center gap-2 text-sm text-white/80" aria-label="Breadcrumb">
-                  <Link href="/" className="hover:text-white">
-                    Home
-                  </Link>
-                  <span>/</span>
-                  <span className="font-medium text-white">{category.name}</span>
-                </nav>
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">
-                  {category.name}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-white/85 sm:text-base">
-                  Quality-checked professionals, booked by the hour for the date and time you need.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rc-yellow px-3 py-1 text-xs font-semibold text-gray-900">
-                    <CheckGlyph className="h-3.5 w-3.5" /> Verified professionals
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                    <ClockGlyph className="h-3.5 w-3.5" /> Custom hours
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                    {services.length} {services.length === 1 ? "service" : "services"} available
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+            <section id="choose" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
               <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -210,10 +238,11 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {shown.map((service) => (
+                  {shown.map((service, i) => (
                     <HourlyServiceCard
                       key={service.serviceId}
                       service={service}
+                      eager={i < 3}
                       emoji={emojiForCategory(category.name)}
                       open={openId === service.serviceId}
                       onToggle={() =>
@@ -222,9 +251,23 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
                       onBook={() => book(service)}
                     />
                   ))}
+                  {/* Fills the last row's empty slots instead of leaving a hole */}
+                  <HelpCard
+                    cardCount={shown.length}
+                    columns={{ sm: 2, lg: 3 }}
+                    title="Not sure who to book?"
+                    text={`Tell us about your kitchen and shift, and we'll suggest the right ${categoryNoun(category.name)}.`}
+                    whatsappText={`Hi, I need help choosing a ${categoryNoun(category.name)} on RestoCare.`}
+                  />
                 </div>
               )}
             </section>
+
+            <BookingSteps steps={hourlySteps(categoryNoun(category.name))} />
+            <FaqSection
+              intro={`Everything about booking a ${categoryNoun(category.name)} by the hour.`}
+              faqs={hourlyFaqs(categoryNoun(category.name), minHours)}
+            />
           </>
         )}
       </main>
@@ -234,12 +277,14 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
 
 function HourlyServiceCard({
   service,
+  eager,
   emoji,
   open,
   onToggle,
   onBook,
 }: {
   service: CategoryTreeService;
+  eager: boolean;
   emoji: string;
   open: boolean;
   onToggle: () => void;
@@ -247,16 +292,19 @@ function HourlyServiceCard({
 }) {
   const rate = hourlyRate(service);
   const minHrs = minShiftMinutes(service.variants) / 60;
+  // Whole sentences only: a short summary on the card, the rest on demand.
+  const details = cleanDescription(service.description, service.name);
+  const summary = summarizeDescription(details);
+  const hasMore = details.length > summary.length;
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-md">
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-50">
         {service.profileImage ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external service image
-          <img
+          <ServiceImage
             src={service.profileImage}
             alt={service.name}
-            loading="lazy"
+            eager={eager}
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (
@@ -267,9 +315,22 @@ function HourlyServiceCard({
       <div className="flex flex-1 flex-col p-4">
         <h3 className="text-base font-semibold leading-tight">{service.name}</h3>
 
-        {service.description ? (
-          <p className={`mt-2 text-sm text-gray-500 ${open ? "" : "line-clamp-3"}`}>
-            {service.description}
+        {summary ? (
+          <p className="mt-2 text-sm text-gray-500">
+            {open && hasMore ? details : summary}
+            {hasMore ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={onToggle}
+                  className="font-semibold text-rc-yellow-deep hover:underline"
+                >
+                  {open ? "Show less" : "View details"}
+                </button>
+              </>
+            ) : null}
           </p>
         ) : null}
 
@@ -278,38 +339,29 @@ function HourlyServiceCard({
             <ClockGlyph className="h-3.5 w-3.5" /> Custom hours
           </span>
           <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1">
-            Minimum {minHrs} hrs
+            {minHrs}–{MAX_MINUTES / 60} hrs per booking
           </span>
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
           <div className="min-w-0">
             {rate > 0 ? (
-              <p className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold leading-none tracking-tight">
-                  {formatInr(rate)}
-                </span>
-                <span className="text-sm font-medium text-gray-500">/hour</span>
-              </p>
+              <>
+                <p className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold leading-none tracking-tight">
+                    {formatInr(rate)}
+                  </span>
+                  <span className="text-sm font-medium text-gray-500">/hour</span>
+                </p>
+                {/* The real minimum spend, so the review step holds no surprise */}
+                <p className="mt-1 text-xs text-gray-500">
+                  Min. <span className="font-semibold text-gray-700">{formatInr(rate * minHrs)}</span>{" "}
+                  ({minHrs} hrs) + taxes
+                </p>
+              </>
             ) : (
               <p className="text-base font-semibold">Price on request</p>
             )}
-            <p className="mt-1 text-xs text-gray-500">
-              Taxes extra
-              {service.description ? (
-                <>
-                  {" "}
-                  <button
-                    type="button"
-                    aria-expanded={open}
-                    onClick={onToggle}
-                    className="font-semibold text-rc-yellow-deep hover:underline"
-                  >
-                    {open ? "Hide details" : "View details"}
-                  </button>
-                </>
-              ) : null}
-            </p>
           </div>
           <button
             type="button"

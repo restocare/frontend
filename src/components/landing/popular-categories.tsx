@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
@@ -13,7 +15,8 @@ interface PopularCategoriesProps {
   onSelect?: (categoryId: number | null) => void;
 }
 
-/** Videos for the right-hand collage (order: video2, video3, video4, video1). */
+/** Videos for the right-hand collage. Must not reuse restocare-service.mp4 —
+ *  that's the banner clip shown right below this section. */
 const COLLAGE_VIDEOS = [
   "/videos/video2.mp4",
   "/videos/video3.mp4",
@@ -48,16 +51,12 @@ const EMOJI_BY_NAME: Record<string, string> = {
 
 const FALLBACK_EMOJI = "🧰";
 
-/** Trust highlights shown under the category grid to fill the card nicely. */
-const HIGHLIGHTS = [
-  { icon: "✅", label: "Verified Staff", sub: "Background-checked" },
-  { icon: "⭐", label: "Certified Staff", sub: "Trained & certified" },
-  { icon: "⚡", label: "Instant Service", sub: "Quick availability" },
-];
-
 function emojiFor(name: string): string {
   return EMOJI_BY_NAME[name.trim().toLowerCase()] ?? FALLBACK_EMOJI;
 }
+
+/** Next.js Link with framer-motion gesture props. */
+const MotionLink = motion.create(Link);
 
 export function PopularCategories(_props: PopularCategoriesProps) {
   void _props;
@@ -70,14 +69,20 @@ export function PopularCategories(_props: PopularCategoriesProps) {
   });
 
   const categories = data ?? [];
+  // Bookable tiles up top; unavailable categories move to a separate
+  // "Coming soon" row instead of greying out half the grid.
+  const isSoon = (c: CategoryTreeNode) =>
+    c.isPublished === false || c.comingSoon === true;
+  const availableCategories = categories.filter((c) => !isSoon(c));
+  const comingSoonCategories = categories.filter(isSoon);
 
   return (
     <section id="categories" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <div className="mb-8 text-center">
+      <div className="mb-8">
         <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
-          POPULAR CATEGORIES
+          Popular categories
         </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-500 sm:text-base">
+        <p className="mt-2 max-w-2xl text-sm text-gray-500 sm:text-base">
           Choose your service category and connect with top-rated professionals near you.
         </p>
       </div>
@@ -102,30 +107,16 @@ export function PopularCategories(_props: PopularCategoriesProps) {
             <p className="py-20 text-center text-sm text-gray-500">No categories yet.</p>
           ) : (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-              {categories.map((category) => (
+              {/* Bookable tiles first, coming-soon tiles after — same grid style */}
+              {[...availableCategories, ...comingSoonCategories].map((category) => (
                 <CategoryTile key={category.categoryId} category={category} />
               ))}
             </div>
           )}
 
-          {/* Bottom highlights + CTA — fills the remaining space nicely */}
+          {/* Bottom CTA — fills the remaining space nicely */}
           <div className="mt-auto pt-8">
-            <div className="grid grid-cols-3 gap-3">
-              {HIGHLIGHTS.map((h) => (
-                <div
-                  key={h.label}
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-4 text-center"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow-sm ring-1 ring-gray-100">
-                    {h.icon}
-                  </span>
-                  <span className="text-xs font-semibold text-gray-800">{h.label}</span>
-                  <span className="text-[11px] leading-tight text-gray-500">{h.sub}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="relative mt-5 flex flex-col items-center justify-between gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-orange-500 via-orange-500 to-amber-500 px-5 py-4 text-white sm:flex-row sm:text-left">
+            <div className="relative flex flex-col items-center justify-between gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-orange-500 via-orange-500 to-amber-500 px-5 py-4 text-white sm:flex-row sm:text-left">
               {/* Decorative glow circles */}
               <span
                 className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/15"
@@ -168,26 +159,17 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
   // Two ways to be "coming soon": not published anywhere yet, or published but
   // with nobody who can be dispatched to THIS customer's location.
   const comingSoon = category.isPublished === false || category.comingSoon === true;
-  const soonLabel =
-    category.isPublished === false
-      ? "Coming soon"
-      : (category.comingSoonMessage ?? "Coming soon in your area");
+  const soonLabel = "Coming soon";
 
-  const icon = (
-    <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition group-hover:ring-amber-200">
-      {hasImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- external category images
-        <img
-          src={category.profileImage}
-          alt={category.name}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
-        />
-      ) : (
-        <span className="text-2xl transition duration-300 group-hover:scale-110">
-          {emojiFor(category.name)}
-        </span>
-      )}
-    </div>
+  const iconContent = hasImage ? (
+    // eslint-disable-next-line @next/next/no-img-element -- external category images
+    <img
+      src={category.profileImage}
+      alt={category.name}
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    <span className="text-2xl">{emojiFor(category.name)}</span>
   );
 
   if (comingSoon) {
@@ -197,10 +179,9 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
         title={soonLabel}
         className="relative flex cursor-not-allowed flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center opacity-60"
       >
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-          Soon
-        </span>
-        {icon}
+        <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+          {iconContent}
+        </div>
         <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-500">
           {category.name}
         </p>
@@ -210,29 +191,64 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
   }
 
   return (
-    <Link
+    <MotionLink
       href={categoryHref(category.categoryId)}
-      className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-md"
+      initial="rest"
+      animate="rest"
+      whileHover="hover"
+      whileTap={{ scale: 0.95 }}
+      variants={{ rest: { y: 0 }, hover: { y: -5 } }}
+      transition={{ type: "spring", stiffness: 350, damping: 22 }}
+      className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition-[border-color,background-color,box-shadow] duration-200 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-lg hover:shadow-amber-100/60"
     >
-      {icon}
-      <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-700 transition group-hover:text-gray-900">
+      {/* Icon pops and gives a playful wiggle on hover */}
+      <motion.div
+        variants={{
+          rest: { scale: 1, rotate: 0 },
+          hover: { scale: 1.12, rotate: [0, -8, 8, -4, 0] },
+        }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition-shadow group-hover:ring-amber-200"
+      >
+        {iconContent}
+      </motion.div>
+      <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-700 transition-colors group-hover:text-gray-900">
         {category.name}
       </p>
-    </Link>
+    </MotionLink>
   );
 }
 
 function CollageVideo({ src, className }: { src: string; className?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Only play while on screen; metadata preload paints the first frame as a
+  // stand-in poster instead of downloading whole clips up front.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) void video.play().catch(() => {});
+        else video.pause();
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
       className={`group relative overflow-hidden rounded-2xl bg-black ring-1 ring-black/5 ${className ?? ""}`}
     >
       <video
+        ref={videoRef}
         src={src}
-        autoPlay
         loop
         muted
         playsInline
+        preload="metadata"
         className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
       />
       {/* Soft bottom vignette so the collage reads as one polished unit */}

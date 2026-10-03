@@ -57,7 +57,7 @@ export default function ProductDetailPage({
           <p className="text-sm text-gray-500">This product doesn&apos;t exist.</p>
           <Link
             href="/products"
-            className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"
+            className="rounded-full bg-rc-yellow px-5 py-2.5 text-sm font-bold text-gray-900 hover:brightness-95"
           >
             Back to products
           </Link>
@@ -172,7 +172,7 @@ export default function ProductDetailPage({
               <button
                 disabled={!product.inStock}
                 onClick={handleAdd}
-                className="flex-1 rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                className="flex-1 rounded-full bg-rc-yellow px-6 py-3 text-sm font-bold text-gray-900 transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
               >
                 {product.inStock ? (added ? "Added ✓ — add more" : "Add to Cart") : "Unavailable"}
               </button>

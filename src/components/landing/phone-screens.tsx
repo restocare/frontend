@@ -22,7 +22,7 @@ export function PhoneScreens() {
 
   return (
     <div
-      className="pointer-events-none select-none overflow-hidden rounded-[34px] bg-white font-sans text-gray-900 shadow-2xl"
+      className="pointer-events-none flex select-none flex-col overflow-hidden rounded-[34px] bg-white font-sans text-gray-900 shadow-2xl"
       style={{ width: 290, height: 600 }}
     >
       {/* Status bar */}
@@ -54,15 +54,15 @@ export function PhoneScreens() {
       </div>
 
       {/* Frame body (re-keyed so the entrance animation replays) */}
-      <div key={frame} className="animate-fade-up px-4">
+      <div key={frame} className="animate-fade-up flex-1 px-4">
         {frame === 0 && <CustomerSelect />}
         {frame === 1 && <CustomerConfirmed />}
         {frame === 2 && <PartnerLead />}
         {frame === 3 && <PartnerEnRoute />}
       </div>
 
-      {/* Progress dots */}
-      <div className="mt-4 flex justify-center gap-1.5">
+      {/* Progress dots (demo frame indicator) */}
+      <div className="flex justify-center gap-1.5 pb-2 pt-3">
         {Array.from({ length: FRAME_COUNT }).map((_, i) => (
           <span
             key={i}
@@ -74,6 +74,62 @@ export function PhoneScreens() {
           />
         ))}
       </div>
+
+      {/* App tab bar pins the bottom like a real app */}
+      <TabBar active={frame === 1 ? "bookings" : "home"} />
+    </div>
+  );
+}
+
+/* ------------------------------ tab bar --------------------------------- */
+
+function HomeGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9.5V21h14V9.5" />
+      <path d="M10 21v-6h4v6" />
+    </svg>
+  );
+}
+
+function BookingsGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3 10h18" />
+    </svg>
+  );
+}
+
+function AccountGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />
+    </svg>
+  );
+}
+
+function TabBar({ active }: { active: "home" | "bookings" | "account" }) {
+  const items = [
+    { key: "home", label: "Home", glyph: <HomeGlyph /> },
+    { key: "bookings", label: "Bookings", glyph: <BookingsGlyph /> },
+    { key: "account", label: "Account", glyph: <AccountGlyph /> },
+  ] as const;
+
+  return (
+    <div className="flex items-start justify-around border-t border-gray-100 px-2 pb-5 pt-2">
+      {items.map((item) => (
+        <div
+          key={item.key}
+          className="flex flex-col items-center gap-0.5"
+          style={{ color: item.key === active ? ACCENT : "#9ca3af" }}
+        >
+          {item.glyph}
+          <span className="text-[9px] font-semibold">{item.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -123,12 +179,29 @@ function CustomerSelect() {
           </span>
         </div>
       </div>
+      <div className="mt-2.5 rounded-2xl border border-gray-100 bg-gray-50 p-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl shadow-sm">
+            👨‍🍳
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Restaurant Chef</p>
+            <p className="text-[11px] text-gray-500">5 hr shift · From ₹149/hr</p>
+          </div>
+          <span className="flex items-center gap-1 rounded-md bg-green-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            ★ 4.9
+          </span>
+        </div>
+      </div>
       <button
         className="mt-4 w-full rounded-xl py-3 text-sm font-semibold text-white"
         style={{ backgroundColor: ACCENT }}
       >
         Book Now
       </button>
+      <p className="mt-3 text-center text-[10px] text-gray-400">
+        Verified & background-checked professionals
+      </p>
     </div>
   );
 }
@@ -148,6 +221,18 @@ function CustomerConfirmed() {
         <p className="text-[11px] font-semibold text-gray-500">Finding your professional…</p>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
           <div className="h-full w-2/3 rounded-full" style={{ backgroundColor: ACCENT }} />
+        </div>
+      </div>
+      <div className="mt-2.5 rounded-2xl border border-gray-100 bg-gray-50 p-3 text-left">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-gray-600">Booking ID</span>
+          <span className="text-[11px] font-bold text-gray-800">#RC-1384</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-gray-600">Payment</span>
+          <span className="rounded-md bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+            Paid online
+          </span>
         </div>
       </div>
     </div>

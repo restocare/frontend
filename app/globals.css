@@ -5,6 +5,16 @@
    "light" -> white theme                                            */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Smooth in-page scrolling (anchors, scroll-to-top). Route changes stay
+   instant via data-scroll-behavior="smooth" on <html> (Next 16). The
+   scroll-padding keeps anchor targets clear of the sticky 64px header. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+}
+
 /* ---------------------------------------------------------------- *
  *  White theme (default)                                            *
  * ---------------------------------------------------------------- */
@@ -131,6 +141,7 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-brand: var(--font-outfit);
 }
 
 * {

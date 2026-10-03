@@ -240,7 +240,7 @@ const SOS_CONTACTS = [
   {
     id: "rc",
     title: "RestoCare Emergency Desk",
-    phone: "+91 1800 123 900",
+    phone: "+91 99535 32995",
     availability: "24/7 support",
   },
   { id: "city", title: "City Safety Helpline", phone: "+91 112", availability: "Emergency assistance" },
@@ -276,10 +276,10 @@ const SUPPORT_OPTIONS = [
     id: "whatsapp",
     icon: "💬",
     title: "WhatsApp",
-    subtitle: "+91 98993 00646",
-    href: "https://wa.me/919899300646",
+    subtitle: "+91 99535 32995",
+    href: "https://wa.me/919953532995",
   },
-  { id: "call", icon: "📞", title: "Call us", subtitle: "+91 1800 123 900", href: "tel:+911800123900" },
+  { id: "call", icon: "📞", title: "Call us", subtitle: "+91 99535 32995", href: "tel:+919953532995" },
   {
     id: "email",
     icon: "✉️",

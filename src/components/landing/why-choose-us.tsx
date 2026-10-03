@@ -27,11 +27,12 @@ export function WhyChooseUs() {
   return (
     <section className="bg-white py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-24">
+        {/* items-center keeps the copy vertically balanced with the collage */}
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-24">
           {/* Left content */}
           <div>
             <h2 className="text-xl font-bold tracking-tight text-[#0A192F] sm:text-[38px]">
-              WHY CUSTOMERS CHOOSE US
+              Why customers choose us
             </h2>
             <p className="mt-4 text-base leading-relaxed text-gray-500 max-w-lg">
               We combine trusted professionals, verified reviews, transparent pricing, and premium customer support.
@@ -49,33 +50,36 @@ export function WhyChooseUs() {
             </ul>
           </div>
 
-          {/* Right — stacked image collage */}
+          {/* Right — image collage. Each image gets a slot that fits its
+              shape: the wide tracking timeline goes full width (uncropped,
+              readable), the photo crops fine in a small tile, and the icon
+              illustration is contained instead of zoom-cropped. */}
           <div className="relative grid grid-cols-2 gap-4">
-            {/* Top-left: large main image */}
-            <div className="col-span-2 overflow-hidden rounded-2xl shadow-md">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/verified-providers.png"
-                alt="Verified providers with quality checks"
-                className="h-56 w-full object-cover lg:h-64"
-              />
-            </div>
-            {/* Bottom-left */}
-            <div className="overflow-hidden rounded-2xl shadow-md">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/fast-reschedule.png"
-                alt="Fast reschedule and cancellation options"
-                className="h-40 w-full object-cover"
-              />
-            </div>
-            {/* Bottom-right */}
-            <div className="overflow-hidden rounded-2xl shadow-md">
+            {/* Live-tracking timeline: wide, so it needs the full row */}
+            <div className="col-span-2 overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-gray-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/realtime-updates.png"
                 alt="Real-time order and booking updates"
+                className="w-full object-contain p-2"
+              />
+            </div>
+            {/* Team photo — crops gracefully at any size */}
+            <div className="overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/verified-providers.png"
+                alt="Verified providers with quality checks"
                 className="h-40 w-full object-cover"
+              />
+            </div>
+            {/* Reschedule illustration — contained, never cropped */}
+            <div className="flex items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-gray-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/fast-reschedule.png"
+                alt="Fast reschedule and cancellation options"
+                className="h-40 w-full object-contain"
               />
             </div>
           </div>

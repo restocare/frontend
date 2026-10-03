@@ -280,7 +280,10 @@ export function WizardLayout({
         </div>
 
         {bar ? (
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] lg:hidden">
+          <div
+            data-bottom-bar
+            className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] lg:hidden"
+          >
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="m-0 text-lg font-bold tabular-nums">{bar.total}</p>

@@ -11,7 +11,7 @@ import Link from "next/link";
  * the right page for anything it can't resolve.
  */
 
-const WHATSAPP_URL = "https://wa.me/919899300646";
+const WHATSAPP_URL = "https://wa.me/919953532995";
 const SUPPORT_EMAIL = "support@restocare.in";
 
 interface Faq {

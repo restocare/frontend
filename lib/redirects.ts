@@ -28,6 +28,10 @@ const LEGACY_URL_REDIRECTS: RedirectRule[] = [
   { source: "/category/helpersnwaiters", destination: "/category/helpers-and-waiters", permanent: true },
   { source: "/category/cheff", destination: "/category/chef", permanent: true },
   { source: "/category/plumbing", destination: "/category/plumber", permanent: true },
+  { source: "/category/washing", destination: "/category/deep-cleaning", permanent: true },
+  // "hire" spans every staffing category (chefs, helpers, waiters, more to
+  // come), so it lands on the homepage category list rather than one of them.
+  { source: "/category/hire", destination: "/", permanent: true },
 
   // Old /services?category= query links (outcome B) — matched before the
   // bare /services 410 in proxy.ts, since next.config redirects() run first.
@@ -82,10 +86,6 @@ export const GONE_PATHS: string[] = [
   // Bare /services (no matching ?category=) — falls through the redirects
   // above with no match, so it lands here.
   "/services",
-
-  // Ambiguous old category slugs — no confirmed live equivalent.
-  "/category/washing",
-  "/category/hire",
 
   // Old MongoDB-backed /categories/<id> URLs from the decommissioned
   // pre-Next platform. Not present in this repo's Postgres/Prisma history

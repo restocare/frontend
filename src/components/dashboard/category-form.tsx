@@ -37,6 +37,10 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
   const [banner, setBanner] = useState<File | null>(null);
   const [video, setVideo] = useState<File | null>(null);
   const [services, setServices] = useState<DraftService[]>([]);
+  // Set once the category exists, so a retry after a failed service doesn't
+  // create the category a second time.
+  const [createdId, setCreatedId] = useState<number | null>(null);
+  const [savedServices, setSavedServices] = useState(0);
 
   // Parent dropdown: existing top-level categories (can't be the category itself).
   const { data: tree } = useQuery({
@@ -61,7 +65,8 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
 
       const payload = {
         name: name.trim(),
-        description: description.trim() || undefined,
+        // Emptied on edit → cleared; left out on create.
+        description: description.trim() || (category ? null : undefined),
         parentId: parentId === "" ? null : Number(parentId),
         image: icon,
         banner: bannerImg,
@@ -74,22 +79,37 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
         return;
       }
 
-      const created = await categoryApi.create(payload);
-      // Attach any drafted services to the freshly created category.
+      const newId = createdId ?? (await categoryApi.create(payload)).categoryId;
+      setCreatedId(newId);
+      // Attach any drafted services to the freshly created category, skipping
+      // the ones a previous attempt already saved.
       const valid = services.filter((s) => s.name.trim() && s.price.trim());
-      for (const s of valid) {
-        await serviceApi.create({
-          name: s.name.trim(),
-          categoryId: created.categoryId,
-          basePrice: Number(s.price),
-          durationMinutes: s.durationMinutes ? Number(s.durationMinutes) : undefined,
-          isActive: true,
-        });
+      for (let i = savedServices; i < valid.length; i++) {
+        const s = valid[i];
+        try {
+          await serviceApi.create({
+            name: s.name.trim(),
+            categoryId: newId,
+            basePrice: Number(s.price),
+            durationMinutes: s.durationMinutes ? Number(s.durationMinutes) : undefined,
+            isActive: true,
+          });
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `The category was created, but service "${s.name.trim()}" failed: ${reason} Fix it and save again; the services already added are kept.`,
+          );
+        }
+        setSavedServices(i + 1);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
       onClose();
+    },
+    // A half-finished create still added the category: show it in the list.
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
     },
   });
 
@@ -103,7 +123,7 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, [key]: value } : s)));
 
   const errorMessage =
-    mutation.error instanceof ApiError
+    mutation.error instanceof ApiError || mutation.error instanceof Error
       ? mutation.error.message
       : mutation.error
         ? "Something went wrong."
