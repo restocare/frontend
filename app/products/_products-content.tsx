@@ -143,7 +143,7 @@ export function ProductsContent() {
                   <button
                     disabled={!p.inStock}
                     onClick={() => add(p.id)}
-                    className="mt-auto w-full rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    className="mt-auto w-full rounded-full bg-rc-yellow px-4 py-2 text-sm font-bold text-gray-900 transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                   >
                     {p.inStock ? "Add to Cart" : "Unavailable"}
                   </button>

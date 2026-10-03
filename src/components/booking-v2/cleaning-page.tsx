@@ -21,8 +21,56 @@ import {
   type CleaningPackage,
   type CleaningSubKey,
 } from "@/src/lib/booking-v2/cleaning-packages";
-import { SpinnerIcon } from "@/src/components/icons";
-import { CheckGlyph, StorefrontShell } from "./shell";
+import {
+  BadgeCheckIcon,
+  ClockIcon,
+  SpinnerIcon,
+  WalletIcon,
+} from "@/src/components/icons";
+import { StorefrontShell } from "./shell";
+import { CategoryBanner, type BannerTrustItem } from "./category-banner";
+import {
+  CANCEL_FAQ,
+  FaqSection,
+  GST_PERCENT,
+  HelpCard,
+  type Faq,
+} from "./category-extras";
+
+/** Cheapest package across every sub-category, for the banner's "From". */
+const CLEANING_FROM_PRICE = Math.min(
+  ...CLEANING_SUBS.flatMap((s) => s.packages.map((p) => p.price)),
+);
+
+const CLEANING_TRUST: BannerTrustItem[] = [
+  { Icon: BadgeCheckIcon, label: "Trained crews" },
+  { Icon: ClockIcon, label: "Slots all week" },
+  { Icon: WalletIcon, label: "Online or COD" },
+];
+
+const CLEANING_FAQS: Faq[] = [
+  {
+    q: "How are packages priced?",
+    a: `By size: fixture count for washrooms, cleanable area for kitchens, and area and seating for dining areas. A "from" price is the starting price for that size; the final price is confirmed at booking. Prices are before ${GST_PERCENT}% GST.`,
+  },
+  {
+    q: "When can the crew come?",
+    a: "Any day this week, in a morning, afternoon or evening slot.",
+  },
+  {
+    q: "How do I pay?",
+    a: "Online by UPI, card or net banking, or after the job (COD).",
+  },
+  {
+    q: "Are the crews verified?",
+    a: "Yes. Every crew member is background-checked before they take a booking.",
+  },
+  {
+    q: "My size or area isn't listed. What now?",
+    a: "Message us on WhatsApp with your outlet's size and what needs cleaning, and we'll quote it.",
+  },
+  CANCEL_FAQ,
+];
 
 /* ------------------------------- icons -------------------------------- */
 
@@ -138,7 +186,7 @@ export function CleaningPageV2() {
 
   return (
     <StorefrontShell search={search} onSearchChange={setSearch}>
-      <main>
+      <main className="bg-white">
         {isLoading ? (
           <div className="flex h-[60vh] items-center justify-center text-gray-400">
             <SpinnerIcon className="h-7 w-7" />
@@ -159,54 +207,20 @@ export function CleaningPageV2() {
           />
         ) : (
           <>
-            {/* Banner, as on every category page */}
-            <section className="relative h-72 w-full overflow-hidden sm:h-96 lg:h-104">
-              {category.bannerVideo ? (
-                <video
-                  src={category.bannerVideo}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  poster={category.bannerImage || category.profileImage}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- external category image
-                <img
-                  src={category.bannerImage || category.profileImage}
-                  alt={category.name}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              )}
-              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/55 to-black/30" />
-              <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-8 sm:px-6">
-                <nav className="mb-3 flex items-center gap-2 text-sm text-white/80" aria-label="Breadcrumb">
-                  <Link href="/" className="hover:text-white">
-                    Home
-                  </Link>
-                  <span>/</span>
-                  <span className="font-medium text-white">{category.name}</span>
-                </nav>
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">{category.name}</h1>
-                <p className="mt-2 max-w-2xl text-sm text-white/85 sm:text-base">
-                  Trained crews and commercial-grade cleaning for washrooms, kitchens, dining areas and whole outlets.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rc-yellow px-3 py-1 text-xs font-semibold text-gray-900">
-                    <CheckGlyph className="h-3.5 w-3.5" /> {CLEANING_PACKAGE_COUNT} packages
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                    Priced by size
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                    Taxes extra
-                  </span>
-                </div>
-              </div>
-            </section>
+            <CategoryBanner
+              category={category}
+              description="Trained crews and commercial-grade cleaning for washrooms, kitchens, dining areas and whole outlets."
+              price={{
+                amount: CLEANING_FROM_PRICE,
+                note: `${CLEANING_PACKAGE_COUNT} packages · Priced by size · Taxes extra`,
+              }}
+              ctaLabel="See packages"
+              ctaHref="#packages"
+              trust={CLEANING_TRUST}
+              fallbackEmoji="🧼"
+            />
 
-            <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+            <section id="packages" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
               {/* Sub-category tiles: 2 across on phones, 4 on desktop */}
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Sub-categories</h2>
               <p className="mt-1 text-sm text-gray-500 sm:text-base">
@@ -312,6 +326,15 @@ export function CleaningPageV2() {
                         {s.packages.map((p) => (
                           <PackageCard key={p.id} pkg={p} icon={s.key} />
                         ))}
+                        {/* Fills the row's empty slots: sizes not on the list */}
+                        <HelpCard
+                          cardCount={s.packages.length}
+                          columns={{ sm: 2, lg: 3, xl: 4 }}
+                          title="Need a different size?"
+                          text="Send us your outlet's size and we'll quote it."
+                          whatsappText={`Hi, I need a deep cleaning quote for ${s.name.toLowerCase()} on RestoCare.`}
+                          gapsOnly
+                        />
                       </div>
                       {s.note ? <p className="m-0 mt-4 text-sm text-gray-500">{s.note}</p> : null}
                     </section>
@@ -319,6 +342,8 @@ export function CleaningPageV2() {
                 </div>
               )}
             </section>
+
+            <FaqSection intro="Everything about booking a deep clean." faqs={CLEANING_FAQS} />
           </>
         )}
       </main>

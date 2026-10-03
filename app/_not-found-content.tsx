@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
+import { SHOW_PRODUCTS } from "@/src/lib/features";
 
 export interface CategoryLink {
   name: string;
@@ -80,15 +81,17 @@ export function NotFoundContent({ categoryLinks }: NotFoundContentProps) {
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link
-                  href="/products"
-                  className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-white hover:text-gray-900 hover:shadow-sm"
-                >
-                  Restaurant Cleaning Chemicals &amp; Supplies
-                  <ArrowRightIcon className="h-4 w-4 text-gray-400" />
-                </Link>
-              </li>
+              {SHOW_PRODUCTS ? (
+                <li>
+                  <Link
+                    href="/products"
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-white hover:text-gray-900 hover:shadow-sm"
+                  >
+                    Restaurant Cleaning Chemicals &amp; Supplies
+                    <ArrowRightIcon className="h-4 w-4 text-gray-400" />
+                  </Link>
+                </li>
+              ) : null}
               <li>
                 <Link
                   href="/contact"

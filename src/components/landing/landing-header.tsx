@@ -13,6 +13,7 @@ import { useCurrentLocation } from "@/src/lib/location";
 import { fetchPlaceSuggestions, type PlaceSuggestion } from "@/src/lib/google-maps";
 import { useCart } from "@/src/lib/cart";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
+import { SHOW_PRODUCTS } from "@/src/lib/features";
 import {
   CartIcon,
   ChevronDownIcon,
@@ -32,7 +33,7 @@ const NAV_LINKS = [
   // they navigate home and scroll to the section, not to "/current-path#section".
   { label: "Categories", href: "/#categories" },
   { label: "Services", href: "/#services" },
-  { label: "Products", href: "/products" },
+  ...(SHOW_PRODUCTS ? [{ label: "Products", href: "/products" }] : []),
   { label: "Careers", href: "/careers" },
   { label: "About", href: "/about" },
 ];

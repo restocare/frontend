@@ -254,7 +254,7 @@ We may update these Terms from time to time. We'll post the new version on this 
 
 - **WhatsApp / Phone:** +91 99535 32995
 - **Email:** [[CONFIRM: support email address]]
-- **Support hours:** [[CONFIRM: must match the Contact page, e.g. Monday–Saturday, 9:00 AM – 7:00 PM]]
+- **Support hours:** Monday–Saturday, 10:00 AM – 6:00 PM
 
 ## 28. General
 

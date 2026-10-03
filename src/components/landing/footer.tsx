@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MailIcon, MapPinIcon, PhoneIcon } from "@/src/components/icons";
+import { SHOW_PRODUCTS } from "@/src/lib/features";
 
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
   // Official WhatsApp glyph (Font Awesome brands path).
@@ -156,7 +157,9 @@ export function Footer() {
             <ul className="space-y-3">
               <li><Link href="/refund-cancellation-policy" className="hover:text-white transition">Refund &amp; Cancellation Policy</Link></li>
               <li><Link href="/terms-and-conditions" className="hover:text-white transition">Terms And Conditions</Link></li>
-              <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
+              {SHOW_PRODUCTS ? (
+                <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
+              ) : null}
               <li><Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link></li>
               <li><Link href="/about" className="hover:text-white transition">About Us</Link></li>
               <li><Link href="/careers" className="hover:text-white transition">Careers</Link></li>
