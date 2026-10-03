@@ -182,9 +182,9 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         {/* Logo + brand name (always visible) */}
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- external CDN logo */}
-          <img src={LOGO_URL} alt="RestoCare" className="h-9 w-auto object-contain" />
-          <span className="hidden text-lg font-semibold tracking-tight text-gray-900 sm:inline">
-            RestoCare
+          <img src={LOGO_URL} alt="Restocare" className="h-9 w-10 rounded-[3px] object-cover" />
+          <span className="hidden font-brand text-[1.35rem] font-bold leading-none tracking-tight text-gray-900 sm:inline">
+            Restocare
           </span>
         </Link>
 
@@ -359,18 +359,18 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-2">
           <motion.button
             aria-label="Cart"
             onClick={openMini}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.9 }}
             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50/60 text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50/60 hover:text-orange-700"
           >
             <CartIcon className="h-5 w-5" />
             {count > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-600 px-1 text-[10px] font-bold leading-none text-white">
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
                 {count > 99 ? "99+" : count}
               </span>
             )}
@@ -383,19 +383,17 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="flex h-10 items-center rounded-full px-1 text-gray-700 transition-colors hover:bg-gray-100"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50/60 text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50/60 hover:text-orange-700"
             >
               {profileImageOf(user) ? (
                 // eslint-disable-next-line @next/next/no-img-element -- external image
                 <img
                   src={profileImageOf(user)!}
                   alt=""
-                  className="h-7 w-7 rounded-full object-cover"
+                  className="h-8 w-8 rounded-full object-cover"
                 />
               ) : (
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-700">
-                  <UserCircleIcon className="h-4.5 w-4.5" />
-                </span>
+                <UserCircleIcon className="h-5 w-5" />
               )}
             </MotionLink>
           ) : (
@@ -405,7 +403,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50/60 text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50/60 hover:text-orange-700"
             >
               <UserCircleIcon className="h-5 w-5" />
             </MotionLink>

@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
@@ -22,7 +23,7 @@ export default function DeleteAccountPage() {
       toast.success(res?.message ?? "Your account was permanently deleted.");
       clearAuth();
       // Hard redirect so no stale in-memory session state survives.
-      window.location.href = "/login";
+      window.location.href = ADMIN_LOGIN_PATH;
     } catch (e) {
       const message =
         (e as { response?: { data?: { message?: string } } })?.response?.data

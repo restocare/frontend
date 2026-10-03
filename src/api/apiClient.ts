@@ -1,3 +1,4 @@
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 /**
  * Low-level HTTP client used by every API call in the app.
  *
@@ -119,8 +120,8 @@ async function refreshAccessToken(): Promise<string | null> {
 /** Refresh failed irrecoverably — clear auth and bounce to login (once). */
 function forceLogout(): void {
   clearAuth();
-  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.href = "/login";
+  if (typeof window !== "undefined" && window.location.pathname !== ADMIN_LOGIN_PATH) {
+    window.location.href = ADMIN_LOGIN_PATH;
   }
 }
 

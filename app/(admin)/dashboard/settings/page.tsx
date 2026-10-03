@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -33,7 +34,7 @@ export default function SettingsPage() {
       void logout.finally(() => {
         clearSession();
         // Brief pause so the success message is visible before redirecting.
-        setTimeout(() => router.replace("/login"), 1200);
+        setTimeout(() => router.replace(ADMIN_LOGIN_PATH), 1200);
       });
     },
     onError: (e) => {
