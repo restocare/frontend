@@ -5,14 +5,19 @@ import { categoryHref } from "@/lib/category-slugs";
 
 const SITE_URL = "https://www.restocare.in";
 
+// Set at build time in next.config.ts (lib/legal-pages.ts).
+const PUBLISHED_LEGAL_PATHS = (process.env.PUBLISHED_LEGAL_PATHS ?? "")
+  .split(",")
+  .filter(Boolean);
+
 const STATIC_PATHS = [
   "",
   "/about",
   ...(SHOW_PRODUCTS ? ["/products"] : []),
   "/careers",
   "/privacy-policy",
-  "/terms-and-conditions",
-  "/refund-cancellation-policy",
+  // Only legal pages with no [[CONFIRM]] markers left — the rest 404.
+  ...PUBLISHED_LEGAL_PATHS,
 ];
 
 // Re-checked hourly so a category flip from "coming soon" to published
