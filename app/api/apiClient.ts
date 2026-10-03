@@ -1,3 +1,4 @@
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 
@@ -134,12 +135,12 @@ apiClient.interceptors.response.use(
 
       const onLoginPage =
         typeof window !== "undefined" &&
-        window.location.pathname.startsWith("/login");
+        window.location.pathname.startsWith(ADMIN_LOGIN_PATH);
 
       if (!onLoginPage) {
         useAuthStore.getState().clearAuth();
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          window.location.href = ADMIN_LOGIN_PATH;
         }
       }
     }

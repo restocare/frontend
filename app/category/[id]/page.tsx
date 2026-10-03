@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -327,8 +327,16 @@ function ServiceCard({
   fallbackEmoji: string;
   useSlots: boolean;
 }) {
-  const { requestAdd } = useCart();
+  const { requestAdd, isMutating } = useCart();
   const router = useRouter();
+  // Instant-add feedback: the button shows a spinner from the click until the
+  // cart mutation (tracked via isMutating) has finished.
+  const [adding, setAdding] = useState(false);
+  const wasMutating = useRef(false);
+  useEffect(() => {
+    if (wasMutating.current && !isMutating) setAdding(false);
+    wasMutating.current = isMutating;
+  }, [isMutating]);
   const hasImage = Boolean(service.profileImage);
   const hasVariants = service.variants.length > 0;
   const lowestVariant = hasVariants
@@ -375,6 +383,7 @@ function ServiceCard({
       return;
     }
     // Non-slot category, no variants — instant add to cart.
+    setAdding(true);
     requestAdd({
       serviceId: service.serviceId,
       name: service.name,
@@ -474,10 +483,16 @@ function ServiceCard({
           </div>
           <button
             onClick={book}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rc-yellow px-4 py-2 text-sm font-bold text-gray-900 transition hover:brightness-95"
+            disabled={adding}
+            aria-busy={adding}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rc-yellow px-4 py-2 text-sm font-bold text-gray-900 transition hover:brightness-95 disabled:cursor-wait disabled:opacity-80 disabled:hover:brightness-100"
           >
             {hasVariants ? "Select" : useSlots ? "Book" : "Add"}
-            <ArrowRightIcon className="h-4 w-4" />
+            {adding ? (
+              <SpinnerIcon className="h-4 w-4" />
+            ) : (
+              <ArrowRightIcon className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -92,7 +93,7 @@ export default function Header({
       // it, /login still sees a token via getToken() and bounces back in.
       clearSession();
       document.cookie = "accessToken=; path=/; max-age=0; SameSite=Lax";
-      window.location.href = "/login";
+      window.location.href = ADMIN_LOGIN_PATH;
     },
   });
 

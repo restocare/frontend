@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,7 @@ export default function RealEstateShell({
     // action dispatched before initialization" error on first load).
     if (!accessToken) {
       if (seedAuthFromPanelSession()) return; // store updated → effect re-runs
-      const id = setTimeout(() => router.replace("/login"), 0);
+      const id = setTimeout(() => router.replace(ADMIN_LOGIN_PATH), 0);
       return () => clearTimeout(id);
     }
 
