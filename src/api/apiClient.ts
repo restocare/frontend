@@ -138,15 +138,35 @@ export class ApiError extends Error {
   }
 }
 
-/** The backend wraps some responses as { status, message, statusCode, data }. */
-function extractMessage(body: unknown, fallback: string): string {
+/**
+ * The message to show for a failed response. The backend wraps errors as
+ * { message, statusCode, error }; a validation failure lists every problem,
+ * so all of them are joined. A proxy in front of the API (nginx) answers some
+ * failures with an HTML page, which gets a plain description by status.
+ */
+function extractMessage(body: unknown, fallback: string, status?: number): string {
   if (body && typeof body === "object") {
     const record = body as Record<string, unknown>;
     const message = record.message;
-    if (typeof message === "string") return message;
-    if (Array.isArray(message) && message.length > 0) return String(message[0]);
+    if (typeof message === "string" && message) return message;
+    if (Array.isArray(message) && message.length > 0) {
+      return message.map((m) => (typeof m === "string" ? m : JSON.stringify(m))).join("; ");
+    }
+  }
+  if (status === 413) return "The file is too large for the server. Use a smaller file.";
+  if (status === 502 || status === 503 || status === 504) {
+    return "The server is not responding right now. Please try again in a minute.";
   }
   return fallback;
+}
+
+function parseBody(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 /* ------------------------------- request --------------------------------- */
@@ -220,7 +240,7 @@ async function request<T>(
 
   if (!response.ok) {
     throw new ApiError(
-      extractMessage(parsed, response.statusText || "Request failed"),
+      extractMessage(parsed, response.statusText || "Request failed", response.status),
       response.status,
       parsed,
     );
@@ -237,6 +257,7 @@ export async function uploadFile<T>(
   path: string,
   formData: FormData,
   method: "POST" | "PATCH" | "PUT" = "POST",
+  isRetry = false,
 ): Promise<T> {
   const token = getToken();
   let response: Response;
@@ -247,32 +268,55 @@ export async function uploadFile<T>(
       body: formData,
     });
   } catch {
-    throw new ApiError("Unable to reach the server. Please try again.", 0);
+    throw new ApiError(
+      "Unable to reach the server. Please check your connection and try again.",
+      0,
+    );
   }
-
-  const text = await response.text();
-  let parsed: unknown = undefined;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
-    }
+  // Same silent refresh as JSON requests, so an expired session doesn't fail
+  // an upload the admin spent time preparing. FormData can be sent again.
+  if (response.status === 401 && token && !isRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) return uploadFile<T>(path, formData, method, true);
+    forceLogout();
   }
+  const parsed = parseBody(await response.text());
   if (!response.ok) {
-    throw new ApiError(extractMessage(parsed, "Upload failed"), response.status, parsed);
+    throw new ApiError(
+      extractMessage(parsed, "Upload failed", response.status),
+      response.status,
+      parsed,
+    );
   }
   return parsed as T;
 }
 
 /** Download a binary response (e.g. an .xlsx template) as a Blob. */
-export async function downloadFile(path: string): Promise<Blob> {
+export async function downloadFile(path: string, isRetry = false): Promise<Blob> {
   const token = getToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  } catch {
+    throw new ApiError(
+      "Unable to reach the server. Please check your connection and try again.",
+      0,
+    );
+  }
+  if (response.status === 401 && token && !isRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) return downloadFile(path, true);
+    forceLogout();
+  }
   if (!response.ok) {
-    throw new ApiError("Download failed", response.status);
+    const parsed = parseBody(await response.text());
+    throw new ApiError(
+      extractMessage(parsed, "Download failed", response.status),
+      response.status,
+      parsed,
+    );
   }
   return response.blob();
 }

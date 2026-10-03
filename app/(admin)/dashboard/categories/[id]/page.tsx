@@ -5,19 +5,25 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  categoryApi,
   categoryTreeApi,
   queryKeys,
   serviceApi,
   type CatalogService,
+  type CategoryTreeGroup,
   type ImportResult,
+  type ServiceListParams,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { CategoryForm } from "@/src/components/dashboard/category-form";
 import { ServiceForm } from "@/src/components/dashboard/service-form";
 import { VariantsModal } from "@/src/components/dashboard/variants-modal";
+import { SubcategoryForm } from "@/src/components/dashboard/subcategory-form";
+import { ImportPreviewModal } from "@/src/components/dashboard/import-preview-modal";
 import {
   BagIcon,
   ChartIcon,
+  ChevronDownIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
@@ -26,6 +32,26 @@ import {
   TrashIcon,
 } from "@/src/components/icons";
 
+type Toast = { text: string; tone: "success" | "error" };
+/** Which part of the catalog the table shows. */
+type Scope = "all" | "direct" | number;
+
+function messageOf(error: unknown, fallback: string): string {
+  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  // Give the browser a beat to start the download before revoking.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
 export default function CategoryProfilePage() {
   const params = useParams<{ id: string }>();
   const categoryId = Number(params.id);
@@ -33,18 +59,23 @@ export default function CategoryProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearchState] = useState("");
+  const [scope, setScopeState] = useState<Scope>("all");
   const [page, setPage] = useState(1);
   // Rows per page — the admin picks; 10 keeps big categories scannable.
   // ALL_ROWS asks for everything in one page: a 126-service category capped at
   // 50 a page read as "only 50 services" to the people counting them.
   const ALL_ROWS = 1000;
   const [pageSize, setPageSizeState] = useState(10);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
-  // A new search or page size starts from the first page — page 3 of the old
-  // results would often not exist under the new filter.
+  // A new search, scope or page size starts from the first page — page 3 of
+  // the old results would often not exist under the new filter.
   const setSearch = (v: string) => {
     setSearchState(v);
+    setPage(1);
+  };
+  const setScope = (v: Scope) => {
+    setScopeState(v);
     setPage(1);
   };
   const setPageSize = (n: number) => {
@@ -52,17 +83,23 @@ export default function CategoryProfilePage() {
     setPage(1);
   };
 
-  // Auto-dismiss the toast after a short delay.
+  // Auto-dismiss the toast; errors stay up longer so they can be read.
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
+    const t = setTimeout(() => setToast(null), toast.tone === "error" ? 8000 : 2500);
     return () => clearTimeout(t);
   }, [toast]);
+  const ok = (text: string) => setToast({ text, tone: "success" });
+  const fail = (text: string) => setToast({ text, tone: "error" });
+
   const [editCategory, setEditCategory] = useState(false);
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<CatalogService | null>(null);
   const [variantsService, setVariantsService] = useState<CatalogService | null>(null);
-  const [importMsg, setImportMsg] = useState<ImportResult | string | null>(null);
+  const [subForm, setSubForm] = useState<{ group: CategoryTreeGroup | null } | null>(null);
+  const [importState, setImportState] = useState<{ file: File; result: ImportResult } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<"template" | "export" | null>(null);
 
   // Category header info comes from the tree (top-level categories).
   const treeQuery = useQuery({
@@ -70,10 +107,17 @@ export default function CategoryProfilePage() {
     queryFn: () => categoryTreeApi.tree(),
   });
   const category = treeQuery.data?.find((c) => c.categoryId === categoryId) ?? null;
+  const groups = category?.groups ?? [];
 
   // Server-side pagination — the backend's silent 50-row default used to hide
   // everything past the first 50 services of large categories.
-  const serviceParams = { categoryId, search: search.trim() || undefined, page, limit: pageSize };
+  const serviceParams: ServiceListParams = {
+    categoryId: typeof scope === "number" ? scope : categoryId,
+    includeSubcategories: scope === "all" || undefined,
+    search: search.trim() || undefined,
+    page,
+    limit: pageSize,
+  };
   const servicesQuery = useQuery({
     queryKey: queryKeys.services(serviceParams),
     queryFn: () => serviceApi.list(serviceParams),
@@ -81,12 +125,18 @@ export default function CategoryProfilePage() {
     placeholderData: keepPreviousData,
   });
 
+  const refreshCatalog = () => {
+    queryClient.invalidateQueries({ queryKey: ["services"] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
+  };
+
   const deleteService = useMutation({
-    mutationFn: (id: number) => serviceApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["services"] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
+    mutationFn: (s: CatalogService) => serviceApi.remove(s.serviceId).then(() => s),
+    onSuccess: (s) => {
+      ok(`"${s.name}" deleted`);
+      refreshCatalog();
     },
+    onError: (e) => fail(messageOf(e, "Couldn't delete the service.")),
   });
 
   // Toggle whether a service is featured — featured services are the ones shown
@@ -95,46 +145,87 @@ export default function CategoryProfilePage() {
     mutationFn: (s: CatalogService) =>
       serviceApi.update(s.serviceId, { isFeatured: !s.isFeatured }),
     onSuccess: (_data, s) => {
-      setToast(
+      ok(
         s.isFeatured
           ? `"${s.name}" removed from Popular services`
           : `"${s.name}" successfully added to Popular services`,
       );
-      queryClient.invalidateQueries({ queryKey: ["services"] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
+      refreshCatalog();
     },
-    onError: () => setToast("Couldn't update. Please try again."),
+    onError: (e) => fail(messageOf(e, "Couldn't update. Please try again.")),
   });
 
-  const importMutation = useMutation({
+  const deleteGroup = useMutation({
+    mutationFn: (g: CategoryTreeGroup) => categoryApi.remove(g.groupId).then(() => g),
+    onSuccess: (g) => {
+      ok(`Sub-category "${g.name}" deleted`);
+      if (scope === g.groupId) setScope("all");
+      refreshCatalog();
+    },
+    onError: (e) => fail(messageOf(e, "Couldn't delete the sub-category.")),
+  });
+
+  const reorderGroups = useMutation({
+    mutationFn: (ordered: CategoryTreeGroup[]) => categoryApi.reorder(ordered.map((g) => g.groupId)),
+    onSuccess: () => {
+      ok("Order saved");
+      refreshCatalog();
+    },
+    onError: (e) => fail(messageOf(e, "Couldn't save the order.")),
+  });
+
+  const togglePublished = useMutation({
+    mutationFn: (g: CategoryTreeGroup) => categoryApi.setPublished(g.groupId, !(g.isPublished ?? true)),
+    onSuccess: (_d, g) => {
+      ok(`"${g.name}" ${(g.isPublished ?? true) ? "set to Coming soon" : "published"}`);
+      refreshCatalog();
+    },
+    onError: (e) => fail(messageOf(e, "Couldn't change the status.")),
+  });
+
+  // Import is two calls: a dry run for the preview, then the real one.
+  const previewImport = useMutation({
+    mutationFn: (file: File) => serviceApi.import(file, { categoryId, dryRun: true }),
+    onSuccess: (result, file) => {
+      setImportError(null);
+      setImportState({ file, result });
+    },
+    onError: (e) => fail(`Import preview failed: ${messageOf(e, "unknown error")}`),
+  });
+  const runImport = useMutation({
     mutationFn: (file: File) => serviceApi.import(file, { categoryId }),
-    onSuccess: (result) => {
-      setImportMsg(result);
-      queryClient.invalidateQueries({ queryKey: ["services"] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
+    onSuccess: (result, file) => {
+      setImportError(null);
+      setImportState({ file, result });
+      refreshCatalog();
     },
-    onError: (err) => setImportMsg(err instanceof ApiError ? err.message : "Import failed"),
+    onError: (e) => setImportError(messageOf(e, "Import failed.")),
   });
-
-  const stats = servicesQuery.data?.stats;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImportMsg(null);
-      importMutation.mutate(file);
-    }
     e.target.value = "";
+    if (!file) return;
+    if (!/\.xlsx$/i.test(file.name)) {
+      fail("Choose an .xlsx file (Excel Workbook). Older .xls and .csv files aren't supported.");
+      return;
+    }
+    previewImport.mutate(file);
   };
 
-  const handleDownloadTemplate = async () => {
-    const blob = await serviceApi.downloadTemplate();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "services-template.xlsx";
-    a.click();
-    URL.revokeObjectURL(url);
+  const download = async (kind: "template" | "export") => {
+    setDownloading(kind);
+    try {
+      if (kind === "template") {
+        saveBlob(await serviceApi.downloadTemplate(), "catalog-template.xlsx");
+      } else {
+        saveBlob(await serviceApi.exportCatalog(categoryId), `catalog-${slug(category?.name ?? String(categoryId))}.xlsx`);
+      }
+    } catch (e) {
+      fail(`${kind === "template" ? "Template" : "Export"} download failed: ${messageOf(e, "unknown error")}`);
+    } finally {
+      setDownloading(null);
+    }
   };
 
   const openCreateService = () => {
@@ -144,6 +235,14 @@ export default function CategoryProfilePage() {
   const openEditService = (s: CatalogService) => {
     setEditingService(s);
     setServiceFormOpen(true);
+  };
+
+  const moveGroup = (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (target < 0 || target >= groups.length) return;
+    const next = [...groups];
+    [next[index], next[target]] = [next[target], next[index]];
+    reorderGroups.mutate(next);
   };
 
   if (treeQuery.isLoading) {
@@ -157,30 +256,55 @@ export default function CategoryProfilePage() {
   if (treeQuery.isError || !category) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center">
-        <p className="text-muted-foreground">Category not found.</p>
-        <Link
-          href="/dashboard/categories"
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-        >
-          Back to categories
-        </Link>
+        <p className="text-muted-foreground">
+          {treeQuery.isError
+            ? `Couldn't load the category: ${messageOf(treeQuery.error, "unknown error")}`
+            : "Category not found."}
+        </p>
+        <div className="flex gap-2">
+          {treeQuery.isError ? (
+            <button
+              onClick={() => treeQuery.refetch()}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground"
+            >
+              Try again
+            </button>
+          ) : null}
+          <Link
+            href="/dashboard/categories"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Back to categories
+          </Link>
+        </div>
       </div>
     );
   }
 
+  const stats = servicesQuery.data?.stats;
   const services = servicesQuery.data?.services ?? [];
   const pagination = servicesQuery.data?.pagination;
   const totalPages = pagination?.totalPages ?? 1;
   const shownFrom = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
   const shownTo = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
+  const scopeGroup = typeof scope === "number" ? groups.find((g) => g.groupId === scope) : undefined;
+  const nextGroupOrder = groups.reduce((max, g) => Math.max(max, (g.sortOrder ?? 0) + 1), 0);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-foreground px-4 py-3 text-sm font-medium text-background shadow-lg">
-          <span className="text-success">✓</span>
-          {toast}
+        <div
+          role={toast.tone === "error" ? "alert" : "status"}
+          className={`fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${
+            toast.tone === "error" ? "bg-danger text-white" : "bg-foreground text-background"
+          }`}
+        >
+          <span className={toast.tone === "error" ? "" : "text-success"}>{toast.tone === "error" ? "!" : "✓"}</span>
+          <span className="min-w-0 flex-1">{toast.text}</span>
+          <button onClick={() => setToast(null)} aria-label="Dismiss" className="opacity-70 hover:opacity-100">
+            ×
+          </button>
         </div>
       )}
 
@@ -228,10 +352,116 @@ export default function CategoryProfilePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <ProfileStat icon={<StoreIcon className="h-5 w-5" />} label="Sub-categories" value={groups.length} />
         <ProfileStat icon={<BagIcon className="h-5 w-5" />} label="Total Services" value={stats?.totalServices} />
         <ProfileStat icon={<BagIcon className="h-5 w-5" />} label="Published" value={stats?.publishedServices} />
         <ProfileStat icon={<ChartIcon className="h-5 w-5" />} label="Featured" value={stats?.featuredServices} />
-        <ProfileStat icon={<StoreIcon className="h-5 w-5" />} label="New" value={stats?.newServices} />
+      </div>
+
+      {/* Sub-categories */}
+      <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Sub-categories</h3>
+            <p className="text-xs text-muted-foreground">
+              The tiles and sections on the category page, in this order.
+            </p>
+          </div>
+          <button
+            onClick={() => setSubForm({ group: null })}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add sub-category
+          </button>
+        </div>
+        {groups.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+            No sub-categories. Services sit directly in {category.name}. Add sub-categories here or with
+            the Subcategories sheet of an Excel import.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {groups.map((g, i) => {
+              const published = g.isPublished ?? true;
+              return (
+                <li key={g.groupId} className="flex gap-3 rounded-xl border border-border p-3">
+                  {g.profileImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- external category image
+                    <img src={g.profileImage} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent text-base font-semibold text-accent-foreground">
+                      {g.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <button
+                      onClick={() => setScope(g.groupId)}
+                      className="block max-w-full truncate text-left text-sm font-semibold text-foreground hover:underline"
+                      title="Show its services"
+                    >
+                      {g.name}
+                    </button>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {g.subtitle || g.title || "No subtitle"}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">{g.services.length} services</span>
+                      <button
+                        onClick={() => togglePublished.mutate(g)}
+                        disabled={togglePublished.isPending}
+                        className={`rounded-full px-2 py-0.5 font-medium ${
+                          published ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                        }`}
+                        title="Toggle Published / Coming soon"
+                      >
+                        {published ? "Published" : "Coming soon"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end justify-between">
+                    <div className="flex">
+                      <SmallButton label="Move up" disabled={i === 0 || reorderGroups.isPending} onClick={() => moveGroup(i, -1)}>
+                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
+                      </SmallButton>
+                      <SmallButton
+                        label="Move down"
+                        disabled={i === groups.length - 1 || reorderGroups.isPending}
+                        onClick={() => moveGroup(i, 1)}
+                      >
+                        <ChevronDownIcon className="h-4 w-4" />
+                      </SmallButton>
+                    </div>
+                    <div className="flex">
+                      <SmallButton label="Edit" onClick={() => setSubForm({ group: g })}>
+                        <PencilIcon className="h-4 w-4" />
+                      </SmallButton>
+                      <SmallButton
+                        label="Delete"
+                        danger
+                        disabled={deleteGroup.isPending}
+                        onClick={() => {
+                          const n = g.services.length;
+                          if (
+                            confirm(
+                              n
+                                ? `Delete "${g.name}" and its ${n} service${n === 1 ? "" : "s"}? This can't be undone.`
+                                : `Delete "${g.name}"?`,
+                            )
+                          ) {
+                            deleteGroup.mutate(g);
+                          }
+                        }}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </SmallButton>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Catalog */}
@@ -248,30 +478,56 @@ export default function CategoryProfilePage() {
                 className="w-48 rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </div>
-            <button
-              onClick={handleDownloadTemplate}
-              className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
+            <select
+              value={String(scope)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setScope(v === "all" || v === "direct" ? v : Number(v));
+              }}
+              aria-label="Which services to show"
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
             >
+              <option value="all">All services</option>
+              <option value="direct">Not in a sub-category</option>
+              {groups.map((g) => (
+                <option key={g.groupId} value={g.groupId}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => download("template")}
+              disabled={downloading !== null}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+              title="Download an empty workbook with examples and instructions"
+            >
+              {downloading === "template" && <SpinnerIcon className="h-4 w-4" />}
               Template
             </button>
             <button
+              onClick={() => download("export")}
+              disabled={downloading !== null}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+              title="Download this category's catalog; edit it and import it back"
+            >
+              {downloading === "export" && <SpinnerIcon className="h-4 w-4" />}
+              Export
+            </button>
+            <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={importMutation.isPending}
+              disabled={previewImport.isPending}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
             >
-              {importMutation.isPending ? (
-                <SpinnerIcon className="h-4 w-4" />
-              ) : (
-                <PlusIcon className="h-4 w-4" />
-              )}
+              {previewImport.isPending ? <SpinnerIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
               Import Excel
             </button>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={handleFile}
               className="hidden"
+              aria-label="Excel file to import"
             />
             <button
               onClick={openCreateService}
@@ -283,48 +539,38 @@ export default function CategoryProfilePage() {
           </div>
         </div>
 
-        {/* Import result banner */}
-        {importMsg && (
-          <div
-            className={`rounded-lg border px-4 py-2.5 text-sm ${
-              typeof importMsg === "string"
-                ? "border-danger/30 bg-danger/10 text-danger"
-                : "border-success/30 bg-success/10 text-success"
-            }`}
-          >
-            {typeof importMsg === "string" ? (
-              importMsg
-            ) : (
-              <>
-                {importMsg.message}
-                {importMsg.errors.length > 0 && (
-                  <ul className="mt-1 list-disc pl-5 text-xs text-danger">
-                    {importMsg.errors.slice(0, 5).map((e, i) => (
-                      <li key={i}>
-                        Row {e.row}: {e.message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
         {/* Catalog table */}
         {servicesQuery.isLoading ? (
           <div className="flex h-40 items-center justify-center text-muted-foreground">
             <SpinnerIcon className="h-6 w-6" />
           </div>
+        ) : servicesQuery.isError ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-sm">
+            <p className="text-danger">
+              Couldn&apos;t load the services: {messageOf(servicesQuery.error, "unknown error")}
+            </p>
+            <button
+              onClick={() => servicesQuery.refetch()}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground"
+            >
+              Try again
+            </button>
+          </div>
         ) : services.length === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center gap-3 text-center">
             <BagIcon className="h-9 w-9 text-muted-foreground" />
-            <p className="text-muted-foreground">No services yet.</p>
+            <p className="text-muted-foreground">
+              {search.trim()
+                ? `No services match "${search.trim()}".`
+                : scopeGroup
+                  ? `No services in ${scopeGroup.name} yet.`
+                  : "No services yet."}
+            </p>
             <button
               onClick={openCreateService}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
             >
-              Add first service
+              Add a service
             </button>
           </div>
         ) : (
@@ -333,7 +579,7 @@ export default function CategoryProfilePage() {
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
+                  <th className="px-4 py-3 font-medium">Sub-category</th>
                   <th className="px-4 py-3 font-medium">Price</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Featured</th>
@@ -347,12 +593,31 @@ export default function CategoryProfilePage() {
                     <td className="px-4 py-3 font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <ServiceAvatar service={s} />
-                        <span>{s.name}</span>
+                        <div className="min-w-0">
+                          <span className="block">{s.name}</span>
+                          {s.subtitle ? (
+                            <span className="block text-xs font-normal text-muted-foreground">{s.subtitle}</span>
+                          ) : null}
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{s.category?.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-foreground">
-                      {s.basePrice != null ? s.basePrice.toFixed(2) : "—"}
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {s.category?.parentId ? s.category.name : "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-foreground">
+                      {s.basePrice != null ? (
+                        <>
+                          {s.isStartingPrice ? <span className="mr-1 text-xs text-muted-foreground">from</span> : null}
+                          {s.basePrice.toFixed(2)}
+                          {s.originalPrice != null && s.originalPrice > s.basePrice ? (
+                            <span className="ml-1.5 text-xs text-muted-foreground line-through">
+                              {s.originalPrice.toFixed(2)}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -419,11 +684,11 @@ export default function CategoryProfilePage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm(`Delete service "${s.name}"?`))
-                              deleteService.mutate(s.serviceId);
+                            if (confirm(`Delete service "${s.name}"?`)) deleteService.mutate(s);
                           }}
+                          disabled={deleteService.isPending}
                           aria-label="Delete service"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -483,24 +748,80 @@ export default function CategoryProfilePage() {
       {serviceFormOpen && (
         <ServiceForm
           defaultCategoryId={categoryId}
+          defaultSubcategoryId={typeof scope === "number" ? scope : null}
           service={editingService}
           onClose={() => setServiceFormOpen(false)}
+          onSaved={ok}
         />
       )}
       {variantsService && (
         <VariantsModal service={variantsService} onClose={() => setVariantsService(null)} />
       )}
+      {subForm && (
+        <SubcategoryForm
+          parent={category}
+          group={subForm.group}
+          nextSortOrder={nextGroupOrder}
+          onClose={() => setSubForm(null)}
+          onSaved={ok}
+        />
+      )}
+      {importState && (
+        <ImportPreviewModal
+          fileName={importState.file.name}
+          result={importState.result}
+          importing={runImport.isPending}
+          error={importError}
+          onConfirm={() => runImport.mutate(importState.file)}
+          onClose={() => {
+            if (importState.result.dryRun === false) ok(importState.result.message);
+            setImportState(null);
+            setImportError(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
+function SmallButton({
+  label,
+  onClick,
+  disabled,
+  danger,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition disabled:opacity-30 ${
+        danger ? "hover:bg-danger/10 hover:text-danger" : "hover:bg-accent hover:text-primary"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function ServiceAvatar({ service }: { service: CatalogService }) {
-  if (service.profileImage) {
+  const [broken, setBroken] = useState(false);
+  if (service.profileImage && !broken) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- service images are external URLs
       <img
         src={service.profileImage}
         alt={service.name}
+        onError={() => setBroken(true)}
         className="h-9 w-9 shrink-0 rounded-lg object-cover"
       />
     );

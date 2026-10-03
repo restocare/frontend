@@ -98,3 +98,24 @@ Modified: `src/components/booking-v2/category-page-v2.tsx` (route cleaning
 categories to the new page), `src/components/booking-v2/wizard.tsx`
 (cleaning categories use the window step), `src/lib/booking-v2/draft.ts`
 (a `kind: "hourly" | "cleaning"` on the draft).
+
+## Update 2026-10-03: live catalogue and cart
+
+The static packages are gone (`cleaning-packages.ts` deleted). The page now
+reads the catalogue API: sub-categories (`groups`, with optional `title`,
+`subtitle`, `note`, image, order) become the tiles and sections; their
+services are the packages (optional `subtitle`, `originalPrice` shown struck
+through, `isStartingPrice` for "from", `highlights`, `inclusions`,
+`exclusions`). Admins manage it all in Admin → Categories → (category), or
+in bulk with the Excel import (preview first, then confirm). The real data
+is in `backend/scripts/catalog/deep-cleaning-catalog.xlsx`.
+
+The layout follows Urban Company: tiles on the left, packages in the middle
+with Add / quantity steppers, an options sheet for services with variants,
+a details sheet, and a cart on the right (a bottom bar on phones). Booking is
+a cart, not one "Book" per package: `/booking/cart?category=ID` takes one
+date, one arrival window (morning 8–12, afternoon 12–4, evening 4–8), one
+address and one payment, and creates one booking per cart line. Quantity is
+per line and rides in the line's amount. The cart lives in localStorage per
+category (`src/lib/booking-v2/cleaning-cart.ts`) and is checked against the
+live catalogue when the page or checkout opens.
