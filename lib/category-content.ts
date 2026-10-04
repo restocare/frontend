@@ -24,7 +24,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
     faqs: [
       {
         q: "How fast can I get a chef?",
-        a: "Assignment: Same day, arrival: Same day.",
+        a: "Same day. We assign a chef on the day you book, and they arrive the same day.",
       },
       {
         q: "Which cuisines can your chefs cook?",
@@ -32,7 +32,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
       },
       {
         q: "Can I book a chef for just one shift?",
-        a: "5 hours, the shortest shift in the catalogue.",
+        a: "Yes. The shortest shift is 5 hours.",
       },
       {
         q: "Do I need to provide ingredients and equipment?",
@@ -44,7 +44,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
       },
       {
         q: "How do I pay, and do I get a GST invoice?",
-        a: "UPI, cards and net banking.",
+        a: "You can pay by UPI, cards or net banking. Yes, you get a GST invoice.",
       },
     ],
   },
@@ -55,19 +55,15 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
     faqs: [
       {
         q: "How quickly can I get staff?",
-        a: "Assignment: 2 hour, arrival: Same shift.",
+        a: "We assign staff within 2 hours, and they arrive the same shift.",
       },
       {
         q: "Can I book several helpers or waiters at once?",
-        a: "Yes. You can book as many as you need. There is no fixed limit.",
+        a: "Yes. You can book several at once, depending on availability.",
       },
       {
         q: "What does each role do?",
         a: "Kitchen Helper: Supports the kitchen team with prep, washing up and keeping the kitchen clean. Waiter: Serves guests, takes orders and clears tables. Housekeeping / Utility: Keeps the dining and utility areas clean and tidy.",
-      },
-      {
-        q: "Do they wear a uniform?",
-        a: "provided by the restaurant.",
       },
       {
         q: "Can I book for an event or party, not only a restaurant?",
@@ -75,7 +71,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
       },
       {
         q: "How do I pay, and do I get a GST invoice?",
-        a: "UPI, cards and net banking.",
+        a: "You can pay by UPI, cards or net banking. Yes, you get a GST invoice.",
       },
     ],
   },
@@ -86,7 +82,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
     faqs: [
       {
         q: "How do I pay, and do I get a GST invoice?",
-        a: "UPI, cards and net banking.",
+        a: "You can pay by UPI, cards or net banking. Yes, you get a GST invoice.",
       },
     ],
   },
