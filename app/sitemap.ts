@@ -10,6 +10,7 @@ const PATHS = [
   "/about",
   "/contact",
   ...INDEXABLE_CATEGORY_SLUGS.map((slug) => `/category/${slug}`),
+  "/guides/restaurant-staffing-prices",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
