@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -45,6 +45,12 @@ import { useBookingFlow } from "@/src/lib/booking-flow";
 import { useDeepCleaningFlow } from "@/src/lib/deep-cleaning-flow";
 import { CategoryPageV2 } from "@/src/components/booking-v2/category-page-v2";
 import { categoryIdForSlug } from "@/lib/category-slugs";
+import {
+  CategoryContentProvider,
+  CategoryFaqSlot,
+  CategoryIntroSlot,
+  useCategoryHeading,
+} from "@/src/components/booking-v2/category-content-slots";
 
 /** A service flattened out of the category → group → service tree. */
 interface FlatService extends CategoryTreeService {
@@ -115,19 +121,29 @@ function formatPrice(price: number | null): string {
   return `₹${price.toLocaleString("en-IN")}`;
 }
 
-export function CategoryPageClient() {
+export function CategoryPageClient({
+  heading,
+  intro,
+  faqs,
+}: {
+  heading?: string;
+  intro?: ReactNode;
+  faqs?: ReactNode;
+}) {
   // Flow 2 (see src/lib/booking-flow.ts) swaps in the hourly booking page for
   // staffing categories; every other category falls back to this page.
   const flow = useBookingFlow();
   const cleaningFlow = useDeepCleaningFlow();
   return (
-    <Suspense fallback={null}>
-      {flow === 2 || cleaningFlow === 2 ? (
-        <CategoryPageV2 fallback={<CategoryPageContent />} />
-      ) : (
-        <CategoryPageContent />
-      )}
-    </Suspense>
+    <CategoryContentProvider heading={heading} intro={intro} faqs={faqs}>
+      <Suspense fallback={null}>
+        {flow === 2 || cleaningFlow === 2 ? (
+          <CategoryPageV2 fallback={<CategoryPageContent />} />
+        ) : (
+          <CategoryPageContent />
+        )}
+      </Suspense>
+    </CategoryContentProvider>
   );
 }
 
@@ -135,6 +151,7 @@ function CategoryPageContent() {
   const params = useParams<{ slug: string }>();
   const categoryId = categoryIdForSlug(params?.slug ?? "");
   const searchParams = useSearchParams();
+  const heading = useCategoryHeading();
 
   // Pre-fill the filter when arriving from a service search (…/category/5?q=Tandoor).
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
@@ -245,7 +262,9 @@ function CategoryPageContent() {
               ctaHref="#services-list"
               trust={DEFAULT_TRUST}
               fallbackEmoji={emojiFor(category.name)}
+              heading={heading}
             />
+            <CategoryIntroSlot />
 
             {/* ===== Services list ===== */}
             <section id="services-list" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -302,6 +321,7 @@ function CategoryPageContent() {
               intro={`Everything about booking ${category.name.toLowerCase()} services.`}
               faqs={ON_DEMAND_FAQS}
             />
+            <CategoryFaqSlot />
           </>
         ) : null}
       </main>

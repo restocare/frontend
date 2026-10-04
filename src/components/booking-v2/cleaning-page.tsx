@@ -36,6 +36,12 @@ import {
 import { BadgeCheckIcon, ClockIcon, SpinnerIcon, WalletIcon } from "@/src/components/icons";
 import { StorefrontShell } from "./shell";
 import { CategoryBanner, type BannerTrustItem } from "./category-banner";
+import {
+  CategoryFaqSlot,
+  CategoryIntroSlot,
+  useCategoryHeading,
+} from "./category-content-slots";
+
 import { CANCEL_FAQ, FaqSection, GST_PERCENT, WHATSAPP_URL, type Faq } from "./category-extras";
 import {
   CartSummary,
@@ -182,6 +188,7 @@ function TileIcon({ section, className }: { section: Pick<Section, "image" | "ic
 
 export function CleaningPageV2() {
   const params = useParams<{ slug: string }>();
+  const heading = useCategoryHeading();
   // page.tsx already 404s unmapped slugs; NaN matches the old Number(params.id) miss.
   const categoryId = categoryIdForSlug(params?.slug ?? "") ?? NaN;
   const router = useRouter();
@@ -389,7 +396,9 @@ export function CleaningPageV2() {
               ctaHref="#packages"
               trust={CLEANING_TRUST}
               fallbackEmoji="🧼"
+              heading={heading}
             />
+            <CategoryIntroSlot />
 
             <div id="packages" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-8 sm:px-6 lg:py-10">
               {notice ? (
@@ -566,6 +575,7 @@ export function CleaningPageV2() {
             </div>
 
             <FaqSection intro="Everything about booking a deep clean." faqs={CLEANING_FAQS} />
+            <CategoryFaqSlot />
 
             {/* Phones: the cart as a bar at the bottom */}
             {itemCount > 0 ? (

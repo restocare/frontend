@@ -33,6 +33,12 @@ import {
 import { ClockGlyph, StorefrontShell } from "./shell";
 import { CleaningPageV2 } from "./cleaning-page";
 import { CategoryBanner, type BannerTrustItem } from "./category-banner";
+import {
+  CategoryFaqSlot,
+  CategoryIntroSlot,
+  useCategoryHeading,
+} from "./category-content-slots";
+
 import { ServiceImage } from "./service-image";
 import {
   BookingSteps,
@@ -108,6 +114,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
   const categoryId = categoryIdForSlug(params?.slug ?? "");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const heading = useCategoryHeading();
 
   // The site header's search box filters this list; ?q= pre-fills it.
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
@@ -211,7 +218,9 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
               ctaHref="#choose"
               trust={HOURLY_TRUST}
               fallbackEmoji={emojiForCategory(category.name)}
+              heading={heading}
             />
+            <CategoryIntroSlot />
 
             <section id="choose" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
               <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -271,6 +280,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
               intro={`Everything about booking a ${categoryNoun(category.name)} by the hour.`}
               faqs={hourlyFaqs(categoryNoun(category.name), minHours)}
             />
+            <CategoryFaqSlot />
           </>
         )}
       </main>

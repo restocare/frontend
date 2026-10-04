@@ -10,7 +10,9 @@ import {
   fetchCategoryTree,
 } from "@/lib/category-tree-server";
 import { categoryJsonLd } from "@/lib/category-json-ld";
+import { categoryContent } from "@/lib/category-content";
 import { CategoryPageClient } from "./category-page-client";
+import { CategoryFaqs, CategoryIntro } from "./category-content-sections";
 
 /**
  * Server boundary so an unmapped slug 404s for real. Calling notFound() from
@@ -40,17 +42,22 @@ export default async function CategoryPage({
   if (tree) queryClient.setQueryData(CATEGORY_TREE_ALL_KEY, tree);
 
   const category = tree?.find((c) => c.categoryId === categoryId);
+  const content = categoryContent(slug);
 
   return (
     <>
       {category && category.isPublished !== false ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug) }}
+          dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs) }}
         />
       ) : null}
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <CategoryPageClient />
+        <CategoryPageClient
+          heading={content?.h1}
+          intro={content ? <CategoryIntro intro={content.intro} /> : undefined}
+          faqs={content?.faqs.length ? <CategoryFaqs faqs={content.faqs} /> : undefined}
+        />
       </HydrationBoundary>
     </>
   );
