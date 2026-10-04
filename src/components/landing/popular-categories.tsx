@@ -99,7 +99,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
                 />
               ))}
             </div>
-          ) : isError ? (
+          ) : isError && categories.length === 0 ? (
             <p className="py-20 text-center text-sm text-gray-500">
               Couldn’t load categories.
             </p>
