@@ -45,7 +45,6 @@ import { loadRazorpayScript, openRazorpay } from "@/src/lib/razorpay";
 import { SpinnerIcon } from "@/src/components/icons";
 import { AddressPicker, hasPin, useAddressBook } from "./address-picker";
 import { AddControl } from "./cleaning-catalog";
-import { WHATSAPP_URL } from "./category-extras";
 import {
   BillRow,
   Card,
@@ -509,7 +508,8 @@ interface Outcome {
   total: number;
   /** Arrival text, captured before the cart is cleared. */
   when: string;
-  paymentId?: string;
+  /** Online payment was chosen but didn't complete: why. */
+  paymentProblem: string | null;
 }
 
 function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDone }: StepCommon) {
@@ -572,7 +572,9 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
 
   const payment = cart.paymentMode;
   const bill = computeCartBill(cart.lines, applied);
-  const couponNeedsPrepay = !!applied?.prepaidOnly && payment === "COD";
+  // Bookings are created "pay after the job" first (payment follows, priced
+  // by the server), and the server refuses an online-only coupon on those.
+  const couponNeedsPrepay = !!applied?.prepaidOnly;
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -587,29 +589,18 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
     }
     if (!payment) return setError("Choose a payment method.");
     if (couponNeedsPrepay) {
-      return setError(`Coupon ${applied?.code} only works with online payment. Pay online, or remove the coupon.`);
+      return setError(
+        `Coupon ${applied?.code} only works when paying online at booking, which the cart doesn't support yet. Remove it to continue.`,
+      );
     }
 
     setPlacing(true);
-    let paymentId: string | undefined;
     const when = whenText(cart);
     try {
       const lines = cart.lines;
-      const payloads = buildCartPayloads(cart, Number(user.id), applied);
-
-      if (payment === "RAZORPAY") {
-        if (!(await loadRazorpayScript())) throw new Error("Could not load the payment gateway. Please try again.");
-        const order = await paymentsApi.createOrder(bill.total, "INR");
-        if (!order?.id || !order?.keyId) throw new Error("Could not start the payment. Please try again.");
-        const signature = await openRazorpay(
-          order,
-          { name: user.name ?? undefined, email: user.email ?? undefined, contact: user.mobile ?? user.phone ?? undefined },
-          `${cart.categoryName}, ${fmtDateLong(cart.date)}`,
-        );
-        const verification = await paymentsApi.verify(signature);
-        if (!verification?.success) throw new Error(verification?.message ?? "Payment could not be verified.");
-        paymentId = signature.razorpay_payment_id;
-      }
+      // Created "pay after the job"; paying online follows, priced by the
+      // server from these bookings, so an unpaid booking never reads as paid.
+      const payloads = buildCartPayloads({ ...cart, paymentMode: "COD" }, Number(user.id), applied);
 
       // One booking per line. Keep going after a failure so one bad line
       // doesn't block the others, and report exactly what happened.
@@ -635,22 +626,41 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
         }
       }
 
-      if (booked.length || payment === "RAZORPAY") {
-        // Online, the whole bill was paid; on COD only booked items are owed.
-        const total = payment === "RAZORPAY" ? bill.total : round2(bookedTotal);
-        onDone({ booked, failed, mode: payment, total, when, paymentId });
-        window.scrollTo(0, 0);
-      }
-      if (!failed.length || payment === "RAZORPAY") {
-        // Done (or paid in full): the cart is spent either way.
-        update({ lines: [], date: null, windowId: null, paymentMode: null });
-      } else {
-        // Leave only what didn't book, so trying again won't double-book.
-        update({ lines: lines.filter((l) => !bookedKeys.has(l.key)) });
-      }
-      if (!booked.length && payment !== "RAZORPAY") {
+      // Leave only what didn't book, so trying again won't double-book.
+      update(
+        failed.length
+          ? { lines: lines.filter((l) => !bookedKeys.has(l.key)) }
+          : { lines: [], date: null, windowId: null, paymentMode: null },
+      );
+      if (!booked.length) {
         setError(`We couldn't place the booking: ${failed.map((f) => `${f.label}: ${f.reason}`).join("; ")}`);
+        return;
       }
+
+      // Pay online for what booked: the server prices the order from those
+      // bookings and re-checks the captured amount before marking them paid.
+      let mode: PaymentMode = "COD";
+      let total = round2(bookedTotal);
+      let paymentProblem: string | null = null;
+      if (payment === "RAZORPAY") {
+        try {
+          if (!(await loadRazorpayScript())) throw new Error("Could not load the payment gateway.");
+          const order = await paymentsApi.createBookingOrder(Number(user.id), booked.map((b) => b.id));
+          if (!order?.id || !order?.keyId) throw new Error("Could not start the payment.");
+          const signature = await openRazorpay(
+            order,
+            { name: user.name ?? undefined, email: user.email ?? undefined, contact: user.mobile ?? user.phone ?? undefined },
+            `${cart.categoryName}, ${fmtDateLong(cart.date)}`,
+          );
+          await paymentsApi.confirmBookingPayment({ ...signature, userId: Number(user.id), bookingIds: order.bookingIds });
+          mode = "RAZORPAY";
+          total = order.payableAmount;
+        } catch (e) {
+          paymentProblem = messageOf(e, "The payment did not go through.");
+        }
+      }
+      onDone({ booked, failed, mode, total, when, paymentProblem });
+      window.scrollTo(0, 0);
     } catch (e) {
       setError(messageOf(e, "Booking failed. Please try again."));
     } finally {
@@ -854,7 +864,6 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
 
 function Done({ outcome, backToCategory }: { outcome: Outcome; backToCategory: () => void }) {
   const partial = outcome.failed.length > 0;
-  const supportText = `Hi, my RestoCare deep cleaning booking needs help.${outcome.paymentId ? ` Payment ${outcome.paymentId}.` : ""} Items: ${outcome.failed.map((f) => f.label).join(", ")}`;
   return (
     <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <Card className="mx-auto max-w-xl p-8 text-center sm:p-10">
@@ -886,27 +895,19 @@ function Done({ outcome, backToCategory }: { outcome: Outcome; backToCategory: (
                 </li>
               ))}
             </ul>
-            <p className="m-0 mt-2 text-gray-700">
-              {outcome.mode === "RAZORPAY"
-                ? `Your payment${outcome.paymentId ? ` (${outcome.paymentId})` : ""} went through. Message us and we'll book these for you or refund them.`
-                : "They're still in your cart: go back and try them again."}
-            </p>
+            <p className="m-0 mt-2 text-gray-700">They&apos;re still in your cart: go back and try them again.</p>
           </div>
+        ) : null}
+        {outcome.paymentProblem ? (
+          <p className="m-0 mt-5 rounded-xl bg-rc-yellow-tint/60 px-4 py-3 text-left text-sm text-gray-800" role="alert">
+            Payment didn&apos;t go through ({outcome.paymentProblem}). Your bookings are confirmed to pay after the job; you
+            can also pay online any time from My orders.
+          </p>
         ) : null}
         <p className="m-0 mt-5 text-[15px] leading-relaxed text-gray-600">
           {outcome.when}. {formatInr(outcome.total)} {outcome.mode === "COD" ? "to pay after the job." : "paid online."}
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          {partial && outcome.mode === "RAZORPAY" ? (
-            <a
-              href={`${WHATSAPP_URL}?text=${encodeURIComponent(supportText)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-12 items-center justify-center rounded-xl bg-gray-900 px-7 text-sm font-bold text-white"
-            >
-              Message support
-            </a>
-          ) : null}
           <Link
             href="/account/orders"
             className="inline-flex h-12 items-center justify-center rounded-xl bg-rc-yellow px-7 text-sm font-bold text-gray-900 transition hover:brightness-95"
@@ -918,7 +919,7 @@ function Done({ outcome, backToCategory }: { outcome: Outcome; backToCategory: (
             onClick={backToCategory}
             className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-200 bg-white px-7 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
           >
-            {partial && outcome.mode === "COD" ? "Back to the cart" : "Book more"}
+            {partial ? "Back to the cart" : "Book more"}
           </button>
         </div>
       </Card>

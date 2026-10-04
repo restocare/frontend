@@ -2835,6 +2835,26 @@ export const paymentsApi = {
   /** POST /v1/payments/verify — verify the Razorpay signature server-side. */
   verify: (payload: VerifyRazorpayPayload) =>
     apiClient.post<VerifyRazorpayResult>("/v1/payments/verify", payload),
+
+  /**
+   * POST /v1/booking/payment/order — a Razorpay order for the customer's OWN
+   * bookings, priced by the server from the bookings themselves (no amount
+   * is sent), so what is charged always matches what is owed.
+   */
+  createBookingOrder: (userId: number, bookingIds: number[]) =>
+    apiClient.post<CreatedRazorpayOrder & { payableAmount: number; bookingIds: number[] }>(
+      "/v1/booking/payment/order",
+      { userId, bookingIds },
+    ),
+
+  /** POST /v1/booking/payment/confirm — checks signature AND captured amount, then marks them paid. */
+  confirmBookingPayment: (
+    payload: VerifyRazorpayPayload & { userId: number; bookingIds: number[] },
+  ) =>
+    apiClient.post<{ success: boolean; message?: string; bookingIds?: number[]; amountPaid?: number }>(
+      "/v1/booking/payment/confirm",
+      payload,
+    ),
 };
 
 /* ==================== Dispatcher: dispatch domain ======================= */
