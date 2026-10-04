@@ -21,6 +21,18 @@ export const CATEGORY_SLUGS: CategorySlugEntry[] = [
   { id: 11, slug: "pest-control", name: "Pest Controll" },
 ];
 
+/**
+ * Phase 1 category pages that are live and indexable — the only category
+ * URLs the sitemap lists. Coming-soon categories (plumber, technician,
+ * pest-control, ac-appliance-repair) stay out and noindex.
+ */
+export const INDEXABLE_CATEGORY_SLUGS = [
+  "chef",
+  "helpers-and-waiters",
+  "deep-cleaning",
+  "electrician",
+] as const;
+
 export function slugForCategoryId(id: number): string | undefined {
   return CATEGORY_SLUGS.find((c) => c.id === id)?.slug;
 }
@@ -29,8 +41,11 @@ export function categoryIdForSlug(slug: string): number | undefined {
   return CATEGORY_SLUGS.find((c) => c.slug === slug)?.id;
 }
 
-/** Falls back to the numeric-id path for a category not yet in the map. */
+/**
+ * Slug URL for a category. A category with no slug row has no public page,
+ * so it falls back to the homepage category list — never /category/<number>.
+ */
 export function categoryHref(id: number): string {
   const slug = slugForCategoryId(id);
-  return `/category/${slug ?? id}`;
+  return slug ? `/category/${slug}` : "/#categories";
 }

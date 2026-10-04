@@ -61,10 +61,9 @@ brief. Per explicit confirmation, the original brief wins on both:
 "ask ops") were confirmed with ops on 2026-10-03:
 
 - `/category/washing` → 308 to `/category/deep-cleaning`.
-- `/category/hire` → 308 to `/` (homepage). "Hire" covers every staffing
-  category — chefs, helpers, waiters, and more planned — so it lands on the
-  full category list rather than any single one. Point it at a dedicated
-  hiring page in `lib/redirects.ts` if one is built later.
+- `/category/hire` → 410. It was first a 308 to `/`, but Google treats a
+  redirect to the homepage as a soft 404, so it is now a hard 410 (changed
+  with the Phase 1 URL lock).
 
 **Electrician** is live in the API as `isPublished: true` (confirmed via
 `GET /v1/catagories`) and already ranks in GSC — this contradicts the
@@ -103,7 +102,7 @@ frontend one. Decision (2026-10-03): keep Electrician published and indexed.
 | https://restocare.in/category/washing?page=3 | C → 308 | `/category/deep-cleaning` | Old platform category slug — see Slug decisions above. |
 | https://restocare.in/category/chef | A, already fixed | — | Already the live slug. |
 | https://restocare.in/category/washing | C → 308 | `/category/deep-cleaning` | Old platform category slug — see Slug decisions above. |
-| https://restocare.in/category/hire | C → 308 | `/` | Old platform slug spanning all staffing categories — see Slug decisions above. |
+| https://restocare.in/category/hire | E → 410 | — | Old catch-all "hire" slug. A 308 to `/` was a soft 404 to Google, so it is now a hard 410. |
 | https://www.restocare.in/privacy | B → 308 | `/privacy-policy` | Old path; page now lives at `/privacy-policy`. |
 | https://www.restocare.in/terms | B → 308 | `/terms-and-conditions` | Old path; page published in commit `ca9d315`. |
 | https://www.restocare.in/refund | B → 308 | `/refund-cancellation-policy` | Old path; page published in commit `ca9d315`. |
