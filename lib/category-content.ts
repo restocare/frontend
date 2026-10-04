@@ -39,6 +39,10 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
         a: "The restaurant provides ingredients and kitchen equipment.",
       },
       {
+        q: "What's the difference between day and night shifts?",
+        a: "Day shift: 8 am to 6 pm. Night shift: 6 pm to 4 am.",
+      },
+      {
         q: "How do I pay, and do I get a GST invoice?",
         a: "UPI, cards and net banking.",
       },
@@ -52,6 +56,10 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
       {
         q: "How quickly can I get staff?",
         a: "Assignment: 2 hour, arrival: Same shift.",
+      },
+      {
+        q: "Can I book several helpers or waiters at once?",
+        a: "Yes. You can book as many as you need. There is no fixed limit.",
       },
       {
         q: "What does each role do?",
