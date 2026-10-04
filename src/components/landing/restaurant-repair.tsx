@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
+import { categoryHref } from "@/lib/category-slugs";
 import { ArrowRightIcon, BoltIcon, StarIcon } from "@/src/components/icons";
 
 /** Next.js Link with framer-motion gesture props. */
@@ -92,7 +93,7 @@ export function RestaurantRepair() {
 
   const bookHref = (categoryName: string): string => {
     const id = categoryIdByName.get(categoryName.trim().toLowerCase());
-    return id != null ? `/category/${id}` : "/#categories";
+    return id != null ? categoryHref(id) : "/#categories";
   };
 
   return (

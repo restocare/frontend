@@ -16,6 +16,7 @@ import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
 import { AddressPicker, hasPin, useAddressBook } from "./address-picker";
 import { BillRow, PrimaryButton, SummaryCard, WizardLayout } from "./shell";
+import { categoryHref } from "@/lib/category-slugs";
 
 export function StepAddress({ draft, update, goTo, leave }: StepProps) {
   const router = useRouter();
@@ -86,7 +87,7 @@ export function StepAddress({ draft, update, goTo, leave }: StepProps) {
       title={`Book a ${draft.serviceName}`}
       crumbs={[
         { label: "Home", href: "/" },
-        { label: draft.categoryName, href: `/category/${draft.categoryId}` },
+        { label: draft.categoryName, href: categoryHref(draft.categoryId) },
         { label: "Date & time", onClick: () => goTo("time") },
         { label: "Address" },
       ]}

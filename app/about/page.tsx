@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AboutShell } from "./_about-shell";
+import { categoryHref } from "@/lib/category-slugs";
 import { AboutContent } from "./_about-content";
 
 export const metadata: Metadata = {
@@ -47,7 +48,7 @@ function findCategoryHref(categories: CategoryNode[], namePart: string): string 
       c.isPublished !== false &&
       c.name.trim().toLowerCase().includes(namePart.toLowerCase()),
   );
-  return match ? `/category/${match.categoryId}` : "/#categories";
+  return match ? categoryHref(match.categoryId) : "/#categories";
 }
 
 export default async function AboutPage() {

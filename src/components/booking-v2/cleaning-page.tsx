@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { categoryIdForSlug } from "@/lib/category-slugs";
 import { useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
@@ -180,8 +181,9 @@ function TileIcon({ section, className }: { section: Pick<Section, "image" | "ic
 }
 
 export function CleaningPageV2() {
-  const params = useParams<{ id: string }>();
-  const categoryId = Number(params?.id);
+  const params = useParams<{ slug: string }>();
+  // page.tsx already 404s unmapped slugs; NaN matches the old Number(params.id) miss.
+  const categoryId = categoryIdForSlug(params?.slug ?? "") ?? NaN;
   const router = useRouter();
   const searchParams = useSearchParams();
 
