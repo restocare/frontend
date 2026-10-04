@@ -47,6 +47,7 @@ export function CategoryBanner({
   ctaHref,
   trust,
   fallbackEmoji,
+  heading,
 }: {
   category: CategoryTreeNode;
   description: string;
@@ -57,6 +58,8 @@ export function CategoryBanner({
   trust: BannerTrustItem[];
   /** Shown in the frame when the category has no banner media at all. */
   fallbackEmoji: string;
+  /** Replaces the category name as the page H1 (the name stays in the breadcrumb). */
+  heading?: string;
 }) {
   const image = category.bannerImage || category.profileImage;
   const reduceMotion = useReducedMotion();
@@ -104,7 +107,7 @@ export function CategoryBanner({
               variants={RISE}
               className="mt-3 text-3xl font-bold tracking-tight text-rc-ink sm:text-5xl xl:text-6xl"
             >
-              {category.name}
+              {heading ?? category.name}
             </motion.h1>
             <motion.p
               variants={RISE}

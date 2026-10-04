@@ -1,4 +1,5 @@
 import type { CategoryTreeNode } from "@/src/api/api";
+import type { CategoryFaq } from "@/lib/category-content";
 
 const SITE = "https://www.restocare.in";
 
@@ -13,7 +14,11 @@ const SITE = "https://www.restocare.in";
  * lowPrice is the same "From" figure the page shows (the cheapest base or
  * variant price), so the markup matches what visitors see.
  */
-export function categoryJsonLd(category: CategoryTreeNode, slug: string): string {
+export function categoryJsonLd(
+  category: CategoryTreeNode,
+  slug: string,
+  faqs: CategoryFaq[] = [],
+): string {
   const services = [
     ...category.services,
     ...category.groups.flatMap((g) => g.services),
@@ -62,6 +67,19 @@ export function categoryJsonLd(category: CategoryTreeNode, slug: string): string
           })),
         },
       },
+      // Only with FAQs, and only the question/answer text shown on the page.
+      ...(faqs.length
+        ? [
+            {
+              "@type": "FAQPage",
+              mainEntity: faqs.map((f) => ({
+                "@type": "Question",
+                name: f.q,
+                acceptedAnswer: { "@type": "Answer", text: f.a },
+              })),
+            },
+          ]
+        : []),
     ],
   };
 
