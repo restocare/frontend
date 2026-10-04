@@ -10,7 +10,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
   queryKeys,
@@ -118,6 +118,9 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.categoryTreeAt(coords),
     queryFn: () => categoryTreeApi.tree(coords),
+    // Keep the server-rendered list on screen while the location-scoped
+    // tree loads, instead of swapping it for a spinner.
+    placeholderData: keepPreviousData,
   });
 
   const category = useMemo<CategoryTreeNode | undefined>(

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
   queryKeys,
@@ -111,6 +111,9 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   const { data } = useQuery({
     queryKey: queryKeys.categoryTreeAt(location.coords),
     queryFn: () => categoryTreeApi.tree(location.coords),
+    // Keep the seeded tree while the location-scoped one loads, so search
+    // never goes empty when a saved location changes the query key.
+    placeholderData: keepPreviousData,
   });
 
   // Build flat, searchable indexes of categories + every service once.
