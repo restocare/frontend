@@ -38,3 +38,9 @@ export function CategoryIntroSlot() {
 export function CategoryFaqSlot() {
   return <>{useContext(SlotsContext).faqs}</>;
 }
+
+/** True when the page has its own category FAQs. The booking page's generic
+ *  "Questions, answered" block is then left out so the page shows one FAQ. */
+export function useHasCategoryFaqs(): boolean {
+  return Boolean(useContext(SlotsContext).faqs);
+}

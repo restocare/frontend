@@ -50,6 +50,7 @@ import {
   CategoryFaqSlot,
   CategoryIntroSlot,
   useCategoryHeading,
+  useHasCategoryFaqs,
 } from "@/src/components/booking-v2/category-content-slots";
 
 /** A service flattened out of the category → group → service tree. */
@@ -152,6 +153,7 @@ function CategoryPageContent() {
   const categoryId = categoryIdForSlug(params?.slug ?? "");
   const searchParams = useSearchParams();
   const heading = useCategoryHeading();
+  const hasCategoryFaqs = useHasCategoryFaqs();
 
   // Pre-fill the filter when arriving from a service search (…/category/5?q=Tandoor).
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
@@ -317,10 +319,13 @@ function CategoryPageContent() {
             </section>
 
             <BookingSteps steps={ON_DEMAND_STEPS} />
-            <FaqSection
-              intro={`Everything about booking ${category.name.toLowerCase()} services.`}
-              faqs={ON_DEMAND_FAQS}
-            />
+            {/* One FAQ block per page: the category's own FAQs when it has them */}
+            {hasCategoryFaqs ? null : (
+              <FaqSection
+                intro={`Everything about booking ${category.name.toLowerCase()} services.`}
+                faqs={ON_DEMAND_FAQS}
+              />
+            )}
             <CategoryFaqSlot />
           </>
         ) : null}

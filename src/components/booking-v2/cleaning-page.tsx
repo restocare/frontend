@@ -40,6 +40,7 @@ import {
   CategoryFaqSlot,
   CategoryIntroSlot,
   useCategoryHeading,
+  useHasCategoryFaqs,
 } from "./category-content-slots";
 
 import { CANCEL_FAQ, FaqSection, GST_PERCENT, WHATSAPP_URL, type Faq } from "./category-extras";
@@ -189,6 +190,7 @@ function TileIcon({ section, className }: { section: Pick<Section, "image" | "ic
 export function CleaningPageV2() {
   const params = useParams<{ slug: string }>();
   const heading = useCategoryHeading();
+  const hasCategoryFaqs = useHasCategoryFaqs();
   // page.tsx already 404s unmapped slugs; NaN matches the old Number(params.id) miss.
   const categoryId = categoryIdForSlug(params?.slug ?? "") ?? NaN;
   const router = useRouter();
@@ -574,7 +576,10 @@ export function CleaningPageV2() {
               </div>
             </div>
 
-            <FaqSection intro="Everything about booking a deep clean." faqs={CLEANING_FAQS} />
+            {/* One FAQ block per page: the category's own FAQs when it has them */}
+            {hasCategoryFaqs ? null : (
+              <FaqSection intro="Everything about booking a deep clean." faqs={CLEANING_FAQS} />
+            )}
             <CategoryFaqSlot />
 
             {/* Phones: the cart as a bar at the bottom */}

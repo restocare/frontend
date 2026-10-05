@@ -2,14 +2,36 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { categoryTreeApi, queryKeys } from "@/src/api/api";
+import { useCurrentLocation } from "@/src/lib/location";
+import { categoryIdForSlug } from "@/lib/category-slugs";
+
+/** Used when the Chef category has no banner video or the API is down. */
+const FALLBACK_VIDEO = "/videos/restocare-service.mp4";
+const CHEF_CATEGORY_ID = categoryIdForSlug("chef");
 
 /**
  * Kitchen showreel with context. The clip sits in a contained, rounded card at
  * (or below) its source resolution instead of being stretched full-width, and
  * the copy + CTA say what the viewer is looking at.
+ *
+ * The clip is the Chef category's banner video (set in the admin), so it
+ * follows whatever the category page shows.
  */
 export function VideoBanner() {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Same query (and cache entry) as the category sections on the home page,
+  // so this adds no request of its own.
+  const { coords } = useCurrentLocation();
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.categoryTreeAt(coords),
+    queryFn: () => categoryTreeApi.tree(coords),
+  });
+  const chefVideo = data?.find((c) => c.categoryId === CHEF_CATEGORY_ID)?.bannerVideo;
+  // Wait for the tree so the fallback clip isn't loaded and then swapped out.
+  const src = isLoading ? null : chefVideo || FALLBACK_VIDEO;
 
   // Only play while on screen; metadata preload paints the first frame.
   useEffect(() => {
@@ -24,7 +46,7 @@ export function VideoBanner() {
     );
     observer.observe(video);
     return () => observer.disconnect();
-  }, []);
+  }, [src]);
 
   return (
     <section className="bg-white py-10 sm:py-14">
@@ -48,16 +70,19 @@ export function VideoBanner() {
           </Link>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl bg-black ring-1 ring-black/5">
-          <video
-            ref={videoRef}
-            src="/videos/restocare-service.mp4"
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            className="aspect-video w-full object-cover"
-          />
+        <div className="relative aspect-video overflow-hidden rounded-3xl bg-black ring-1 ring-black/5">
+          {src ? (
+            <video
+              key={src}
+              ref={videoRef}
+              src={src}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : null}
         </div>
       </div>
     </section>

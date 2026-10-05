@@ -37,6 +37,7 @@ import {
   CategoryFaqSlot,
   CategoryIntroSlot,
   useCategoryHeading,
+  useHasCategoryFaqs,
 } from "./category-content-slots";
 
 import { ServiceImage } from "./service-image";
@@ -115,6 +116,7 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const heading = useCategoryHeading();
+  const hasCategoryFaqs = useHasCategoryFaqs();
 
   // The site header's search box filters this list; ?q= pre-fills it.
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
@@ -276,10 +278,13 @@ export function CategoryPageV2({ fallback }: { fallback: ReactNode }) {
             </section>
 
             <BookingSteps steps={hourlySteps(categoryNoun(category.name))} />
-            <FaqSection
-              intro={`Everything about booking a ${categoryNoun(category.name)} by the hour.`}
-              faqs={hourlyFaqs(categoryNoun(category.name), minHours)}
-            />
+            {/* One FAQ block per page: the category's own FAQs when it has them */}
+            {hasCategoryFaqs ? null : (
+              <FaqSection
+                intro={`Everything about booking a ${categoryNoun(category.name)} by the hour.`}
+                faqs={hourlyFaqs(categoryNoun(category.name), minHours)}
+              />
+            )}
             <CategoryFaqSlot />
           </>
         )}

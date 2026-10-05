@@ -16,7 +16,7 @@ const APP_STORE_URL =
   "https://apps.apple.com/in/app/restocare-stop-revenue-loss/id6787001148";
 
 // Right-side photos from public/Banner.
-const BANNER_IMAGES = ["/Banner/2.png", "/Banner/1.png"] as const;
+const BANNER_IMAGES = ["/Banner/2.png", "/Banner/1.png", "/Banner/3.png"] as const;
 
 interface HeroSlide {
   tagline: string;
@@ -26,6 +26,13 @@ interface HeroSlide {
 }
 
 const SLIDES: HeroSlide[] = [
+  {
+    tagline: "Chefs by the hour",
+    title: "Book a chef for just ₹149/hour",
+    subtitle:
+      "Indian curry, South Indian, Tandoor, Chinese and Continental chefs for your restaurant. Minimum 5-hour shift, plus GST.",
+    image: BANNER_IMAGES[2],
+  },
   {
     tagline: "India's trusted restaurant services app",
     title: "Skilled staff & repairs, delivered instantly",
@@ -39,13 +46,6 @@ const SLIDES: HeroSlide[] = [
     subtitle:
       "From deep cleaning to kitchen equipment repair, Restocare keeps your restaurant running without a hitch.",
     image: BANNER_IMAGES[1],
-  },
-  {
-    tagline: "Limited-time launch offer",
-    title: "Flat 50% off on your first booking",
-    subtitle:
-      "Book any service — chefs, cleaning, repairs or maintenance — and get half off your first booking with Restocare.",
-    image: BANNER_IMAGES[0],
   },
 ];
 
@@ -114,15 +114,18 @@ function StoreButton({
         aria-hidden
         variants={{ rest: { scaleX: 0 }, hover: { scaleX: 1 } }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="absolute inset-0 origin-left bg-orange-600"
+        className="absolute inset-0 origin-left bg-rc-yellow"
       />
+      {/* Text and icon turn dark ink on the yellow so they stay readable */}
       <span className="relative z-10 flex items-center gap-2.5">
         {icon}
         <span className="text-left leading-tight">
-          <span className="block text-[10px] uppercase tracking-wide text-gray-400 transition-colors duration-200 group-hover:text-orange-100">
+          <span className="block text-[10px] uppercase tracking-wide text-gray-400 transition-colors duration-200 group-hover:text-rc-ink/70">
             {top}
           </span>
-          <span className="block text-sm font-bold text-white">{bottom}</span>
+          <span className="block text-sm font-bold text-white transition-colors duration-200 group-hover:text-rc-ink">
+            {bottom}
+          </span>
         </span>
       </span>
     </motion.a>
@@ -131,7 +134,7 @@ function StoreButton({
 
 function GooglePlayIcon() {
   return (
-    <svg viewBox="0 0 512 512" className="h-6 w-6 fill-white" aria-hidden>
+    <svg viewBox="0 0 512 512" className="h-6 w-6 fill-white transition-colors duration-200 group-hover:fill-rc-ink" aria-hidden>
       <path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z" />
     </svg>
   );
@@ -139,7 +142,7 @@ function GooglePlayIcon() {
 
 function AppStoreIcon() {
   return (
-    <svg viewBox="0 0 384 512" className="h-6 w-6 fill-white" aria-hidden>
+    <svg viewBox="0 0 384 512" className="h-6 w-6 fill-white transition-colors duration-200 group-hover:fill-rc-ink" aria-hidden>
       <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
     </svg>
   );
@@ -247,7 +250,7 @@ export function Hero() {
                     <span
                       className={`h-2 rounded-full transition-all ${
                         i === activeIndex
-                          ? "w-6 bg-amber-500"
+                          ? "w-6 bg-rc-yellow"
                           : "w-2 bg-gray-300 group-hover:bg-gray-400"
                       }`}
                     />
@@ -267,7 +270,10 @@ export function Hero() {
                 alt="Restocare service professional"
                 fill
                 sizes="(max-width: 1024px) 90vw, 448px"
-                className={`object-cover object-center transition-opacity duration-700 ${
+                // contain + bottom: a photo taller than 2:3 (like 3.png) shows
+                // whole instead of being enlarged and cropped; 2:3 photos are
+                // unchanged.
+                className={`object-contain object-bottom transition-opacity duration-700 ${
                   i === activeIndex ? "opacity-100" : "opacity-0"
                 }`}
                 preload={i === 0}
