@@ -15,8 +15,6 @@ interface Brand {
 
 // Logos live in /public/brands.
 const BRANDS: Brand[] = [
-  { name: "Restocare Academy", logo: "/brands/RCAcademy.png", fit: "contain" },
-  { name: "Make My Restaurant", logo: "/brands/mmr.png", fit: "contain" },
   { name: "Tourism & Hospitality Skill Council", logo: "/brands/thsc.png", fit: "contain" },
   { name: "Amaira", logo: "/brands/Amaira.jpeg" },
   { name: "Bistro Fifty Seven", logo: "/brands/Bistro.jpeg" },
