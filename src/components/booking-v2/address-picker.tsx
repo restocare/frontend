@@ -197,9 +197,23 @@ export function hasPin(a: DraftAddress): boolean {
   return a.lat != null && a.lng != null && (a.lat !== 0 || a.lng !== 0);
 }
 
+// The customer's primary address, remembered per user on this device. The API
+// has no "default address" call yet, so this is what preselects it at checkout.
+const PRIMARY_KEY = (userId: string | number) => `rc.primaryAddress.${userId}`;
+
+function readPrimary(userId: string | number | undefined): string | null {
+  if (userId == null || typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PRIMARY_KEY(userId));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The customer's saved addresses and the one in use: `chosen` matched back
- * to the saved list once it refetches, else the first pinned address.
+ * to the saved list once it refetches, else the primary address, else the
+ * first pinned one.
  */
 export function useAddressBook(chosen: DraftAddress | null) {
   const { user } = useCustomerAuth();
@@ -208,6 +222,22 @@ export function useAddressBook(chosen: DraftAddress | null) {
   const profileRestaurant = str(user?.restaurantName);
   const profileGst = str(user?.gstNumber);
   const profilePhone = str(user?.mobile ?? user?.phone);
+
+  const [primaryId, setPrimaryId] = useState<string | null>(null);
+  useEffect(() => {
+    const stored = readPrimary(user?.id);
+    queueMicrotask(() => setPrimaryId(stored));
+  }, [user?.id]);
+
+  const setPrimary = (id: string) => {
+    setPrimaryId(id);
+    if (user?.id == null) return;
+    try {
+      window.localStorage.setItem(PRIMARY_KEY(user.id), id);
+    } catch {
+      /* ignore */
+    }
+  };
 
   const addresses = useQuery({
     queryKey: ["user-addresses", user?.id],
@@ -232,7 +262,7 @@ export function useAddressBook(chosen: DraftAddress | null) {
   }, [addresses.data, profileName, profileRestaurant, profilePhone]);
 
   // The draft's address, matched back to the saved list once it refetches;
-  // else the first pinned saved address.
+  // else the primary address; else the first pinned saved address.
   const selected = useMemo<DraftAddress | null>(() => {
     if (chosen) {
       const match = saved.find(
@@ -241,10 +271,22 @@ export function useAddressBook(chosen: DraftAddress | null) {
       if (match) return match;
       if (hasPin(chosen)) return chosen;
     }
-    return saved.find(hasPin) ?? null;
-  }, [chosen, saved]);
+    const primary = saved.find((a) => a.id === primaryId && hasPin(a));
+    return primary ?? saved.find(hasPin) ?? null;
+  }, [chosen, saved, primaryId]);
 
-  return { user, addresses, saved, selected, profileName, profileRestaurant, profileGst, profilePhone };
+  return {
+    user,
+    addresses,
+    saved,
+    selected,
+    primaryId,
+    setPrimary,
+    profileName,
+    profileRestaurant,
+    profileGst,
+    profilePhone,
+  };
 }
 
 export type AddressBook = ReturnType<typeof useAddressBook>;
@@ -427,7 +469,18 @@ export function AddressPicker({
                         disabled={!pinned}
                         onSelect={() => onSelect(a)}
                         tag={a.label}
-                        title={a.restaurantName || null}
+                        title={
+                          a.id === book.primaryId ? (
+                            <>
+                              {a.restaurantName || null}
+                              <span className="ml-2 inline-flex items-center rounded-full bg-rc-ink px-2 py-0.5 align-middle text-[11px] font-semibold text-white">
+                                Primary
+                              </span>
+                            </>
+                          ) : (
+                            a.restaurantName || null
+                          )
+                        }
                         lines={[a.address, `${a.city}${a.zipCode ? ` ${a.zipCode}` : ""}`]
                           .filter(Boolean)
                           .join(", ")}

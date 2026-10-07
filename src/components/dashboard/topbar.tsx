@@ -53,11 +53,11 @@ export function Topbar({ user, onToggleSidebar, onOpenMobile }: TopbarProps) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://restocare-asset.s3.ap-south-1.amazonaws.com/Clientlogo/6985da0674994.png"
+          src="https://imgproxy.royodispatch.com/insecure/fit/300/100/sm/0/plain/https://restocare-asset.s3.ap-south-1.amazonaws.com/assets/Clientlogo/FE4tX1iKGv1yJIk1JijoEtq11jm1yGTIdMPIUjpa.png"
           alt="RestoCare Logo"
-          className="h-8 w-auto shrink-0"
+          className="h-8 w-8 shrink-0 rounded-[5px] object-cover"
         />
-        <span className="text-lg font-semibold text-foreground">RestoCare</span>
+        <span className="text-lg font-semibold text-foreground">Restocare</span>
       </Link>
 
       {/* Search */}
