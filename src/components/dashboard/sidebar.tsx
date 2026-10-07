@@ -820,13 +820,13 @@ export function Sidebar({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://restocare-asset.s3.ap-south-1.amazonaws.com/Clientlogo/6985da0674994.png"
+            src="https://imgproxy.royodispatch.com/insecure/fit/300/100/sm/0/plain/https://restocare-asset.s3.ap-south-1.amazonaws.com/assets/Clientlogo/FE4tX1iKGv1yJIk1JijoEtq11jm1yGTIdMPIUjpa.png"
             alt="RestoCare Logo"
-            className="h-9 w-auto shrink-0"
+            className="h-9 w-9 shrink-0 rounded-[5px] object-cover"
           />
           {!collapsed && (
             <span className="truncate text-lg font-semibold text-foreground">
-              RestoCare
+              Restocare
             </span>
           )}
         </Link>

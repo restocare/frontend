@@ -7,7 +7,7 @@ import { themeInitScript } from "@/src/lib/theme";
 // title/noindex defaults. Lives here until the admin console moves to
 // admin.restocare.in.
 export const metadata: Metadata = {
-  title: { absolute: "RestoCare Admin" },
+  title: { absolute: "Restocare Admin" },
   robots: { index: false, follow: false },
 };
 

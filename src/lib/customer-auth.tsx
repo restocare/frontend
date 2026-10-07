@@ -66,6 +66,9 @@ interface CustomerAuthValue {
   resendOtp: (mobile: string) => Promise<void>;
   verifyOtp: (mobile: string, otp: string) => Promise<void>;
   logout: () => void;
+  /** Merge fields into the signed-in customer (after a profile update) and
+   *  keep the stored copy in sync. */
+  updateUser: (patch: Partial<CustomerUser>) => void;
 }
 
 const CustomerAuthContext = createContext<CustomerAuthValue | null>(null);
@@ -166,6 +169,19 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((patch: Partial<CustomerUser>) => {
+    setUser((current) => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      try {
+        window.localStorage.setItem(USER_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   const value = useMemo<CustomerAuthValue>(
     () => ({
       user,
@@ -176,8 +192,9 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
       resendOtp,
       verifyOtp,
       logout,
+      updateUser,
     }),
-    [user, isHydrating, isLoading, sendOtp, resendOtp, verifyOtp, logout],
+    [user, isHydrating, isLoading, sendOtp, resendOtp, verifyOtp, logout, updateUser],
   );
 
   return <CustomerAuthContext.Provider value={value}>{children}</CustomerAuthContext.Provider>;
