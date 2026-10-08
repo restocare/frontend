@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
 import { categoryHref } from "@/lib/category-slugs";
+import { useDeepCleaningFlow } from "@/src/lib/deep-cleaning-flow";
+import { isCleaningCategory } from "@/src/lib/booking-v2/cleaning";
+import { CleaningSubcategoryDialog } from "./cleaning-subcategory-dialog";
 
 interface PopularCategoriesProps {
   /** Kept for backwards-compat with the landing page; clicking a tile now
@@ -156,6 +159,8 @@ export function PopularCategories(_props: PopularCategoriesProps) {
 
 function CategoryTile({ category }: { category: CategoryTreeNode }) {
   const hasImage = Boolean(category.profileImage);
+  const cleaningPicker = useDeepCleaningFlow() === 2 && isCleaningCategory(category.name);
+  const [pickerOpen, setPickerOpen] = useState(false);
   // Two ways to be "coming soon": not published anywhere yet, or published but
   // with nobody who can be dispatched to THIS customer's location.
   const comingSoon = category.isPublished === false || category.comingSoon === true;
@@ -190,17 +195,18 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
     );
   }
 
-  return (
-    <MotionLink
-      href={categoryHref(category.categoryId)}
-      initial="rest"
-      animate="rest"
-      whileHover="hover"
-      whileTap={{ scale: 0.95 }}
-      variants={{ rest: { y: 0 }, hover: { y: -5 } }}
-      transition={{ type: "spring", stiffness: 350, damping: 22 }}
-      className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition-[border-color,background-color,box-shadow] duration-200 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-lg hover:shadow-amber-100/60"
-    >
+  const tileProps = {
+    initial: "rest",
+    animate: "rest",
+    whileHover: "hover",
+    whileTap: { scale: 0.95 },
+    variants: { rest: { y: 0 }, hover: { y: -5 } },
+    transition: { type: "spring" as const, stiffness: 350, damping: 22 },
+    className:
+      "group flex w-full cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition-[border-color,background-color,box-shadow] duration-200 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-lg hover:shadow-amber-100/60",
+  };
+  const tileBody = (
+    <>
       {/* Icon pops and gives a playful wiggle on hover */}
       <motion.div
         variants={{
@@ -215,6 +221,28 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
       <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-700 transition-colors group-hover:text-gray-900">
         {category.name}
       </p>
+    </>
+  );
+
+  // Deep Cleaning (new flow): ask which area first, then open that section.
+  if (cleaningPicker && category.groups.length > 0) {
+    return (
+      <>
+        <motion.button type="button" onClick={() => setPickerOpen(true)} {...tileProps}>
+          {tileBody}
+        </motion.button>
+        <CleaningSubcategoryDialog
+          category={category}
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+        />
+      </>
+    );
+  }
+
+  return (
+    <MotionLink href={categoryHref(category.categoryId)} {...tileProps}>
+      {tileBody}
     </MotionLink>
   );
 }

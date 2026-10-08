@@ -226,6 +226,107 @@ export interface RowActions {
   onOptions: () => void;
   onDetails: () => void;
   iconKind: SubIconKind;
+  /** Card only: book this package straight away (date and start time next). */
+  onBook?: () => void;
+}
+
+/**
+ * One service as a grid card (used on an area's own page): image on top,
+ * then name and price, and "Book now" (or the row's Add / options control
+ * when no `onBook` is given).
+ */
+export function ServiceCard({ service, actions }: { service: CategoryTreeService; actions: RowActions }) {
+  const options = service.variants.length;
+  const cheapest = options ? Math.min(...service.variants.map((v) => v.price)) : null;
+  const price = service.price ?? cheapest;
+  const from = (service.isStartingPrice ?? false) || (service.price == null && options > 1);
+  const hasDetails =
+    !!service.description ||
+    (service.highlights?.length ?? 0) > 0 ||
+    (service.inclusions?.length ?? 0) > 0 ||
+    (service.exclusions?.length ?? 0) > 0;
+
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-rc-yellow hover:shadow-lg hover:shadow-gray-900/5">
+      <div className="aspect-4/3 w-full overflow-hidden bg-rc-yellow-tint">
+        <SafeImage
+          src={service.profileImage}
+          alt={service.name}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          fallback={
+            <span className="grid h-full w-full place-items-center text-rc-yellow-deep">
+              <SubIcon kind={actions.iconKind} className="h-12 w-12" />
+            </span>
+          }
+        />
+      </div>
+
+      <div className="flex flex-1 flex-col p-4">
+        <h4 className="m-0 text-base font-semibold leading-snug text-gray-900">{service.name}</h4>
+        {service.subtitle ? (
+          <p className="m-0 mt-1 line-clamp-2 text-sm text-gray-500">{service.subtitle}</p>
+        ) : null}
+        {hasDetails ? (
+          <button
+            type="button"
+            onClick={actions.onDetails}
+            className="mt-2 self-start text-sm font-semibold text-rc-yellow-deep hover:underline"
+          >
+            View details
+          </button>
+        ) : null}
+
+        <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+          <div className="min-w-0">
+            <PriceLine
+              price={price}
+              originalPrice={service.originalPrice}
+              from={from}
+              minutes={service.durationMinutes}
+            />
+            {options ? (
+              <p className="m-0 mt-0.5 text-xs text-gray-500">
+                {options} option{options === 1 ? "" : "s"}
+              </p>
+            ) : null}
+          </div>
+          {actions.onBook ? (
+            <button
+              type="button"
+              disabled={price == null || price <= 0}
+              onClick={actions.onBook}
+              className="inline-flex h-10 shrink-0 items-center rounded-full bg-rc-yellow px-5 text-sm font-bold text-gray-900 transition hover:brightness-95 disabled:opacity-50"
+            >
+              Book now
+            </button>
+          ) : options ? (
+            <button
+              type="button"
+              onClick={actions.onOptions}
+              aria-label={`Choose options for ${service.name}`}
+              className={`h-9 min-w-21.5 shrink-0 rounded-lg border border-rc-yellow-deep/40 px-4 text-sm font-bold transition ${
+                actions.count
+                  ? "bg-rc-yellow-tint text-gray-900"
+                  : "bg-white text-rc-yellow-deep hover:bg-rc-yellow-tint"
+              }`}
+            >
+              {actions.count ? `${actions.count} added` : "Add"}
+            </button>
+          ) : (
+            <div className="shrink-0">
+              <AddControl
+                quantity={actions.quantity}
+                onAdd={actions.onAdd}
+                onChange={actions.onChange}
+                label={service.name}
+                disabled={price == null}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
 }
 
 /** One service, Urban Company style: text on the left, image and Add on the right. */

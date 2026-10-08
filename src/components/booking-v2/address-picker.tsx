@@ -300,27 +300,36 @@ export function AddressPicker({
   noun,
   heading,
   onSelect,
+  onAddNew,
+  formOnly = false,
+  onFormClose,
 }: {
   book: AddressBook;
   noun: string;
   heading?: string;
   onSelect: (address: DraftAddress) => void;
+  /** Given: "Add a new address" calls it (e.g. to open a pop-up) instead of opening the form here. */
+  onAddNew?: () => void;
+  /** Only the new-address form, open from the start and without its card (for a pop-up). */
+  formOnly?: boolean;
+  /** Called when the form closes, saved or cancelled. */
+  onFormClose?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { user, addresses, saved, selected, profileName, profileRestaurant, profileGst, profilePhone } = book;
 
   /* ------------------------------ new address ----------------------------- */
 
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(formOnly);
   const [type, setType] = useState<(typeof ADDRESS_TYPES)[number]>("Restaurant");
-  const [restaurantName, setRestaurantName] = useState("");
+  const [restaurantName, setRestaurantName] = useState(() => (formOnly ? profileRestaurant : ""));
   const [line1, setLine1] = useState("");
   const [area, setArea] = useState("");
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
   const [pincode, setPincode] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [gst, setGst] = useState("");
+  const [contactName, setContactName] = useState(() => (formOnly ? profileName : ""));
+  const [gst, setGst] = useState(() => (formOnly ? profileGst : ""));
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -336,9 +345,10 @@ export function AddressPicker({
   };
 
   const closeForm = () => {
-    setFormOpen(false);
+    setFormOpen(formOnly);
     setFormError(null);
     setInvalid(new Set());
+    onFormClose?.();
   };
 
   const useCurrentLocation = async () => {
@@ -442,8 +452,12 @@ export function AddressPicker({
     }
   };
 
+  // The form's frame: its own card normally, plain inside a pop-up.
+  const FormFrame = formOnly ? "div" : Card;
+
   return (
     <>
+          {formOnly ? null : (
           <Card className="p-5 sm:p-6">
             <SectionTitle note="Pick a saved address or add a new one. The contact person gets the arrival call.">
               {heading ?? `Where should the ${noun} come?`}
@@ -501,7 +515,7 @@ export function AddressPicker({
             {!formOpen ? (
               <button
                 type="button"
-                onClick={openForm}
+                onClick={onAddNew ?? openForm}
                 aria-expanded={formOpen}
                 className="mt-4 h-11 w-full rounded-xl border border-dashed border-rc-yellow-deep text-sm font-semibold text-rc-yellow-deep transition hover:bg-rc-yellow-tint/40 md:w-auto md:px-6"
               >
@@ -509,9 +523,10 @@ export function AddressPicker({
               </button>
             ) : null}
           </Card>
+          )}
 
           {formOpen ? (
-            <Card className="p-5 sm:p-6">
+            <FormFrame className={formOnly ? "" : "p-5 sm:p-6"}>
               <form
                 className="flex flex-col gap-4"
                 noValidate
@@ -520,7 +535,9 @@ export function AddressPicker({
                   void save();
                 }}
               >
-                <SectionTitle note="Saved to your account for next time.">New address</SectionTitle>
+                {formOnly ? null : (
+                  <SectionTitle note="Saved to your account for next time.">New address</SectionTitle>
+                )}
 
                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Address type">
                   {ADDRESS_TYPES.map((t) => (
@@ -640,7 +657,7 @@ export function AddressPicker({
                   </PrimaryButton>
                 </div>
               </form>
-            </Card>
+            </FormFrame>
           ) : null}
     </>
   );
