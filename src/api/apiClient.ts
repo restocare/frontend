@@ -117,12 +117,38 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-/** Refresh failed irrecoverably — clear auth and bounce to login (once). */
+/** Paths of the admin console; everything else is the customer storefront. */
+function isAdminPath(path: string): boolean {
+  return (
+    path === ADMIN_LOGIN_PATH ||
+    path.startsWith("/dashboard") ||
+    path.startsWith("/real-estate") ||
+    path.startsWith("/set-password")
+  );
+}
+
+let loggingOut = false;
+
+/**
+ * Refresh failed irrecoverably — clear auth and bounce to the login that
+ * belongs to the current section, once per page load no matter how many
+ * requests fail together. Storefront customers go to their own login (and
+ * come back here afterwards); they must never land on the admin login.
+ */
 function forceLogout(): void {
   clearAuth();
-  if (typeof window !== "undefined" && window.location.pathname !== ADMIN_LOGIN_PATH) {
+  if (typeof window === "undefined" || loggingOut) return;
+  const path = window.location.pathname;
+  if (isAdminPath(path)) {
+    if (path === ADMIN_LOGIN_PATH) return;
+    loggingOut = true;
     window.location.href = ADMIN_LOGIN_PATH;
+    return;
   }
+  if (path === "/account/login") return;
+  loggingOut = true;
+  const back = encodeURIComponent(path + window.location.search);
+  window.location.href = `/account/login?redirect=${back}`;
 }
 
 /* ------------------------------- errors ---------------------------------- */

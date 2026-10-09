@@ -13,10 +13,12 @@
  * a service without them still shows.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { categoryIdForSlug } from "@/lib/category-slugs";
+import { categoryHref, categoryIdForSlug } from "@/lib/category-slugs";
+import { subSlugOf } from "@/src/lib/booking-v2/cleaning";
+import { saveDraft, startDraft } from "@/src/lib/booking-v2/draft";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
@@ -49,6 +51,7 @@ import {
   DetailsSheet,
   OptionsSheet,
   SafeImage,
+  ServiceCard,
   ServiceRow,
   SubIcon,
   subIconFor,
@@ -131,6 +134,13 @@ function buildSections(category: CategoryTreeNode): Section[] {
   return sections;
 }
 
+/** The price a package is listed at (its own, else its cheapest size); no price sorts last. */
+function listPrice(s: CategoryTreeService): number {
+  const own = s.price != null && s.price > 0 ? s.price : null;
+  const sizes = s.variants.map((v) => v.price).filter((p) => p > 0);
+  return own ?? (sizes.length ? Math.min(...sizes) : Number.POSITIVE_INFINITY);
+}
+
 function matches(s: CategoryTreeService, q: string): boolean {
   return [s.name, s.subtitle, s.description, ...(s.highlights ?? [])].some((t) =>
     (t ?? "").toLowerCase().includes(q),
@@ -172,6 +182,54 @@ function Empty({
   );
 }
 
+/** The category page's list: one card per area, each opening that area's page. */
+function AreaGrid({
+  areas,
+  hrefOf,
+  priceOf,
+  extra,
+}: {
+  areas: Section[];
+  hrefOf: (s: Section) => string;
+  priceOf: (s: Section) => number | null;
+  extra?: ReactNode;
+}) {
+  return (
+    <section aria-labelledby="areas-title">
+      <h2 id="areas-title" className="m-0 text-xl font-bold tracking-tight sm:text-2xl">
+        Choose an area
+      </h2>
+      <p className="m-0 mt-1 text-sm text-gray-500">Each area has its own packages and prices.</p>
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+        {areas.map((a) => {
+          const from = a.comingSoon ? null : priceOf(a);
+          const body = (
+            <>
+              <TileIcon section={a} className="h-14 w-14 rounded-2xl bg-rc-yellow-tint sm:h-16 sm:w-16" />
+              <span className="mt-3 text-sm font-semibold leading-tight text-gray-900">{a.name}</span>
+              <span className="mt-1 text-xs text-gray-500">
+                {a.comingSoon ? "Coming soon" : from != null ? `From ${formatInr(from)}` : "Quote on inspection"}
+              </span>
+            </>
+          );
+          const cls =
+            "flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-3 py-5 text-center transition";
+          return a.comingSoon ? (
+            <div key={a.id} aria-disabled className={`${cls} opacity-50`}>
+              {body}
+            </div>
+          ) : (
+            <Link key={a.id} href={hrefOf(a)} className={`${cls} hover:border-rc-yellow hover:bg-rc-yellow-tint/40`}>
+              {body}
+            </Link>
+          );
+        })}
+      </div>
+      {extra}
+    </section>
+  );
+}
+
 function TileIcon({ section, className }: { section: Pick<Section, "image" | "icon" | "name">; className: string }) {
   return (
     <SafeImage
@@ -187,7 +245,12 @@ function TileIcon({ section, className }: { section: Pick<Section, "image" | "ic
   );
 }
 
-export function CleaningPageV2() {
+/**
+ * `subSlug` turns this into one sub-category's own page
+ * (/category/deep-cleaning/washroom): only that area's packages, its own
+ * heading, and the tiles link to the other areas' pages. Same cart.
+ */
+export function CleaningPageV2({ subSlug }: { subSlug?: string } = {}) {
   const params = useParams<{ slug: string }>();
   const heading = useCategoryHeading();
   const hasCategoryFaqs = useHasCategoryFaqs();
@@ -217,6 +280,24 @@ export function CleaningPageV2() {
   );
   const sections = useMemo(() => (category ? buildSections(category) : []), [category]);
   const allServices = useMemo(() => sections.flatMap((s) => s.services), [sections]);
+
+  // Sub-category page: the one area it is about, else the whole category.
+  const focus = subSlug
+    ? sections.find((s) => s.id !== DIRECT_SECTION && subSlugOf(s.name) === subSlug)
+    : undefined;
+  const focusGroup = focus ? category?.groups.find((g) => String(g.groupId) === focus.id) : undefined;
+  // An area page lists its packages cheapest first; quote-only ones go last.
+  const pageSections = useMemo(
+    () =>
+      subSlug
+        ? focus
+          ? [{ ...focus, services: [...focus.services].sort((a, b) => listPrice(a) - listPrice(b)) }]
+          : []
+        : sections,
+    [subSlug, focus, sections],
+  );
+  const pageServices = useMemo(() => pageSections.flatMap((s) => s.services), [pageSections]);
+  const subHref = (s: Section) => `${categoryHref(categoryId)}/${subSlugOf(s.name)}`;
 
   const { cart, itemCount, add, setQuantity, update, quantityOf, serviceCount, hydrated } = useCleaningCart(
     categoryId,
@@ -248,12 +329,15 @@ export function CleaningPageV2() {
   }, [category, hydrated, cart.lines, update]);
 
   const q = search.trim().toLowerCase();
+  // Packages show as "Book now" cards on an area page and for search results;
+  // the category page itself lists the areas, not every package.
+  const gridMode = !!focus || !!q;
   const shown = useMemo(
     () =>
-      sections
+      pageSections
         .map((s) => ({ ...s, services: q ? s.services.filter((svc) => matches(svc, q)) : s.services }))
         .filter((s) => (q ? s.services.length > 0 : true)),
-    [sections, q],
+    [pageSections, q],
   );
   const shownCount = shown.reduce((n, s) => n + s.services.length, 0);
 
@@ -286,6 +370,14 @@ export function CleaningPageV2() {
       if (frame) cancelAnimationFrame(frame);
     };
   }, [shown]);
+
+  // Old ?sub=<groupId> links (from before areas had their own pages) go there now.
+  useEffect(() => {
+    if (subSlug || !sections.length) return;
+    const wanted = searchParams.get("sub");
+    const area = wanted ? sections.find((x) => x.id === wanted && x.id !== DIRECT_SECTION) : undefined;
+    if (area) router.replace(`${categoryHref(categoryId)}/${subSlugOf(area.name)}`);
+  }, [subSlug, sections, searchParams, router, categoryId]);
 
   // ?sub= from a shared link: scroll to that section once it renders.
   const scrolledOnce = useRef(false);
@@ -339,6 +431,13 @@ export function CleaningPageV2() {
   const addLine = (s: CategoryTreeService, v?: CategoryTreeVariant) => warnIfNotSaved(add(toLine(s, v)));
   const changeLine = (key: string, next: number) => warnIfNotSaved(setQuantity(key, next));
 
+  // "Book now": the same date and time wizard as a chef booking.
+  const bookNow = (svc: CategoryTreeService) => {
+    if (!category) return;
+    saveDraft(startDraft(svc, { categoryId: category.categoryId, name: category.name }));
+    router.push(`/booking/${svc.serviceId}`);
+  };
+
   const subtotal = cart.lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
   const checkout = () => router.push(`/booking/cart?category=${categoryId}`);
   const checkoutButton = (
@@ -352,7 +451,7 @@ export function CleaningPageV2() {
     </button>
   );
 
-  const prices = allServices
+  const prices = pageServices
     .map((s) => s.price ?? (s.variants.length ? Math.min(...s.variants.map((v) => v.price)) : null))
     .filter((p): p is number => p != null && p > 0);
   const fromPrice = prices.length ? Math.min(...prices) : null;
@@ -360,10 +459,11 @@ export function CleaningPageV2() {
   const optionsService = findService(optionsFor);
   const detailsService = findService(detailsFor);
   const liveTiles = sections.filter((s) => s.id !== DIRECT_SECTION);
+  const directServices = sections.find((s) => s.id === DIRECT_SECTION)?.services ?? [];
 
   return (
     <StorefrontShell search={search} onSearchChange={setSearch}>
-      <main className="bg-white pb-24 lg:pb-0">
+      <main className="bg-white pb-24">
         {isLoading ? (
           <div className="flex h-[60vh] items-center justify-center text-gray-400">
             <SpinnerIcon className="h-7 w-7" />
@@ -376,6 +476,8 @@ export function CleaningPageV2() {
           />
         ) : !category ? (
           <Empty title="Category not found" text="The category you're looking for doesn't exist or was removed." />
+        ) : subSlug && !focus ? (
+          <Empty title="Area not found" text={`This ${category.name} area doesn't exist any more. Pick another one from the category page.`} />
         ) : category.comingSoon ? (
           <Empty
             title={`${category.name} is coming soon in your area`}
@@ -384,23 +486,35 @@ export function CleaningPageV2() {
         ) : (
           <>
             <CategoryBanner
-              category={category}
+              category={
+                focusGroup
+                  ? {
+                      ...category,
+                      bannerImage: focusGroup.bannerImage || category.bannerImage,
+                      bannerVideo: focusGroup.bannerVideo || category.bannerVideo,
+                    }
+                  : category
+              }
               description={
+                (focus && (focus.subtitle || focusGroup?.description)) ||
                 category.description ||
                 "Trained crews and commercial-grade cleaning for washrooms, kitchens, dining areas and whole outlets."
               }
               price={
                 fromPrice != null
-                  ? { amount: fromPrice, note: `${allServices.length} packages · Priced by size · Taxes extra` }
+                  ? {
+                      amount: fromPrice,
+                      note: `${pageServices.length} package${pageServices.length === 1 ? "" : "s"} · Priced by size · Taxes extra`,
+                    }
                   : null
               }
-              ctaLabel="See packages"
+              ctaLabel={focus ? "See packages" : "Choose an area"}
               ctaHref="#packages"
               trust={CLEANING_TRUST}
               fallbackEmoji="🧼"
-              heading={heading}
+              heading={focus ? focus.title : heading}
             />
-            <CategoryIntroSlot />
+            {focus ? null : <CategoryIntroSlot />}
 
             <div id="packages" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-8 sm:px-6 lg:py-10">
               {notice ? (
@@ -415,20 +529,29 @@ export function CleaningPageV2() {
                 </div>
               ) : null}
 
-              <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)_340px] xl:grid-cols-[300px_minmax(0,1fr)_360px]">
-                {/* Left: sub-category tiles (a grid on phones, sticky on desktop) */}
-                <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+              {gridMode ? (
+              <div
+                className={
+                  gridMode
+                    ? "grid gap-8"
+                    : "grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)_340px] xl:grid-cols-[300px_minmax(0,1fr)_360px]"
+                }
+              >
+                {/* Left: sub-category tiles (a grid on phones, sticky on desktop).
+                    An area's own page leaves them out. */}
+                <aside className={gridMode ? "hidden" : "min-w-0 lg:sticky lg:top-24 lg:self-start"}>
                   <div className="rounded-2xl border border-gray-200 p-4">
                     <h2 className="m-0 text-base font-bold">Select a service</h2>
                     {liveTiles.length ? (
                       <nav className="mt-4 grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-4 lg:grid-cols-3" aria-label="Sub-categories">
                         {liveTiles.map((s) => {
-                          const on = active === s.id;
+                          const on = subSlug ? focus?.id === s.id : active === s.id;
                           return (
                             <button
                               key={s.id}
                               type="button"
-                              onClick={() => goTo(s.id)}
+                              // On an area page each tile opens that area's page.
+                              onClick={() => (subSlug ? router.push(subHref(s)) : goTo(s.id))}
                               aria-current={on ? "true" : undefined}
                               className="group flex flex-col items-center gap-1.5 text-center"
                             >
@@ -527,24 +650,41 @@ export function CleaningPageV2() {
                             Coming soon. Message us on WhatsApp for a quote meanwhile.
                           </p>
                         ) : s.services.length === 0 ? (
-                          <p className="m-0 mt-4 text-sm text-gray-500">No packages here yet.</p>
+                          <div className="mt-4 rounded-xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+                            <p className="m-0">Priced after a quick inspection.</p>
+                            <a
+                              href={`${WHATSAPP_URL}?text=${encodeURIComponent(`Hi, I need a quote for ${s.title} on Restocare.`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-3 inline-flex rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white"
+                            >
+                              Get a quote on WhatsApp
+                            </a>
+                          </div>
                         ) : (
-                          <div className="divide-y divide-gray-100">
-                            {s.services.map((svc) => (
-                              <ServiceRow
-                                key={svc.serviceId}
-                                service={svc}
-                                actions={{
-                                  count: serviceCount(svc.serviceId),
-                                  quantity: quantityOf(svc.serviceId),
-                                  onAdd: () => addLine(svc),
-                                  onChange: (n) => changeLine(lineKey(svc.serviceId, null), n),
-                                  onOptions: () => setOptionsFor(svc.serviceId),
-                                  onDetails: () => setDetailsFor(svc.serviceId),
-                                  iconKind: s.icon,
-                                }}
-                              />
-                            ))}
+                          <div
+                            className={
+                              gridMode
+                                ? "mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                                : "divide-y divide-gray-100"
+                            }
+                          >
+                            {s.services.map((svc) => {
+                              const actions = {
+                                count: serviceCount(svc.serviceId),
+                                quantity: quantityOf(svc.serviceId),
+                                onAdd: () => addLine(svc),
+                                onChange: (n: number) => changeLine(lineKey(svc.serviceId, null), n),
+                                onOptions: () => setOptionsFor(svc.serviceId),
+                                onDetails: () => setDetailsFor(svc.serviceId),
+                                iconKind: s.icon,
+                              };
+                              return gridMode ? (
+                                <ServiceCard key={svc.serviceId} service={svc} actions={{ ...actions, onBook: () => bookNow(svc) }} />
+                              ) : (
+                                <ServiceRow key={svc.serviceId} service={svc} actions={actions} />
+                              );
+                            })}
                           </div>
                         )}
                         {s.note ? <p className="m-0 mt-2 text-xs text-gray-500">{s.note}</p> : null}
@@ -554,7 +694,7 @@ export function CleaningPageV2() {
                 </div>
 
                 {/* Right: the cart */}
-                <aside className="hidden min-w-0 lg:sticky lg:top-24 lg:block lg:self-start">
+                <aside className={gridMode ? "hidden" : "hidden min-w-0 lg:sticky lg:top-24 lg:block lg:self-start"}>
                   <div className="rounded-2xl border border-gray-200 p-5">
                     <h2 className="m-0 mb-3 text-base font-bold">Cart</h2>
                     <CartSummary
@@ -574,6 +714,42 @@ export function CleaningPageV2() {
                   </div>
                 </aside>
               </div>
+              ) : (
+                <AreaGrid
+                  areas={liveTiles}
+                  hrefOf={subHref}
+                  priceOf={(sec) => {
+                    const ps = sec.services.map(listPrice).filter((v) => Number.isFinite(v));
+                    return ps.length ? Math.min(...ps) : null;
+                  }}
+                  extra={
+                    // Services filed under no area still need a way in.
+                    directServices.length ? (
+                      <div className="mt-10">
+                        <h3 className="m-0 text-xl font-bold tracking-tight">More services</h3>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {directServices.map((svc) => (
+                            <ServiceCard
+                              key={svc.serviceId}
+                              service={svc}
+                              actions={{
+                                count: 0,
+                                quantity: 0,
+                                onAdd: () => bookNow(svc),
+                                onChange: () => {},
+                                onOptions: () => bookNow(svc),
+                                onDetails: () => setDetailsFor(svc.serviceId),
+                                iconKind: "other",
+                                onBook: () => bookNow(svc),
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  }
+                />
+              )}
             </div>
 
             {/* One FAQ block per page: the category's own FAQs when it has them */}
@@ -582,11 +758,11 @@ export function CleaningPageV2() {
             )}
             <CategoryFaqSlot />
 
-            {/* Phones: the cart as a bar at the bottom */}
+            {/* Carts filled before areas had their own pages can still be booked from this bar */}
             {itemCount > 0 ? (
               <div
                 data-bottom-bar
-                className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] lg:hidden"
+                className={`fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]`}
               >
                 <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
                   <div className="leading-tight">

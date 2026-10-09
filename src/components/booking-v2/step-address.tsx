@@ -9,9 +9,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { computeBill, formatInr } from "@/src/lib/booking-v2/pricing";
-import { fmtDateLong, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
+import { formatInr } from "@/src/lib/booking-v2/pricing";
+import { fmtDateLong, fmtDuration } from "@/src/lib/booking-v2/schedule";
 import { SpinnerIcon } from "@/src/components/icons";
+import { draftCopy, fullBill, isFixedDraft } from "@/src/lib/booking-v2/draft";
 import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
 import { AddressPicker, hasPin, useAddressBook } from "./address-picker";
@@ -35,7 +36,12 @@ export function StepAddress({ draft, update, goTo, leave }: StepProps) {
   /* -------------------------------- render -------------------------------- */
 
   const minutes = draft.end - draft.start;
-  const bill = computeBill({ hours: minutes / 60, rate: draft.rate, quantity: draft.quantity, coupon: null });
+  // Includes services added for the same time on the review step.
+  const full = fullBill(draft, null);
+  const bill = { ...full.main, total: full.total, tax: full.tax };
+  const extraCount = draft.extras?.length ?? 0;
+  const copy = draftCopy(draft);
+  const fixed = isFixedDraft(draft);
   const noun = draft.categoryName.toLowerCase().includes("chef") ? "chef" : "staff";
   const canContinue = !!selected && hasPin(selected);
 
@@ -56,23 +62,27 @@ export function StepAddress({ draft, update, goTo, leave }: StepProps) {
       image={draft.serviceImage}
       fallback={emojiForCategory(draft.categoryName)}
       name={draft.serviceName}
-      sub={`${formatInr(draft.rate)}/hour, minimum ${draft.minMinutes / 60} hrs`}
+      sub={copy.sub}
       onChange={leave}
       details={[
         { label: "Date", value: fmtDateLong(draft.date) },
-        { label: "Time", value: `${fmtTime(draft.start)} to ${fmtTime(draft.end)}` },
-        { label: "Duration", value: fmtDuration(minutes) },
+        { label: "Time", value: copy.time },
+        ...(fixed ? [] : [{ label: "Duration", value: fmtDuration(minutes) }]),
         ...(selected ? [{ label: "Address", value: `${selected.label}, ${selected.city}` }] : []),
       ]}
       rows={
         <>
           <BillRow
-            label={`${fmtDuration(minutes)} × ${formatInr(draft.rate)}${
-              draft.quantity > 1 ? ` × ${draft.quantity}` : ""
-            }`}
+            label={copy.billLabel(draft.quantity > 1 ? ` × ${draft.quantity}` : "")}
             value={formatInr(bill.subtotal)}
           />
-          <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
+          {extraCount ? (
+                <BillRow
+                  label={`${extraCount} more service${extraCount === 1 ? "" : "s"}`}
+                  value={formatInr(full.extrasBase)}
+                />
+              ) : null}
+              <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
         </>
       }
       total={formatInr(bill.total)}
@@ -84,7 +94,7 @@ export function StepAddress({ draft, update, goTo, leave }: StepProps) {
   return (
     <WizardLayout
       current={1}
-      title={`Book a ${draft.serviceName}`}
+      title={copy.title}
       crumbs={[
         { label: "Home", href: "/" },
         { label: draft.categoryName, href: categoryHref(draft.categoryId) },

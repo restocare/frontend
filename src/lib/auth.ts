@@ -129,8 +129,13 @@ export function getStoredUser(): AdminUser | null {
   }
 }
 
+/**
+ * An admin-console session: a token AND a stored admin user. The token key is
+ * shared with the storefront's customer login, so the token alone would let a
+ * logged-in customer into the console shell.
+ */
 export function isAuthenticated(): boolean {
-  return Boolean(getToken());
+  return Boolean(getToken() && getStoredUser());
 }
 
 export function clearSession() {

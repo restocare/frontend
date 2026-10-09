@@ -13,6 +13,8 @@ import { categoryJsonLd } from "@/lib/category-json-ld";
 import { categoryContent } from "@/lib/category-content";
 import { CategoryPageClient } from "./category-page-client";
 import { CategoryFaqs, CategoryIntro } from "./category-content-sections";
+import { CATEGORY_FLOW } from "@/src/lib/category-flow";
+import { CategoryFlowV2Page } from "@/src/components/category-flow-v2/category-page";
 
 /**
  * Server boundary so an unmapped slug 404s for real. Calling notFound() from
@@ -43,6 +45,16 @@ export default async function CategoryPage({
 
   const category = tree?.find((c) => c.categoryId === categoryId);
   const content = categoryContent(slug);
+
+  // New category flow (NEXT_PUBLIC_RC_CATEGORY_FLOW=2), built separately;
+  // flow 1 renders the current page below, unchanged.
+  if (CATEGORY_FLOW === 2) {
+    return (
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <CategoryFlowV2Page slug={slug} heading={content?.h1} />
+      </HydrationBoundary>
+    );
+  }
 
   return (
     <>

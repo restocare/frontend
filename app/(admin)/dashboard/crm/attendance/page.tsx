@@ -20,6 +20,12 @@ import {
 import { MapPinIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
 import { CheckInControls, WorkModeBadge, WORK_MODES, type WorkMode } from "@/src/components/crm/portal";
+import {
+  EmployeeAttendanceModal,
+  ExportAttendanceModal,
+  fmtWorked,
+  type ExportPerson,
+} from "@/src/components/crm/attendance-report";
 
 const istToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
@@ -200,17 +206,28 @@ function TeamAttendance() {
     queryKey: crmQueryKeys.attendance(params),
     queryFn: () => hrApi.attendance(params),
   });
+  const [person, setPerson] = useState<(ExportPerson & { subtitle?: string }) | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-        <h2 className="text-base font-semibold text-foreground">Team attendance</h2>
-        <input
-          type="date"
-          className={`${inputCls} w-auto`}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Team attendance</h2>
+          <p className="text-xs text-muted-foreground">Click a person to see their whole month.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            aria-label="Date"
+            className={`${inputCls} w-auto`}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <Btn tone="ghost" onClick={() => setExporting(true)}>
+            Export Excel
+          </Btn>
+        </div>
       </div>
       <TableShell
         head={["Employee", "Mode", "Office", "Check-in", "Distance", "Check-out", "Worked", "Status"]}
@@ -218,7 +235,27 @@ function TeamAttendance() {
         {isLoading && <EmptyRow cols={8} label="Loading…" />}
         {!isLoading && !data?.length && <EmptyRow cols={8} label="No attendance for this date" />}
         {data?.map((r) => (
-          <tr key={r.attendanceId} className="transition-colors hover:bg-accent/50">
+          <tr
+            key={r.attendanceId}
+            tabIndex={0}
+            role="button"
+            aria-label={`Open ${r.employee?.name ?? "employee"}'s attendance`}
+            onClick={() =>
+              setPerson({
+                employeeId: r.employeeId,
+                name: r.employee?.name ?? "Employee",
+                employeeCode: r.employee?.employeeCode ?? "",
+                subtitle: [...new Set([r.employee?.designation, r.employee?.department?.name].filter(Boolean))].join(" · "),
+              })
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                (e.currentTarget as HTMLElement).click();
+              }
+            }}
+            className="cursor-pointer transition-colors hover:bg-accent/50 focus:bg-accent/50 focus:outline-none"
+          >
             <td className="px-4 py-3">
               <div className="font-medium text-foreground">{r.employee?.name}</div>
               <div className="text-xs text-muted-foreground">
@@ -235,15 +272,15 @@ function TeamAttendance() {
               {r.checkInDistanceM != null ? `${r.checkInDistanceM} m` : "—"}
             </td>
             <td className="px-4 py-3 text-muted-foreground">{fmtTime(r.checkOutAt)}</td>
-            <td className="px-4 py-3 text-muted-foreground">
-              {r.workedMinutes != null ? `${r.workedMinutes} min` : "—"}
-            </td>
+            <td className="px-4 py-3 text-muted-foreground">{fmtWorked(r.workedMinutes)}</td>
             <td className="px-4 py-3">
               <Badge tone={statusTone(r.status)}>{r.status}</Badge>
             </td>
           </tr>
         ))}
       </TableShell>
+      {person && <EmployeeAttendanceModal person={person} onClose={() => setPerson(null)} />}
+      {exporting && <ExportAttendanceModal onClose={() => setExporting(false)} />}
     </Card>
   );
 }

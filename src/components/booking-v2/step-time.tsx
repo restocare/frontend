@@ -1,9 +1,12 @@
 "use client";
 
-/** Step 1 of the hourly wizard: pick a date, a start and an end time. */
+/**
+ * Step 1 of the wizard: pick a date, then a start and an end time. A
+ * fixed-price package (Deep Cleaning) only asks for the start time.
+ */
 
 import { useEffect, useMemo, useRef } from "react";
-import { computeBill, formatInr } from "@/src/lib/booking-v2/pricing";
+import { formatInr } from "@/src/lib/booking-v2/pricing";
 import {
   DAY_END,
   DAY_START,
@@ -23,6 +26,7 @@ import {
   timeOptions,
   validateRange,
 } from "@/src/lib/booking-v2/schedule";
+import { draftCopy, fullBill, isFixedDraft } from "@/src/lib/booking-v2/draft";
 import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
 import { categoryHref } from "@/lib/category-slugs";
@@ -96,6 +100,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const clock = useMemo(() => clockNow(), []);
   const days = useMemo(() => getDays(), []);
   const { minMinutes, rate } = draft;
+  const fixed = isFixedDraft(draft);
 
   // Derived, never stored: the stored pick may have slipped into the past.
   const date = useMemo(() => {
@@ -109,7 +114,8 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const start = clamp(snapToStep(draft.start), earliest, latest);
   const minEnd = start + minMinutes;
   const maxEnd = Math.min(start + MAX_MINUTES, DAY_END);
-  const end = clamp(snapToStep(draft.end), minEnd, maxEnd);
+  // A fixed job always blocks the same length of time after its start.
+  const end = fixed ? start + minMinutes : clamp(snapToStep(draft.end), minEnd, maxEnd);
 
   const startOptions = timeOptions(DAY_START, latest).map((t) => ({
     value: t,
@@ -121,7 +127,11 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const minutes = end - start;
   const problem = validateRange(start, end, minMinutes, date, clock);
   const valid = problem === "ok";
-  const bill = computeBill({ hours: minutes / 60, rate, quantity: draft.quantity, coupon: null });
+  // Includes services added for the same time on the review step.
+  const full = fullBill({ ...draft, date, start, end }, null);
+  const bill = { ...full.main, total: full.total, tax: full.tax };
+  const extraCount = draft.extras?.length ?? 0;
+  const copy = draftCopy({ ...draft, date, start, end });
   const minHrs = minMinutes / 60;
 
   // On phones the days scroll sideways: bring a day chosen earlier into view.
@@ -149,7 +159,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   return (
     <WizardLayout
       current={0}
-      title={`Book a ${draft.serviceName}`}
+      title={copy.title}
       crumbs={[
         { label: "Home", href: "/" },
         { label: draft.categoryName, href: categoryHref(draft.categoryId) },
@@ -160,21 +170,25 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
           image={draft.serviceImage}
           fallback={emojiForCategory(draft.categoryName)}
           name={draft.serviceName}
-          sub={`${formatInr(rate)}/hour, minimum ${minHrs} hrs`}
+          sub={copy.sub}
           onChange={leave}
           details={[
             { label: "Date", value: fmtDateLong(date) },
-            { label: "Time", value: `${fmtTime(start)} to ${fmtTime(end)}` },
-            { label: "Duration", value: fmtDuration(minutes) },
+            { label: "Time", value: copy.time },
+            ...(fixed ? [] : [{ label: "Duration", value: fmtDuration(minutes) }]),
           ]}
           rows={
             <>
               <BillRow
-                label={`${fmtDuration(minutes)} × ${formatInr(rate)}${
-                  draft.quantity > 1 ? ` × ${draft.quantity}` : ""
-                }`}
+                label={copy.billLabel(draft.quantity > 1 ? ` × ${draft.quantity}` : "")}
                 value={formatInr(bill.subtotal)}
               />
+              {extraCount ? (
+                <BillRow
+                  label={`${extraCount} more service${extraCount === 1 ? "" : "s"}`}
+                  value={formatInr(full.extrasBase)}
+                />
+              ) : null}
               <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
             </>
           }
@@ -183,7 +197,11 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
           note="Taxes included. You choose how to pay at the last step."
         />
       }
-      bar={{ total: formatInr(bill.total), note: `for ${fmtDuration(minutes)}, taxes included`, action }}
+      bar={{
+        total: formatInr(bill.total),
+        note: fixed ? `${copy.time}, taxes included` : `for ${fmtDuration(minutes)}, taxes included`,
+        action,
+      }}
     >
       <Card className="p-5 sm:p-6">
         <div className="flex items-baseline justify-between gap-3">
@@ -236,6 +254,28 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
         </div>
       </Card>
 
+      {fixed ? (
+        <Card className="p-5 sm:p-6">
+          <SectionTitle note="The crew arrives at this time.">Choose a start time</SectionTitle>
+          <div className="mt-4 max-w-sm">
+            <TimeField
+              id="start-time"
+              label="Start time"
+              value={start}
+              onChange={(v) => update({ start: v, end: v + minMinutes })}
+              options={startOptions}
+            />
+          </div>
+          {!valid ? (
+            <Hint error>That start time has passed. Pick a later time.</Hint>
+          ) : (
+            <p className="m-0 mt-3.5 text-sm text-gray-500" aria-live="polite">
+              {fmtDateShort(date)}, crew arrives at{" "}
+              <span className="font-semibold text-gray-900">{fmtTime(start)}</span>.
+            </p>
+          )}
+        </Card>
+      ) : (
       <Card className="p-5 sm:p-6">
         <SectionTitle note={`Minimum ${minHrs} hours, maximum ${MAX_MINUTES / 60} hours. Extend by the hour.`}>
           Set your hours
@@ -279,6 +319,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
           </p>
         )}
       </Card>
+      )}
     </WizardLayout>
   );
 }

@@ -17,14 +17,15 @@ import {
   type CustomerCoupon,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { computeBill, formatInr } from "@/src/lib/booking-v2/pricing";
+import { formatInr } from "@/src/lib/booking-v2/pricing";
 import { fmtDateLong, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
-import { buildPayloads, clearDraft } from "@/src/lib/booking-v2/draft";
+import { buildPayloads, clearDraft, draftCopy, fullBill, isFixedDraft } from "@/src/lib/booking-v2/draft";
 import { loadRazorpayScript, openRazorpay } from "@/src/lib/razorpay";
 import { SpinnerIcon } from "@/src/components/icons";
 import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
 import { categoryHref } from "@/lib/category-slugs";
+import { ExtraServices } from "./extra-services";
 import {
   BillRow,
   Card,
@@ -58,7 +59,10 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
   }, [isHydrating, isLoggedIn, router, loginUrl]);
 
   const isChef = draft.categoryName.toLowerCase().includes("chef");
-  const nounOne = isChef ? "chef" : "person";
+  // A fixed package (Deep Cleaning) is one job by one crew: no headcount.
+  const fixed = isFixedDraft(draft);
+  const copy = draftCopy(draft);
+  const nounOne = isChef ? "chef" : fixed ? "crew" : "person";
   const nounMany = isChef ? "chefs" : "people";
   const qtyLabel = isChef ? "Chefs" : "People";
 
@@ -122,7 +126,10 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
 
   const minutes = draft.end - draft.start;
   const quantity = draft.quantity;
-  const bill = computeBill({ hours: minutes / 60, rate: draft.rate, quantity, coupon: applied });
+  // Main service (coupon on it) plus any services added for the same time.
+  const full = fullBill(draft, applied);
+  const bill = { ...full.main, total: full.total };
+  const extras = draft.extras ?? [];
   const payment = draft.paymentMode;
   const couponNeedsPrepay = !!applied?.prepaidOnly && payment === "COD";
 
@@ -224,8 +231,9 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
           ) : null}
           <p className="m-0 mt-5 text-[15px] leading-relaxed text-gray-600">
             {quantity} {quantity === 1 ? draft.serviceName : `× ${draft.serviceName}`} on{" "}
-            {fmtDateLong(draft.date)}, {fmtTime(draft.start)} to {fmtTime(draft.end)}, at{" "}
-            {addressLine || "your address"}. {formatInr(done.total)}{" "}
+            {fmtDateLong(draft.date)}, {fixed ? `starting ${fmtTime(draft.start)}` : `${fmtTime(draft.start)} to ${fmtTime(draft.end)}`}, at{" "}
+            {addressLine || "your address"}
+            {extras.length ? `, plus ${extras.map((x) => x.serviceName).join(", ")}` : ""}. {formatInr(done.total)}{" "}
             {done.mode === "COD" ? "to pay after the service." : "paid online."}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -240,7 +248,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
               onClick={leave}
               className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-200 bg-white px-7 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
             >
-              Book another {nounOne}
+              {fixed ? "Book another service" : `Book another ${nounOne}`}
             </button>
           </div>
         </Card>
@@ -289,26 +297,31 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
       image={draft.serviceImage}
       fallback={emojiForCategory(draft.categoryName)}
       name={draft.serviceName}
-      sub={`${formatInr(draft.rate)}/hour, minimum ${draft.minMinutes / 60} hrs`}
+      sub={copy.sub}
       onChange={leave}
       details={[
         { label: "Date", value: fmtDateLong(draft.date) },
-        { label: "Time", value: `${fmtTime(draft.start)} to ${fmtTime(draft.end)}` },
-        { label: qtyLabel, value: String(quantity) },
+        { label: "Time", value: copy.time },
+        ...(fixed ? [] : [{ label: qtyLabel, value: String(quantity) }]),
+        ...(extras.length ? [{ label: "Added", value: `${extras.length} more` }] : []),
         { label: "Payment", value: payments.find((p) => p.id === payment)?.name ?? "Not chosen" },
       ]}
       rows={
         <>
           <BillRow
-            label={`${fmtDuration(minutes)} × ${formatInr(draft.rate)}${
-              quantity > 1 ? ` × ${quantity} ${nounMany}` : ""
-            }`}
+            label={copy.billLabel(quantity > 1 ? ` × ${quantity} ${nounMany}` : "")}
             value={formatInr(bill.subtotal)}
           />
+          {extras.length ? (
+            <BillRow
+              label={`${extras.length} more service${extras.length === 1 ? "" : "s"}`}
+              value={formatInr(full.extrasBase)}
+            />
+          ) : null}
           {applied && bill.couponSaving > 0 ? (
             <BillRow label={`Coupon ${applied.code}`} value={`−${formatInr(bill.couponSaving)}`} tone="discount" />
           ) : null}
-          <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
+          <BillRow label="Taxes (18%)" value={formatInr(full.tax)} />
         </>
       }
       total={formatInr(bill.total)}
@@ -329,7 +342,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
   return (
     <WizardLayout
       current={2}
-      title={`Book a ${draft.serviceName}`}
+      title={copy.title}
       crumbs={crumbs}
       sidebar={sidebar}
       bar={{
@@ -350,12 +363,14 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
               <div className="min-w-0 flex-1">
                 <h2 className="m-0 text-lg font-bold">{draft.serviceName}</h2>
                 <p className="m-0 mt-1 text-sm text-gray-600">
-                  {fmtDateLong(draft.date)}, {fmtTime(draft.start)} to {fmtTime(draft.end)} (
-                  {fmtDuration(minutes)})
+                  {fixed
+                    ? `${fmtDateLong(draft.date)}, starting ${fmtTime(draft.start)}`
+                    : `${fmtDateLong(draft.date)}, ${fmtTime(draft.start)} to ${fmtTime(draft.end)} (${fmtDuration(minutes)})`}
                 </p>
               </div>
               <LinkButton onClick={() => goTo("time")}>Edit</LinkButton>
             </div>
+            {fixed ? null : (
             <div className="mt-4 flex items-center justify-between gap-4 border-t border-gray-100 pt-4">
               <div>
                 <p className="m-0 text-sm font-semibold">{qtyLabel}</p>
@@ -386,7 +401,10 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
                 </button>
               </div>
             </div>
+            )}
           </Card>
+
+          <ExtraServices draft={draft} update={update} />
 
           <Card className="p-5 sm:p-6">
             <div className="flex items-start gap-4">
