@@ -14,6 +14,7 @@ export interface LoginRequest {
   password: string;
 }
 
+
 export interface AdminUser {
   id: number;
   email: string | null;
