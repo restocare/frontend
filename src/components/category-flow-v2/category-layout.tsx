@@ -5,7 +5,8 @@
  *
  *   sub-categories (left) | services (centre) | cart (right)
  *
- * A category without sub-categories gives their column to the services.
+ * A category without sub-categories shows a short "how it works" rail in
+ * that column instead, so the page keeps its shape and the terms are clear.
  * Everything comes from the catalogue API; the cart is the per-category
  * cart kept in localStorage (the same one the cleaning page uses).
  *
@@ -45,6 +46,7 @@ import {
   type SubIconKind,
 } from "@/src/components/booking-v2/cleaning-catalog";
 import { ArrowRightIcon, CartIcon, GridIcon, TrashIcon } from "@/src/components/icons";
+import { CheckGlyph } from "@/src/components/booking-v2/shell";
 import { emojiForCategory } from "@/src/components/booking-v2/category-page-v2";
 
 interface Section {
@@ -223,18 +225,13 @@ export function CategoryLayout({
         </div>
       ) : null}
 
-      <div
-        className={`grid gap-6 lg:gap-8 ${
-          hasGroups
-            ? "lg:grid-cols-[240px_minmax(0,1fr)_300px] xl:grid-cols-[260px_minmax(0,1fr)_320px]"
-            : "lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]"
-        }`}
-      >
+      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)_300px] lg:gap-8 xl:grid-cols-[260px_minmax(0,1fr)_320px]">
         {/* Left: sub-categories (first on phones, as a row of chips) */}
         {hasGroups ? (
           <aside className="min-w-0 lg:order-1 lg:sticky lg:top-24 lg:self-start">
-            <nav aria-label="Sub-categories" className="rounded-2xl border border-gray-200 p-3 sm:p-4">
-              <p className="m-0 mb-3 text-sm font-bold text-gray-900">Sub-categories</p>
+            <nav aria-label="Sub-categories" className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4">
+              <p className="m-0 text-sm font-bold text-gray-900">Sub-categories</p>
+              <p className="m-0 mb-3 text-xs text-gray-500">Pick an area to see its packages.</p>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-3">
               <SubLink href={base} active={!group} label="All" />
               {category.groups.map((g) => (
@@ -251,7 +248,11 @@ export function CategoryLayout({
               </div>
             </nav>
           </aside>
-        ) : null}
+        ) : (
+          <aside className="order-last min-w-0 lg:order-1 lg:sticky lg:top-24 lg:self-start">
+            <InfoRail category={category} hourly={hourly} services={allServices} />
+          </aside>
+        )}
 
         {/* Centre: services */}
         <div className="min-w-0 lg:order-2">
@@ -269,6 +270,11 @@ export function CategoryLayout({
               >
                 {s.title ? <h2 className="m-0 text-xl font-bold tracking-tight sm:text-2xl">{s.title}</h2> : null}
                 {s.subtitle ? <p className="m-0 mt-1 text-sm text-gray-500">{s.subtitle}</p> : null}
+                {!s.title && s.services.length ? (
+                  <p className="m-0 mb-3 text-xs font-medium text-gray-500">
+                    {s.services.length} {s.services.length === 1 ? "service" : "services"} · lowest price first
+                  </p>
+                ) : null}
                 {s.services.length === 0 ? (
                   <p className="m-0 mt-4 text-sm text-gray-500">No services here yet.</p>
                 ) : (
@@ -308,6 +314,7 @@ export function CategoryLayout({
             itemCount={itemCount}
             priceOf={linePrice}
             fallback={emojiForCategory(category.name)}
+            hourly={hourly}
             onRemove={(l) => changeLine(l.key, 0)}
             onNext={goNext}
           />
@@ -462,11 +469,13 @@ function ServiceListCard({
 
   return (
     <article
-      className={`flex gap-4 rounded-2xl border bg-white p-3 transition sm:p-4 ${
-        inCart ? "border-rc-yellow shadow-sm" : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+      className={`relative flex gap-3.5 rounded-2xl border bg-white p-3 transition sm:gap-4 sm:p-3.5 ${
+        inCart
+          ? "border-rc-yellow bg-rc-yellow-tint/20 shadow-[0_4px_14px_rgba(244,180,0,0.14)]"
+          : "border-gray-200 hover:border-gray-300 hover:shadow-[0_6px_18px_rgba(15,23,42,0.06)]"
       }`}
     >
-      <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-rc-yellow-tint sm:h-28 sm:w-28">
+      <div className="h-22 w-22 shrink-0 overflow-hidden rounded-xl bg-rc-yellow-tint sm:h-26 sm:w-26">
         <SafeImage
           src={service.profileImage}
           alt={service.name}
@@ -476,31 +485,33 @@ function ServiceListCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <h3 className="m-0 text-base font-semibold leading-snug text-gray-900">{service.name}</h3>
-        {service.subtitle ? <p className="m-0 mt-0.5 line-clamp-2 text-sm text-gray-500">{service.subtitle}</p> : null}
+        <h3 className="m-0 text-[15px] font-semibold leading-snug text-gray-900">{service.name}</h3>
+        {service.subtitle ? <p className="m-0 mt-0.5 line-clamp-2 text-[13px] text-gray-500">{service.subtitle}</p> : null}
         {onDetails ? (
           <button
             type="button"
             onClick={onDetails}
-            className="mt-1 self-start text-sm font-semibold text-rc-yellow-deep hover:underline"
+            className="mt-1 inline-flex items-center gap-0.5 self-start text-[13px] font-semibold text-rc-yellow-deep hover:underline"
           >
             View details
+            <span aria-hidden className="text-base leading-none">›</span>
           </button>
         ) : null}
 
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
-          <div className="min-w-0">
+        <div className="mt-auto flex items-end justify-between gap-3 pt-2.5">
+          <div className="min-w-0 flex-1">
             {price > 0 ? (
               <>
                 <p className="m-0 flex flex-wrap items-baseline gap-x-1.5 leading-none text-gray-900">
                   {from ? <span className="text-sm text-gray-500">from</span> : null}
-                  <span className="text-xl font-bold tabular-nums">{formatInr(price)}</span>
+                  <span className="text-[19px] font-bold tabular-nums">{formatInr(price)}</span>
                   {hourly ? <span className="-ml-1 text-sm font-medium text-gray-500">/hour</span> : null}
                   {mrp != null && mrp > price ? (
                     <span className="text-sm tabular-nums text-gray-400 line-through">{formatInr(mrp)}</span>
                   ) : null}
                 </p>
-                <p className="m-0 mt-1.5 inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
+                <p className="m-0 mt-1.5 flex items-center gap-1 text-xs text-gray-500">
+                  {hourly || duration ? <ClockDot className="h-3 w-3 shrink-0 text-rc-yellow-deep" /> : null}
                   {chip}
                 </p>
               </>
@@ -543,6 +554,7 @@ function CartPanel({
   lines,
   itemCount,
   priceOf,
+  hourly,
   fallback,
   onRemove,
   onNext,
@@ -551,12 +563,13 @@ function CartPanel({
   itemCount: number;
   priceOf: (line: CartLine) => string;
   fallback: string;
+  hourly: boolean;
   onRemove: (line: CartLine) => void;
   onNext: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.05)]">
+      <div className="flex items-center justify-between border-b border-gray-100 bg-rc-yellow-tint/50 px-5 py-3.5">
         <h2 className="m-0 text-base font-bold text-gray-900">Cart</h2>
         {itemCount ? (
           <span className="rounded-full bg-rc-yellow-tint px-2.5 py-0.5 text-xs font-bold text-rc-yellow-deep">
@@ -571,14 +584,16 @@ function CartPanel({
             <CartIcon className="h-6 w-6" />
           </span>
           <p className="m-0 mt-3 text-sm font-semibold text-gray-900">Your cart is empty</p>
-          <p className="m-0 mt-1 text-xs text-gray-500">Add a service to continue.</p>
+          <p className="m-0 mt-1 text-xs text-gray-500">
+            {hourly ? "Tap Add on a service to book one person." : "Tap Add on a service to begin."}
+          </p>
         </div>
       ) : (
         <>
           <ul className="m-0 max-h-[50vh] list-none divide-y divide-gray-100 overflow-y-auto p-0 px-5">
             {lines.map((l) => (
-              <li key={l.key} className="flex items-center gap-3 py-3">
-                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-rc-yellow-tint">
+              <li key={l.key} className="flex items-center gap-3 py-2.5">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-rc-yellow-tint">
                   <SafeImage
                     src={l.image}
                     alt=""
@@ -588,9 +603,13 @@ function CartPanel({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-sm font-semibold text-gray-900">{l.name}</p>
-                  <p className="m-0 mt-0.5 text-xs text-gray-500">
+                  <p className="m-0 mt-0.5 flex items-center gap-1.5 text-xs text-gray-500">
                     <span className="font-semibold text-gray-700">{priceOf(l)}</span>
-                    {l.quantity > 1 ? <span> · Qty {l.quantity}</span> : null}
+                    {l.quantity > 1 ? (
+                      <span className="rounded-md bg-gray-100 px-1.5 py-px text-[11px] font-semibold text-gray-700">
+                        × {l.quantity}
+                      </span>
+                    ) : null}
                   </p>
                 </div>
                 <button
@@ -613,10 +632,103 @@ function CartPanel({
               Next
               <ArrowRightIcon className="h-4 w-4" />
             </button>
-            <p className="m-0 mt-2 text-center text-xs text-gray-500">Pick a date and time next.</p>
+            <p className="m-0 mt-2 text-center text-xs text-gray-500">
+              {hourly && lines.length > 1
+                ? "Same date and hours for everyone. Next: pick them."
+                : "Next: pick a date and time."}
+            </p>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** A small clock, for the terms line under a price. */
+function ClockDot({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" className={className} aria-hidden>
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M8 4.8V8l2.2 1.4" />
+    </svg>
+  );
+}
+
+/**
+ * Takes the sub-category column when a category has none: how a booking
+ * works, in three steps, and the terms the price line only hints at.
+ */
+function InfoRail({
+  category,
+  hourly,
+  services,
+}: {
+  category: CategoryTreeNode;
+  hourly: boolean;
+  services: CategoryTreeService[];
+}) {
+  const first = live(services)[0];
+  const terms = first && hourly ? hourlyTerms(first) : null;
+  const noun = /chef/i.test(category.name) ? "chef" : "person";
+  const steps: [string, string][] = hourly
+    ? [
+        [`Add the ${noun}s you need`, `One Add per ${noun}. Mix cuisines if you like.`],
+        ["Pick the date and hours", "Today, or any day this week. Everyone comes for the same hours."],
+        ["Confirm and pay", "Pay online, or after the service."],
+      ]
+    : [
+        ["Add the services you need", "Add as many as you want in one booking."],
+        ["Pick a day and start time", "Instant for today, or schedule a day this week."],
+        ["Confirm and pay", "Pay online, or after the service."],
+      ];
+  const facts: string[] = hourly
+    ? [
+        terms ? `${formatInr(terms.rate)} per hour per ${noun}` : "Priced per hour",
+        terms ? `Minimum ${terms.minHours} hours, ${formatInr(terms.minPrice)} per ${noun}` : "Minimum hours apply",
+        "18% GST is added at checkout",
+        "Change the hours any time before you confirm",
+      ]
+    : ["Prices are per job, as listed", "Taxes are added at checkout", "Pick different services for the same visit"];
+  const blurb = category.description?.trim();
+  // Only a real description: not the name, not "chef category", not a stub.
+  const nameLower = category.name.trim().toLowerCase();
+  const blurbLower = (blurb ?? "").toLowerCase();
+  const ownBlurb =
+    blurb && blurb.length >= 40 && blurbLower !== nameLower && blurbLower !== `${nameLower} category` ? blurb : null;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <div className="border-b border-gray-100 bg-rc-yellow-tint/50 px-4 py-3">
+        <p className="m-0 text-sm font-bold text-gray-900">How it works</p>
+        <p className="m-0 mt-0.5 text-xs text-gray-600">Booked online in about a minute.</p>
+      </div>
+      <ol className="m-0 list-none space-y-3 p-4">
+        {steps.map(([title, text], i) => (
+          <li key={title} className="flex gap-3">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-rc-yellow text-xs font-bold text-rc-ink">
+              {i + 1}
+            </span>
+            <div className="min-w-0">
+              <p className="m-0 text-[13px] font-semibold leading-snug text-gray-900">{title}</p>
+              <p className="m-0 mt-0.5 text-xs leading-snug text-gray-500">{text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="border-t border-gray-100 px-4 py-3">
+        <p className="m-0 text-[13px] font-semibold text-gray-900">Good to know</p>
+        <ul className="m-0 mt-2 list-none space-y-1.5 p-0">
+          {facts.map((f) => (
+            <li key={f} className="flex items-start gap-2 text-xs leading-snug text-gray-600">
+              <CheckGlyph className="mt-0.5 h-3 w-3 shrink-0 text-rc-green" />
+              {f}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {ownBlurb ? (
+        <p className="m-0 border-t border-gray-100 px-4 py-3 text-xs leading-relaxed text-gray-500">{ownBlurb}</p>
+      ) : null}
     </div>
   );
 }

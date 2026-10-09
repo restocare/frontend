@@ -17,7 +17,7 @@
  *   - Pay online: nothing is booked until Razorpay's payment is verified by
  *     the server; until then the order is only held in the cart. Cancelling
  *     or a failed payment books nothing, so the customer can retry.
- *   - Pay after the service: the bookings are created straight away.
+ *   - COD: the bookings are created straight away.
  * A coupon rides on the first booking only (codes are single use), with the
  * same maths as the other flows. Once anything is booked, the cart is emptied.
  */
@@ -71,8 +71,10 @@ import { Card, CheckGlyph, StorefrontShell } from "@/src/components/booking-v2/s
 import { SafeImage } from "@/src/components/booking-v2/cleaning-catalog";
 import { emojiForCategory } from "@/src/components/booking-v2/category-page-v2";
 import {
+  ArrowRightIcon,
   BoltIcon,
   CalendarIcon,
+  ClockIcon,
   CloseIcon,
   PencilIcon,
   MapPinIcon as PinIcon,
@@ -109,6 +111,9 @@ interface Done {
   /** Coupon saving that went through, GST included. */
   saved: number;
   couponCode?: string;
+  /** What was in the cart, kept for the summary once the cart is emptied. */
+  items: { name: string; image: string | null; quantity: number; line: string }[];
+  where: string;
 }
 
 /* ------------------------------ small parts ----------------------------- */
@@ -207,13 +212,17 @@ function Modal({
 }
 
 /** Numbered step badge that turns into a tick once the step is complete. */
-function StepBadge({ n, done }: { n: number; done: boolean }) {
+function StepBadge({ n, done, current }: { n: number; done: boolean; current?: boolean }) {
   return (
     <motion.span
       animate={{ scale: done ? [1, 1.18, 1] : 1 }}
       transition={{ duration: 0.3 }}
       className={`grid h-6.5 w-6.5 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors ${
-        done ? "bg-rc-yellow text-rc-ink" : "border-2 border-rc-yellow bg-white text-rc-yellow-deep"
+        done
+          ? "bg-rc-yellow text-rc-ink"
+          : current
+            ? "bg-rc-ink text-white"
+            : "border-2 border-gray-300 bg-white text-gray-500"
       }`}
       aria-hidden
     >
@@ -227,6 +236,7 @@ function Step({
   title,
   note,
   done,
+  current,
   action,
   children,
 }: {
@@ -234,16 +244,29 @@ function Step({
   title: string;
   note?: ReactNode;
   done: boolean;
+  /** The first step still to do: outlined so the eye lands on it. */
+  current?: boolean;
   action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <motion.div variants={RISE}>
-      <Card className="px-4 py-3.5 sm:px-5">
+      <Card
+        className={`px-4 py-3.5 transition-shadow sm:px-5 ${
+          current ? "border-rc-yellow ring-2 ring-rc-yellow/40" : ""
+        }`}
+      >
         <div className="flex items-center gap-2.5">
-          <StepBadge n={n} done={done} />
+          <StepBadge n={n} done={done} current={current} />
           <div className="min-w-0 flex-1">
-            <h2 className="m-0 text-[15px] font-bold leading-tight text-gray-900">{title}</h2>
+            <h2 className="m-0 flex items-center gap-2 text-[15px] font-bold leading-tight text-gray-900">
+              {title}
+              {current ? (
+                <span className="rounded-full bg-rc-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  Up next
+                </span>
+              ) : null}
+            </h2>
             {note ? <p className="m-0 text-xs text-gray-500">{note}</p> : null}
           </div>
           {action}
@@ -463,6 +486,7 @@ export function CategoryCheckout() {
   const addressOk = !!address && hasPin(address);
   const steps = [detailsOk, true, addressOk, !!payment];
   const stepsDone = steps.filter(Boolean).length;
+  const currentStep = steps.findIndex((d) => !d);
   const couponNeedsPrepay = !!applied?.prepaidOnly && payment === "COD";
   const ready = lines.length > 0 && stepsDone === steps.length && !placing && !couponNeedsPrepay;
 
@@ -552,6 +576,16 @@ export function CategoryCheckout() {
     };
     const when = whenLabel;
     const couponCode = applied?.code;
+    const items = lines.map((l) => {
+      const svc = servicesById.get(l.serviceId);
+      return {
+        name: l.name,
+        image: l.image,
+        quantity: l.quantity,
+        line: hourly && svc ? `${hours} hrs × ${formatInr(hourlyRate(svc))}` : formatInr(unitOf(l)),
+      };
+    });
+    const where = [address.label || address.restaurantName, address.address, address.city].filter(Boolean).join(", ");
 
     try {
       if (!online) {
@@ -561,7 +595,7 @@ export function CategoryCheckout() {
           return;
         }
         emptyCart();
-        setDone({ ids, failed, total: bookedTotal, mode: "COD", paymentProblem: null, when, saved, couponCode });
+        setDone({ ids, failed, total: bookedTotal, mode: "COD", paymentProblem: null, when, saved, couponCode, items, where });
         window.scrollTo(0, 0);
         return;
       }
@@ -587,7 +621,7 @@ export function CategoryCheckout() {
         paymentId = signature.razorpay_payment_id;
       } catch (e) {
         setError(
-          `${messageOf(e, "The payment did not go through.")} No booking was made. Try again, or choose "Pay after the service".`,
+          `${messageOf(e, "The payment did not go through.")} No booking was made. Try again, or choose COD.`,
         );
         return;
       }
@@ -612,6 +646,8 @@ export function CategoryCheckout() {
         when,
         saved,
         couponCode,
+        items,
+        where,
       });
       window.scrollTo(0, 0);
     } catch (e) {
@@ -636,61 +672,136 @@ export function CategoryCheckout() {
   if (done) {
     return (
       <StorefrontShell>
-        <main className="mx-auto max-w-xl px-4 py-12">
+        <main className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <Card className="p-8 text-center sm:p-10">
-              <motion.div
-                initial={{ scale: 0, rotate: -30 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
-                className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-rc-green text-white"
-              >
-                <CheckGlyph className="h-8 w-8" />
-              </motion.div>
-              <h1 className="m-0 text-2xl font-bold tracking-tight">
-                {done.ids.length ? "Booking confirmed" : "Payment received"}
-              </h1>
-              {done.ids.length ? (
-                <p className="m-0 mt-2 text-sm text-gray-500">
-                  Booking {done.ids.length > 1 ? "IDs" : "ID"}{" "}
-                  <strong className="text-gray-900">{done.ids.map((id) => `#${id}`).join(", ")}</strong>
-                </p>
-              ) : null}
-              {done.paymentId ? (
-                <p className="m-0 mt-1 text-xs text-gray-400">Payment ID {done.paymentId}</p>
-              ) : null}
-              <p className="m-0 mt-4 text-[15px] text-gray-600">
-                {done.when}. {formatInr(done.total)}{" "}
-                {done.mode === "COD" ? "to pay after the service." : "paid online."}
-              </p>
-              {done.saved > 0 ? (
-                <p className="m-0 mt-2 text-sm font-semibold text-rc-green">
-                  You saved {formatInr(done.saved)} with {done.couponCode}.
-                </p>
-              ) : null}
-              {done.paymentProblem ? (
-                <p className="m-0 mt-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-rc-red">
-                  {done.paymentProblem}
-                </p>
-              ) : null}
-              {done.failed.length ? (
-                <p className="m-0 mt-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-rc-red">
-                  Not booked: {done.failed.join("; ")}
-                </p>
-              ) : null}
-              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link
-                  href="/account/orders"
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-rc-yellow px-7 text-sm font-bold text-gray-900"
+            <Card className="overflow-hidden">
+              {/* Header: the confirmation */}
+              <div className="bg-rc-yellow-tint/60 px-6 pb-6 pt-8 text-center sm:px-10">
+                <motion.div
+                  initial={{ scale: 0, rotate: -30 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
+                  className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-rc-green text-white shadow-[0_8px_20px_rgba(30,142,62,0.3)]"
                 >
-                  View my orders
-                </Link>
-                <Link
-                  href={categoryHref(categoryId)}
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-200 px-7 text-sm font-semibold text-gray-900"
-                >
-                  Book more
-                </Link>
+                  <CheckGlyph className="h-8 w-8" />
+                </motion.div>
+                <h1 className="m-0 text-2xl font-bold tracking-tight">
+                  {done.ids.length ? "Booking confirmed" : "Payment received"}
+                </h1>
+                {done.ids.length ? (
+                  <p className="m-0 mt-1.5 text-sm text-gray-600">
+                    Booking {done.ids.length > 1 ? "IDs" : "ID"}{" "}
+                    <strong className="text-gray-900">{done.ids.map((id) => `#${id}`).join(", ")}</strong>
+                  </p>
+                ) : null}
+                {done.paymentId ? (
+                  <p className="m-0 mt-1 text-xs text-gray-500">Payment ID {done.paymentId}</p>
+                ) : null}
+              </div>
+
+              <div className="px-5 py-5 sm:px-8">
+                {/* When, where, payment */}
+                <dl className="m-0 grid gap-2.5 sm:grid-cols-3">
+                  {(
+                    [
+                      [CalendarIcon, "When", done.when],
+                      [PinIcon, "Where", done.where],
+                      [
+                        done.mode === "COD" ? BoltIcon : WalletIcon,
+                        "Payment",
+                        done.mode === "COD" ? `${formatInr(done.total)} · COD after the service` : `${formatInr(done.total)} · paid online`,
+                      ],
+                    ] as const
+                  ).map(([Icon, label, value]) => (
+                    <div key={label} className="flex gap-2.5 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-rc-yellow-deep ring-1 ring-gray-100">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <dt className="text-[11px] font-semibold text-gray-500">{label}</dt>
+                        <dd className="m-0 text-[13px] font-semibold leading-snug text-gray-900">{value}</dd>
+                      </div>
+                    </div>
+                  ))}
+                </dl>
+
+                {/* What was booked */}
+                {done.items.length ? (
+                  <ul className="m-0 mt-4 list-none divide-y divide-gray-100 rounded-xl border border-gray-100 p-0">
+                    {done.items.map((it) => (
+                      <li key={it.name} className="flex items-center gap-3 px-3 py-2.5">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-rc-yellow-tint">
+                          <SafeImage
+                            src={it.image}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            fallback={<span className="grid h-full w-full place-items-center text-lg">{emojiForCategory(category?.name ?? "")}</span>}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="m-0 truncate text-sm font-semibold text-gray-900">{it.name}</p>
+                          <p className="m-0 text-xs text-gray-500">{it.line}</p>
+                        </div>
+                        {it.quantity > 1 ? (
+                          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">× {it.quantity}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {done.saved > 0 ? (
+                  <p className="m-0 mt-3 flex items-center gap-1.5 text-sm font-semibold text-rc-green">
+                    <TagIcon className="h-4 w-4" />
+                    You saved {formatInr(done.saved)} with {done.couponCode}.
+                  </p>
+                ) : null}
+                {done.paymentProblem ? (
+                  <p className="m-0 mt-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-rc-red">{done.paymentProblem}</p>
+                ) : null}
+                {done.failed.length ? (
+                  <p className="m-0 mt-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-rc-red">
+                    Not booked: {done.failed.join("; ")}
+                  </p>
+                ) : null}
+
+                {/* What happens next */}
+                {done.ids.length ? (
+                  <div className="mt-5 rounded-xl border border-dashed border-rc-yellow-deep/40 bg-rc-yellow-tint/30 px-4 py-3">
+                    <p className="m-0 text-[13px] font-bold text-gray-900">What happens next</p>
+                    <ol className="m-0 mt-2 list-none space-y-1.5 p-0 text-[13px] text-gray-700">
+                      {[
+                        `We assign your ${hourly ? (/chef/i.test(category?.name ?? "") ? "chef" : "staff") : "professional"} and the status updates in My Orders.`,
+                        done.mode === "COD"
+                          ? `Pay ${formatInr(done.total)} after the service, by cash or UPI.`
+                          : "You're all paid up. Nothing more to pay on the day.",
+                        "Need to change or cancel? Open the booking in My Orders.",
+                      ].map((t, i) => (
+                        <li key={t} className="flex gap-2.5">
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-rc-yellow text-[11px] font-bold text-rc-ink">
+                            {i + 1}
+                          </span>
+                          <span>{t}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="/account/orders"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-rc-yellow text-sm font-bold text-gray-900 shadow-[0_6px_16px_rgba(244,180,0,0.28)] transition hover:brightness-95 sm:flex-1"
+                  >
+                    View my orders
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </Link>
+                  <Link
+                    href={categoryHref(categoryId)}
+                    className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 sm:flex-1"
+                  >
+                    Book more
+                  </Link>
+                </div>
               </div>
             </Card>
           </motion.div>
@@ -776,6 +887,7 @@ export function CategoryCheckout() {
                 n={1}
                 title="Your details"
                 done={detailsOk}
+                current={currentStep === 0}
                 action={<LinkAction onClick={() => setDetailsOpen(true)}>{detailsOk ? "Update" : "Add"}</LinkAction>}
               >
                 {detailsOk ? (
@@ -926,40 +1038,32 @@ export function CategoryCheckout() {
                 </AnimatePresence>
 
                 {autoStart ? null : (
-                  <div className={`mt-3 grid gap-2.5 ${hourly ? "grid-cols-2" : "max-w-56"}`}>
-                    <label htmlFor="start-time" className="block min-w-0">
-                      <span className="mb-1 block text-[11px] font-semibold text-gray-500">Start time</span>
-                      <select
-                        id="start-time"
-                        value={start}
-                        onChange={(e) => pickStart(Number(e.target.value))}
-                        className={`${inputCls} h-10 cursor-pointer font-semibold`}
-                      >
-                        {timeOptions(DAY_START, latest).map((t) => (
-                          <option key={t} value={t} disabled={t < earliest}>
-                            {fmtTime(t)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <div
+                    className={`mt-3 grid items-end gap-2 ${hourly ? "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]" : "max-w-56"}`}
+                  >
+                    <TimeField
+                      id="start-time"
+                      label="Start time"
+                      value={start}
+                      onChange={pickStart}
+                      options={timeOptions(DAY_START, latest).map((t) => ({ value: t, disabled: t < earliest }))}
+                    />
                     {hourly ? (
-                      <label htmlFor="end-time" className="block min-w-0">
-                        <span className="mb-1 block text-[11px] font-semibold text-gray-500">
-                          End time <span className="font-normal">· {fmtDuration(end - start)}</span>
-                        </span>
-                        <select
+                      <>
+                        <div className="flex flex-col items-center gap-1 pb-2.5" aria-hidden>
+                          <span className="rounded-full bg-rc-yellow px-2 py-0.5 text-[11px] font-bold text-rc-ink">
+                            {fmtDuration(end - start)}
+                          </span>
+                          <ArrowRightIcon className="h-4 w-4 text-gray-300" />
+                        </div>
+                        <TimeField
                           id="end-time"
+                          label="End time"
                           value={end}
-                          onChange={(e) => setPicked((p) => ({ ...p, start, end: Number(e.target.value) }))}
-                          className={`${inputCls} h-10 cursor-pointer font-semibold`}
-                        >
-                          {timeOptions(start + minMinutes, maxEnd).map((t) => (
-                            <option key={t} value={t}>
-                              {fmtTime(t)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                          onChange={(v) => setPicked((p) => ({ ...p, start, end: v }))}
+                          options={timeOptions(start + minMinutes, maxEnd).map((t) => ({ value: t }))}
+                        />
+                      </>
                     ) : null}
                   </div>
                 )}
@@ -970,6 +1074,7 @@ export function CategoryCheckout() {
                 n={3}
                 title="Address"
                 done={addressOk}
+                current={currentStep === 2}
                 action={
                   savedPinned.length ? (
                     <LinkAction onClick={() => setAddressListOpen(true)}>Change</LinkAction>
@@ -1004,12 +1109,12 @@ export function CategoryCheckout() {
               </Step>
 
               {/* 4. Payment */}
-              <Step n={4} title="Payment method" done={!!payment}>
+              <Step n={4} title="Payment method" done={!!payment} current={currentStep === 3}>
                 <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
                   {(
                     [
                       { id: "RAZORPAY", Icon: WalletIcon, title: "Pay online", sub: "UPI, cards, netbanking" },
-                      { id: "COD", Icon: BoltIcon, title: "Pay after the service", sub: "Cash or UPI" },
+                      { id: "COD", Icon: BoltIcon, title: "COD", sub: "Cash or UPI after the service" },
                     ] as const
                   ).map((m) => {
                     const on = payment === m.id;
@@ -1091,6 +1196,31 @@ export function CategoryCheckout() {
                     );
                   })}
                 </ul>
+                <CouponList
+                  loading={couponsQuery.isLoading}
+                  loadError={couponsQuery.isError ? messageOf(couponsQuery.error, "Could not load your coupons.") : null}
+                  onRetry={() => void queryClient.invalidateQueries({ queryKey: couponsKey })}
+                  coupons={available}
+                  appliedId={applied?.couponId ?? null}
+                  savingOf={savingOf}
+                  busy={couponBusy}
+                  payOnline={payment === "RAZORPAY"}
+                  onApply={applyCoupon}
+                  onRemove={removeCoupon}
+                  entry={
+                    <CouponBox
+                      applied={applied}
+                      saving={couponSaving}
+                      input={couponInput}
+                      onInput={setCouponInput}
+                      busy={couponBusy}
+                      error={couponError}
+                      onApply={applyCoupon}
+                      onRemove={removeCoupon}
+                      appliesTo={applied && lines.length > 1 ? lines[0].name : null}
+                    />
+                  }
+                />
                 <dl className="m-0 space-y-1.5 border-t border-gray-100 px-4 py-3 text-[13px]">
                   <div className="flex justify-between">
                     <dt className="text-gray-500">Item total</dt>
@@ -1121,37 +1251,15 @@ export function CategoryCheckout() {
                 </dl>
                 <div className="hidden px-4 pb-4 lg:block">
                   <PlaceButton ready={ready} placing={placing} onClick={place} />
-                  <p className={`m-0 mt-1.5 text-center text-[11px] ${error ? "font-medium text-rc-red" : "text-gray-500"}`}>
+                  <p
+                    className={`m-0 mt-1.5 text-center text-[11px] ${
+                      error ? "font-medium text-rc-red" : missing ? "font-medium text-rc-yellow-deep" : "text-gray-500"
+                    }`}
+                  >
                     {error ?? missing ?? "By placing the booking you agree to our terms."}
                   </p>
                 </div>
               </Card>
-              <CouponList
-                loading={couponsQuery.isLoading}
-                loadError={couponsQuery.isError ? messageOf(couponsQuery.error, "Could not load your coupons.") : null}
-                onRetry={() => void queryClient.invalidateQueries({ queryKey: couponsKey })}
-                coupons={available}
-                appliedId={applied?.couponId ?? null}
-                savingOf={savingOf}
-                busy={couponBusy}
-                payOnline={payment === "RAZORPAY"}
-                onApply={applyCoupon}
-                onRemove={removeCoupon}
-                entry={
-                  <CouponBox
-                    // A listed coupon shows as applied in the list itself.
-                    applied={applied && !available.some((c) => c.couponId === applied.couponId) ? applied : null}
-                    saving={couponSaving}
-                    input={couponInput}
-                    onInput={setCouponInput}
-                    busy={couponBusy}
-                    error={couponError}
-                    onApply={applyCoupon}
-                    onRemove={removeCoupon}
-                    appliesTo={applied && lines.length > 1 ? lines[0].name : null}
-                  />
-                }
-              />
             </motion.aside>
           </div>
         </main>
@@ -1334,7 +1442,7 @@ function fmtExpiry(iso: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
-/** The customer's coupons, under the price card: tap Apply on one. */
+/** The customer's coupons, folded under a "View coupons" button: tap Apply on one. */
 function CouponList({
   coupons,
   appliedId,
@@ -1361,15 +1469,25 @@ function CouponList({
   loadError: string | null;
   onRetry: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Card className="mt-3 overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-gray-100 bg-rc-yellow-tint/60 px-4 py-2.5">
-        <TagIcon className="h-4 w-4 text-rc-yellow-deep" />
-        <h2 className="m-0 flex-1 text-sm font-bold text-gray-900">Coupons</h2>
+    <div className="border-t border-gray-100">
+      <div className="flex items-center gap-1.5 px-4 pt-3">
+        <TagIcon className="h-3.5 w-3.5 text-rc-yellow-deep" />
+        <h3 className="m-0 flex-1 text-[13px] font-bold text-gray-900">Coupons</h3>
         {coupons.length ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-700">
-            {coupons.length} available
-          </span>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls="coupon-list"
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-full border border-rc-yellow-deep/40 bg-white px-2.5 py-1 text-[11px] font-semibold text-rc-yellow-deep transition hover:bg-rc-yellow-tint"
+          >
+            {open ? "Hide" : "View"} {coupons.length} {coupons.length === 1 ? "coupon" : "coupons"}
+            <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} aria-hidden className="text-[10px] leading-none">
+              ▼
+            </motion.span>
+          </button>
         ) : null}
       </div>
       {entry}
@@ -1389,7 +1507,18 @@ function CouponList({
           No coupons for your account right now. Have a code? Enter it above.
         </p>
       )}
-      <ul className={`m-0 max-h-60 list-none space-y-2 overflow-y-auto p-3 ${coupons.length ? "" : "hidden"}`}>
+      <AnimatePresence initial={false}>
+        {open && coupons.length ? (
+          <motion.ul
+            id="coupon-list"
+            key="list"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="m-0 list-none overflow-hidden p-0"
+          >
+            <div className="max-h-56 space-y-2 overflow-y-auto px-3 pb-3 pt-2">
         {coupons.map((c) => {
           const on = c.couponId === appliedId;
           const saving = savingOf(c);
@@ -1434,7 +1563,13 @@ function CouponList({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => (on ? onRemove() : onApply(c.code))}
+                  onClick={() => {
+                    if (on) onRemove();
+                    else {
+                      onApply(c.code);
+                      setOpen(false);
+                    }
+                  }}
                   className={`h-7 rounded-lg px-3 text-xs font-bold transition disabled:opacity-50 ${
                     on
                       ? "text-rc-yellow-deep hover:underline"
@@ -1447,8 +1582,12 @@ function CouponList({
             </motion.li>
           );
         })}
-      </ul>
-    </Card>
+            </div>
+          </motion.ul>
+        ) : null}
+      </AnimatePresence>
+      {!open && coupons.length ? <div className="pb-3" /> : null}
+    </div>
   );
 }
 
@@ -1475,7 +1614,7 @@ function CouponBox({
   appliesTo: string | null;
 }) {
   return (
-    <div className="px-3 pt-3">
+    <div className="px-3 pt-2">
       <AnimatePresence mode="wait" initial={false}>
         {applied ? (
           <motion.div
@@ -1544,6 +1683,54 @@ function CouponBox({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** A time picker: a native select (phones get their own picker) dressed with a clock and a chevron. */
+function TimeField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  options: { value: number; disabled?: boolean }[];
+}) {
+  return (
+    <label htmlFor={id} className="block min-w-0">
+      <span className="mb-1 block text-[11px] font-semibold text-gray-500">{label}</span>
+      <span className="relative block">
+        <ClockIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-rc-yellow-deep sm:left-3" />
+        <select
+          id={id}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-gray-200 bg-white pl-8 pr-7 text-sm font-semibold sm:pl-9 sm:pr-9 sm:text-[15px] text-gray-900 outline-none transition hover:border-gray-300 focus:border-rc-yellow focus:ring-4 focus:ring-rc-yellow/20"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value} disabled={o.disabled}>
+              {fmtTime(o.value)}
+            </option>
+          ))}
+        </select>
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 sm:right-3"
+          aria-hidden
+        >
+          <path d="m5 7.5 5 5 5-5" />
+        </svg>
+      </span>
+    </label>
   );
 }
 
