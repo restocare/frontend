@@ -2723,6 +2723,9 @@ function normalizeBookingResponse(value: unknown): BookingSummary {
 export interface BookingProfessional {
   professionalId?: number;
   rating?: number | null;
+  /** Area labels returned with the professional profile (not a live GPS address). */
+  city?: string | null;
+  district?: string | null;
   user?: {
     name?: string | null;
     email?: string | null;
@@ -2747,6 +2750,8 @@ export interface BookingRecord {
   professionalId?: number | null;
   professional?: BookingProfessional | null;
   bookingDate?: string;
+  serviceCity?: string | null;
+  serviceAddress?: string | null;
   startTime?: string;
   totalAmount?: number;
   paymentMode?: string;

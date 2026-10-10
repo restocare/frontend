@@ -28,14 +28,14 @@ const FAQS: Faq[] = [
     cta: { label: "Browse categories", href: "/#categories" },
   },
   {
-    q: "Where are my orders?",
+    q: "Where are my bookings?",
     a: "All your bookings — active and past — live in your account. You can also download invoices there.",
-    cta: { label: "View my orders", href: "/account/orders" },
+    cta: { label: "View my bookings", href: "/account/orders" },
   },
   {
     q: "How do I get an invoice?",
-    a: "Open My Orders, find the booking and tap “Download Invoice”. You can print it or save it as a PDF.",
-    cta: { label: "Go to orders", href: "/account/orders" },
+    a: "Open My Bookings, find the booking and tap “Download Invoice”. You can print it or save it as a PDF.",
+    cta: { label: "Go to bookings", href: "/account/orders" },
   },
   {
     q: "Are your staff verified?",

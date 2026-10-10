@@ -142,14 +142,14 @@ export interface Faq {
 
 const linkClass = "font-semibold text-rc-yellow-deep hover:underline";
 
-/** Shared answer: cancelling from My Orders, with the policy link. */
+/** Shared answer: cancelling from My Bookings, with the policy link. */
 export const CANCEL_FAQ: Faq = {
   q: "Can I cancel a booking?",
   a: (
     <>
       Yes, from{" "}
       <Link href="/account/orders" className={linkClass}>
-        My Orders
+        My Bookings
       </Link>{" "}
       in your account. Any charges are set out in our{" "}
       <Link href="/refund-cancellation-policy" className={linkClass}>

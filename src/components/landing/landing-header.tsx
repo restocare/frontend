@@ -186,7 +186,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         {/* Logo + brand name (always visible) */}
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- external CDN logo */}
-          <img src={LOGO_URL} alt="Restocare" className="h-9 w-10 rounded-[3px] object-cover" />
+          <img src={LOGO_URL} alt="Restocare" width={40} height={36} loading="lazy" decoding="async" className="h-9 w-10 rounded-[3px] object-cover" />
           <span className="hidden font-brand text-[1.35rem] font-bold leading-none tracking-tight text-gray-900 sm:inline">
             Restocare
           </span>

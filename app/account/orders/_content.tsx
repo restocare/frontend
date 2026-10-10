@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
@@ -11,6 +12,25 @@ import { useCart } from "@/src/lib/cart";
 import { bookingApi, queryKeys, type BookingRecord } from "@/src/api/api";
 import { openInvoice } from "@/src/lib/invoice";
 import { SpinnerIcon } from "@/src/components/icons";
+import { SHOW_BOOKING_ANIMATIONS } from "@/src/lib/features";
+import { bookingActivity } from "@/src/lib/booking-activity";
+import {
+  ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarDays, Check,
+  ChefHat, Clock3, CreditCard, FileText, KeyRound, Phone,
+  RotateCcw, ShoppingBag, X,
+} from "lucide-react";
+
+const BookingActivityPanel = dynamic(() => import("@/src/components/orders/booking-activity").then((module) => module.BookingActivityPanel));
+const WaitingForPartner = dynamic(() => import("@/src/components/orders/booking-activity").then((module) => module.WaitingForPartner));
+
+const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-yellow focus-visible:ring-offset-2";
+
+function bookingDateLabel(date?: string): string {
+  if (!date) return "Date to be confirmed";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function inr(n: number): string {
   return `₹ ${(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -59,6 +79,7 @@ function statusLabel(status?: string): string {
   if (/cancel/.test(s)) return "Cancelled";
   if (/reject/.test(s)) return "Rejected";
   if (/assigned/.test(s)) return "Assigned";
+  if (/confirmed/.test(s)) return "Confirmed";
   return "Pending";
 }
 
@@ -104,6 +125,16 @@ export function MyBookingsContent({ embedded = false }: { embedded?: boolean }) 
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
   const [cancelChoice, setCancelChoice] = useState<string | null>(null);
   const [cancelNote, setCancelNote] = useState("");
+  const cancelDialogRef = useRef<HTMLDialogElement>(null);
+  const cancelTitleId = useId();
+  const cancelDescriptionId = useId();
+
+  useEffect(() => {
+    const dialog = cancelDialogRef.current;
+    if (!dialog) return;
+    if (cancelTarget != null && !dialog.open) dialog.showModal();
+    if (cancelTarget == null && dialog.open) dialog.close();
+  }, [cancelTarget]);
 
   const cancelMutation = useMutation({
     mutationFn: ({ bookingId, reason }: { bookingId: number; reason: string }) =>
@@ -147,7 +178,7 @@ export function MyBookingsContent({ embedded = false }: { embedded?: boolean }) 
       await addItemAsync(serviceId, variantId);
       router.push("/checkout");
     } catch {
-      setNotice("Unable to repeat this order.");
+      setNotice("Unable to repeat this booking.");
     } finally {
       setRepeatingId(null);
     }
@@ -157,344 +188,276 @@ export function MyBookingsContent({ embedded = false }: { embedded?: boolean }) 
   const filtered = bookings.filter((b) =>
     tab === "ACTIVE" ? !isPastStatus(b.status) : isPastStatus(b.status),
   );
+  const activeCount = bookings.filter((b) => !isPastStatus(b.status)).length;
+  const pastCount = bookings.length - activeCount;
+  const ContentContainer = embedded ? "section" : "main";
 
   if (isHydrating || !isLoggedIn) {
     return (
-      <div data-theme="light" className={embedded ? "" : "min-h-dvh bg-gray-50"}>
+      <div data-theme="light" className={embedded ? "" : "min-h-dvh bg-rc-ground"}>
         {!embedded && <LandingHeader search="" onSearchChange={() => {}} />}
-        <div className="flex h-[60vh] items-center justify-center text-gray-400">
+        <div role="status" className="flex h-[60vh] items-center justify-center text-rc-muted">
           <SpinnerIcon className="h-7 w-7" />
+          <span className="sr-only">Loading your bookings</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div data-theme="light" className={embedded ? "" : "min-h-dvh bg-gray-50"}>
+    <div data-theme="light" className={embedded ? "" : "min-h-dvh bg-rc-ground"}>
       {!embedded && <LandingHeader search="" onSearchChange={() => {}} />}
 
-      <main className={embedded ? "" : "mx-auto max-w-3xl px-4 py-8 sm:px-6"}>
-        <div className="mb-5 flex items-center gap-3">
+      <ContentContainer className={embedded ? "min-w-0" : "mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10"}>
+        <div className="mb-6 flex items-start gap-3">
           {!embedded && (
-            <Link href="/account" className="text-2xl leading-none text-gray-900" aria-label="Back">
-              ←
+            <Link href="/account" className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-rc-line bg-white text-rc-ink transition hover:bg-rc-yellow-tint ${focusRing}`} aria-label="Back to account">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Link>
           )}
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">My Orders</h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-rc-ink sm:text-3xl">My Bookings</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-rc-ink-2">Keep track of your bookings, all in one place.</p>
+          </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-5 flex border-b border-gray-200">
+        <div className="mb-6 flex gap-1 rounded-2xl border border-rc-line bg-white p-1.5" role="group" aria-label="Filter bookings">
           {(["ACTIVE", "PAST"] as const).map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTab(t)}
-              className={`flex-1 border-b-2 pb-3 text-sm font-semibold transition ${
-                tab === t
-                  ? "border-indigo-600 text-gray-900"
-                  : "border-transparent text-gray-400 hover:text-gray-600"
+              aria-pressed={tab === t}
+              className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-sm font-semibold transition-colors ${focusRing} ${
+                tab === t ? "bg-rc-ink text-white" : "text-rc-ink-2 hover:bg-rc-ground"
               }`}
             >
-              {t === "ACTIVE" ? "Active Orders" : "Past Orders"}
+              {t === "ACTIVE" ? "Active Bookings" : "Past Bookings"}
+              {bookingsQuery.isSuccess && (
+                <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] tabular-nums ${tab === t ? "bg-rc-yellow text-rc-ink" : "bg-rc-ground text-rc-ink-2"}`}>
+                  {t === "ACTIVE" ? activeCount : pastCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {notice ? (
-          <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{notice}</p>
-        ) : null}
+        {SHOW_BOOKING_ANIMATIONS && tab === "ACTIVE" && bookingsQuery.isSuccess && (
+          <BookingActivityPanel bookings={bookings} restaurantName={typeof user?.restaurantName === "string" ? user.restaurantName : undefined} />
+        )}
+
+        {notice && (
+          <div role="alert" className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-rc-red/20 bg-rc-red/5 p-4 text-sm text-rc-red">
+            <p className="pt-1">{notice}</p>
+            <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss message" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-rc-red/10 ${focusRing}`}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
         {bookingsQuery.isLoading ? (
-          <div className="flex justify-center py-16">
-            <SpinnerIcon className="h-7 w-7 text-indigo-600" />
+          <div role="status" className="space-y-4">
+            <span className="sr-only">Loading your bookings</span>
+            {[0, 1].map((n) => (
+              <div key={n} aria-hidden="true" className="rounded-2xl border border-rc-line bg-white p-5 motion-safe:animate-pulse sm:p-6">
+                <div className="flex items-center gap-3"><div className="h-12 w-12 rounded-2xl bg-rc-ground" /><div className="h-4 w-1/2 rounded bg-rc-ground" /></div>
+                <div className="my-6 h-16 rounded-xl bg-rc-ground" />
+                <div className="h-12 rounded-xl bg-rc-ground" />
+              </div>
+            ))}
           </div>
         ) : bookingsQuery.isError ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
-            <p className="text-sm text-gray-500">Couldn&apos;t load your bookings.</p>
-            <button
-              onClick={() => bookingsQuery.refetch()}
-              className="mt-4 rounded-full bg-gray-900 px-5 py-2 text-sm font-semibold text-white"
-            >
+          <div role="alert" className="rounded-2xl border border-rc-line bg-white px-6 py-12 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rc-yellow-tint text-rc-ink"><RotateCcw className="h-6 w-6" aria-hidden="true" /></span>
+            <h2 className="mt-4 text-lg font-bold text-rc-ink">We couldn&apos;t load your bookings</h2>
+            <p className="mt-2 text-sm text-rc-ink-2">Please try again in a moment.</p>
+            <button onClick={() => bookingsQuery.refetch()} disabled={bookingsQuery.isFetching} className={`mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-rc-yellow px-5 text-sm font-bold text-rc-ink hover:brightness-95 disabled:opacity-60 ${focusRing}`}>
+              {bookingsQuery.isFetching && <SpinnerIcon className="h-4 w-4" />}
               Try again
             </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
-            <p className="text-5xl">🧾</p>
-            <p className="mt-3 text-sm text-gray-500">
-              No {tab.toLowerCase()} orders yet.
+          <div className="rounded-2xl border border-rc-line bg-white px-6 py-12 text-center sm:py-16">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rc-yellow-tint text-rc-ink"><ShoppingBag className="h-7 w-7" aria-hidden="true" /></span>
+            <h2 className="mt-5 text-lg font-bold text-rc-ink">No {tab.toLowerCase()} bookings yet</h2>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-rc-ink-2">
+              {tab === "ACTIVE" ? "Your next booking will appear here, ready to track." : "Your completed and cancelled bookings will appear here."}
             </p>
-            <Link
-              href="/"
-              className="mt-6 inline-flex rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
-            >
-              Browse services
+            <Link href="/" className={`mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-rc-yellow px-5 text-sm font-bold text-rc-ink hover:brightness-95 ${focusRing}`}>
+              Browse services <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-        ) : ( 
-          <div className="space-y-4"> 
+        ) : (
+          <div className="space-y-5">
             {filtered.map((b) => {
               const id = Number(b.bookingId ?? b.id);
               if (!id) return null;
               const serviceName = b.service?.name || b.serviceName || "Service";
               const variantName = b.variant?.name || b.variantName || "Variant";
               const step = progressStep(b.status);
-              const cancelled = b.status?.toLowerCase().includes("cancel");
+              const endedEarly = /cancel|reject/.test(normalizeStatus(b.status));
               const completed = statusLabel(b.status) === "Completed";
               const proName = b.professional?.user?.name?.trim();
               const proMobile = b.professional?.user?.mobile?.trim();
               const accepted = isAccepted(b.status) && Boolean(b.professionalId || b.professional);
+              const ServiceIcon = /chef|cook/i.test(serviceName) ? ChefHat : BriefcaseBusiness;
               return (
-                <div
-                  key={id}
-                  className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-                >
-                  {/* Top */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-2xl">
-                        👨‍🍳
-                      </span>
-                      <p className="text-base font-bold text-gray-900">{serviceName}</p>
-                    </div>
-                    <div className="text-right">
-                      {tab === "PAST" && (
-                        <button
-                          onClick={() => handleRepeat(b)}
-                          disabled={repeatingId === id}
-                          className="mb-1.5 inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-                        >
-                          {repeatingId === id ? (
-                            <SpinnerIcon className="h-3 w-3" />
-                          ) : (
-                            "Repeat Order"
-                          )}
-                        </button>
-                      )}
-                      <p className="text-xs text-gray-400">Order ID: #{id}</p>
-                      <p className="text-xs text-gray-400">
-                        {b.bookingDate
-                          ? new Date(b.bookingDate).toLocaleDateString("en-GB")
-                          : ""}{" "}
-                        {b.startTime || ""}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="my-4 border-t border-dashed border-gray-200" />
-
-                  {/* Middle */}
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-900">Total items: 1</p>
-                    {tab === "ACTIVE" ? (
-                      <button
-                        onClick={() => {
-                          setCancelChoice(null);
-                          setCancelNote("");
-                          setCancelTarget(id);
-                        }}
-                        disabled={cancelMutation.isPending}
-                        className="rounded-md border border-gray-300 bg-gray-50 px-3.5 py-1.5 text-xs font-bold text-red-600 hover:bg-gray-100 disabled:opacity-60"
-                      >
-                        Cancel
-                      </button>
-                    ) : (
-                      <span
-                        className={`text-xs font-bold ${cancelled ? "text-red-600" : "text-gray-900"}`}
-                      >
+                <article key={id} id={`booking-${id}`} aria-labelledby={`order-${id}-title`} className="scroll-mt-24 overflow-hidden rounded-2xl border border-rc-line bg-white shadow-[0_2px_8px_rgba(28,26,23,0.03)]">
+                  <div className="p-4 sm:p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rc-yellow-tint text-rc-ink sm:h-12 sm:w-12">
+                          <ServiceIcon className="h-6 w-6" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="mb-1 text-xs font-medium text-rc-ink-2">Booking #{id}</p>
+                          <h2 id={`order-${id}-title`} className="text-base font-bold leading-snug text-rc-ink sm:text-lg">{serviceName}</h2>
+                        </div>
+                      </div>
+                      <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold sm:px-3 ${endedEarly ? "bg-rc-red/10 text-rc-red" : completed ? "bg-rc-green/10 text-rc-green" : "bg-rc-yellow-tint text-rc-ink"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${endedEarly ? "bg-rc-red" : completed ? "bg-rc-green" : "bg-rc-yellow"}`} aria-hidden="true" />
                         {statusLabel(b.status)}
                       </span>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between gap-3 rounded-xl bg-rc-ground px-4 py-3">
+                      <p className="text-sm font-medium leading-relaxed text-rc-ink-2">{variantName}</p>
+                      <span className="shrink-0 rounded-lg border border-rc-line bg-white px-2.5 py-1 text-xs font-semibold text-rc-ink-2">Qty: 1</span>
+                    </div>
+
+                    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-[1.2fr_1fr_auto]">
+                      <div>
+                        <dt className="flex items-center gap-1.5 text-xs text-rc-ink-2"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" /> Booking date</dt>
+                        <dd className="mt-1.5 text-sm font-semibold text-rc-ink">{bookingDateLabel(b.bookingDate)}</dd>
+                        {b.startTime && <dd className="mt-1 flex items-center gap-1.5 text-xs text-rc-ink-2"><Clock3 className="h-3 w-3" aria-hidden="true" />{b.startTime}</dd>}
+                      </div>
+                      <div>
+                        <dt className="flex items-center gap-1.5 text-xs text-rc-ink-2"><CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> Payment method</dt>
+                        <dd className="mt-1.5 break-words text-sm font-semibold text-rc-ink">{b.paymentMode || "Cash on Delivery"}</dd>
+                      </div>
+                      <div className="col-span-2 flex items-center justify-between border-t border-rc-line pt-3 sm:col-span-1 sm:block sm:border-0 sm:pt-0 sm:text-right">
+                        <dt className="text-xs text-rc-ink-2">Booking total</dt>
+                        <dd className="text-lg font-bold tabular-nums text-rc-ink sm:mt-1">{inr(b.totalAmount || 0)}</dd>
+                      </div>
+                    </dl>
+
+                    {SHOW_BOOKING_ANIMATIONS && tab === "ACTIVE" && bookingActivity(b) === "waiting" && (
+                      <WaitingForPartner />
+                    )}
+
+                    {accepted && (
+                      <div className="mt-5 flex items-center gap-3 rounded-xl border border-rc-green/15 bg-rc-green/5 p-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rc-green/10 text-sm font-bold text-rc-green">{(proName || "P").slice(0, 1).toUpperCase()}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-rc-ink-2">{completed ? "Service completed by" : "Your professional"}</p>
+                          <p className="mt-0.5 truncate text-sm font-bold text-rc-ink">{proName || `Professional #${b.professionalId ?? ""}`}</p>
+                        </div>
+                        {proMobile && <a href={`tel:${proMobile}`} className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-rc-green/20 bg-white px-3 text-xs font-semibold text-rc-green hover:bg-rc-green/5 ${focusRing}`}><Phone className="h-3.5 w-3.5" aria-hidden="true" />Call</a>}
+                      </div>
+                    )}
+
+                    {shouldShowStartOtp(b) && (
+                      <div className="mt-4 rounded-xl border border-rc-yellow/30 bg-rc-yellow-tint p-4 text-center">
+                        <p className="flex items-center justify-center gap-1.5 text-xs font-bold text-rc-ink"><KeyRound className="h-4 w-4" aria-hidden="true" />Start OTP</p>
+                        <p className="mt-2 break-all text-3xl font-bold tracking-[0.3em] text-rc-ink">{String(b.otp)}</p>
+                        <p className="mt-2 text-xs leading-relaxed text-rc-ink-2">Share this code with the professional to start the service.</p>
+                      </div>
+                    )}
+
+                    {showProgress(b.status) && (
+                      <div className="mt-5 border-t border-rc-line pt-4">
+                        <p className="mb-4 text-xs font-semibold text-rc-ink-2">Booking progress</p>
+                        <ol aria-label={`Booking ${id} progress`} className="grid grid-cols-4">
+                          {PROGRESS_LABELS.map((label, i) => {
+                            const n = i + 1;
+                            const active = n <= step;
+                            const done = n < step || completed;
+                            return (
+                              <li key={label} aria-current={n === step ? "step" : undefined} className="relative flex min-w-0 flex-col items-center gap-2 text-center">
+                                {n < 4 && <span aria-hidden="true" className={`absolute left-[calc(50%+18px)] right-[calc(-50%+18px)] top-4 h-0.5 ${n < step ? "bg-rc-yellow" : "bg-rc-line"}`} />}
+                                <span className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${active ? "bg-rc-yellow text-rc-ink" : "border border-rc-line bg-white text-rc-ink-2"} ${n === step && !completed ? "ring-4 ring-rc-yellow/15" : ""}`} aria-hidden="true">
+                                  {done ? <Check className="h-4 w-4" /> : n}
+                                </span>
+                                <span className={`px-1 text-[10px] leading-snug sm:text-xs ${active ? "font-semibold text-rc-ink" : "text-rc-ink-2"}`}>{label}</span>
+                                <span className="sr-only">{done ? "Complete" : n === step ? "Current step" : "Upcoming"}</span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
                     )}
                   </div>
-                  <div className="mb-3 flex items-center justify-between text-sm text-gray-500">
-                    <span>{variantName}</span>
-                    <span className="font-medium">x 1</span>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rc-line bg-rc-ground/50 px-4 py-3 sm:px-6">
+                    <span className="text-xs text-rc-ink-2">1 service in this booking</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {tab === "ACTIVE" ? (
+                        <button onClick={() => { setCancelChoice(null); setCancelNote(""); setCancelTarget(id); }} disabled={cancelMutation.isPending} aria-label={`Cancel booking ${id}`} className={`min-h-11 rounded-full border border-rc-line bg-white px-4 text-xs font-semibold text-rc-red transition hover:border-rc-red/30 hover:bg-rc-red/5 disabled:opacity-60 ${focusRing}`}>
+                          Cancel booking
+                        </button>
+                      ) : (
+                        <>
+                          {completed && (
+                            <button onClick={() => openInvoice(b, { name: user?.name, email: user?.email, mobile: user?.mobile })} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border border-rc-line bg-white px-3 text-xs font-semibold text-rc-ink transition hover:bg-rc-yellow-tint ${focusRing}`}>
+                              <FileText className="h-3.5 w-3.5" aria-hidden="true" />Download Invoice
+                            </button>
+                          )}
+                          <button onClick={() => handleRepeat(b)} disabled={repeatingId !== null} aria-label={`Repeat booking ${id}`} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full bg-rc-yellow px-4 text-xs font-bold text-rc-ink transition hover:brightness-95 disabled:opacity-60 ${focusRing}`}>
+                            {repeatingId === id ? <SpinnerIcon className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
+                            {repeatingId === id ? "Adding…" : "Book again"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-gray-600">
-                      💳 Payment: {b.paymentMode || "Cash on Delivery"}
-                    </span>
-                    <span className="text-base font-bold text-indigo-700">
-                      {inr(b.totalAmount || 0)}
-                    </span>
-                  </div>
-
-                  {/* Invoice — only for completed orders (incl. older ones). */}
-                  {completed && (
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        onClick={() =>
-                          openInvoice(b, {
-                            name: user?.name,
-                            email: user?.email,
-                            mobile: user?.mobile,
-                          })
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
-                      >
-                        🧾 Download Invoice
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Who accepted the booking */}
-                  {accepted && (
-                    <div className="mt-3 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white">
-                        {(proName ?? "P").slice(0, 1).toUpperCase()}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-green-700">
-                          {statusLabel(b.status) === "Completed"
-                            ? "Service completed by"
-                            : "Accepted by"}
-                        </p>
-                        <p className="truncate text-sm font-bold text-gray-900">
-                          {proName || `Professional #${b.professionalId ?? ""}`}
-                        </p>
-                      </div>
-                      {proMobile ? (
-                        <a
-                          href={`tel:${proMobile}`}
-                          className="shrink-0 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
-                        >
-                          📞 Call
-                        </a>
-                      ) : null}
-                    </div>
-                  )}
-
-                  {/* Start OTP — shown after a professional accepts so the
-                      customer can read it out to start the service. */}
-                  {shouldShowStartOtp(b) && (
-                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
-                        🔑 Start OTP
-                      </p>
-                      <p className="mt-1 text-3xl font-bold tracking-[0.35em] text-gray-900">
-                        {String(b.otp)}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-600">
-                        Share this code with the professional to start the service
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Progress */}
-                  {showProgress(b.status) && (
-                    <>
-                      <div className="my-4 border-t border-dashed border-gray-200" />
-                      <div className="flex items-center justify-center">
-                        {PROGRESS_LABELS.map((_, i) => {
-                          const n = i + 1;
-                          const active = n <= step;
-                          return (
-                            <div key={n} className="flex items-center">
-                              <span
-                                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold ${
-                                  active
-                                    ? "border-indigo-600 bg-indigo-600 text-white"
-                                    : "border-gray-300 bg-white text-gray-400"
-                                }`}
-                              >
-                                {n}
-                              </span>
-                              {n < 4 && (
-                                <span
-                                  className={`mx-1 h-0.5 w-8 sm:w-12 ${
-                                    n < step ? "bg-indigo-600" : "bg-gray-300"
-                                  }`}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-2 flex justify-between px-1">
-                        {PROGRESS_LABELS.map((label, i) => (
-                          <span
-                            key={label}
-                            className={`flex-1 text-center text-[10px] font-medium ${
-                              i + 1 <= step ? "text-indigo-600" : "text-gray-400"
-                            }`}
-                          >
-                            {label}
-                          </span>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                </article>
               );
             })}
           </div>
         )}
-      </main>
+      </ContentContainer>
 
-      {/* Cancel: irreversible, so confirm and capture WHY in one step. */}
-      {cancelTarget != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setCancelTarget(null)}
-            aria-hidden
-          />
-          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
-            <h3 className="text-base font-bold text-gray-900">Cancel this booking?</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              This cannot be undone. Please pick a reason so we can improve.
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {CANCEL_REASONS.map((r) => {
-                const on = cancelChoice === r;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setCancelChoice(r)}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      on
-                        ? "border-red-500 bg-red-50 text-red-700"
-                        : "border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    {r}
-                  </button>
-                );
-              })}
+      <dialog
+        ref={cancelDialogRef}
+        aria-labelledby={cancelTitleId}
+        aria-describedby={cancelDescriptionId}
+        onCancel={(event) => { if (cancelMutation.isPending) event.preventDefault(); else setCancelTarget(null); }}
+        onClick={(event) => { if (event.target === event.currentTarget && !cancelMutation.isPending) setCancelTarget(null); }}
+        className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-rc-line bg-white p-0 text-rc-ink shadow-2xl backdrop:bg-rc-ink/50 backdrop:backdrop-blur-sm"
+      >
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="mb-1 text-xs font-medium text-rc-ink-2">Booking #{cancelTarget}</p>
+              <h2 id={cancelTitleId} className="text-xl font-bold">Cancel this booking?</h2>
             </div>
-
-            <textarea
-              value={cancelNote}
-              onChange={(e) => setCancelNote(e.target.value)}
-              rows={3}
-              maxLength={300}
-              placeholder={
-                cancelChoice === "Other" ? "Tell us what happened" : "Anything to add? (optional)"
-              }
-              className="mt-3 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-900"
-            />
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setCancelTarget(null)}
-                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                No, keep it
-              </button>
-              <button
-                onClick={confirmCancel}
-                disabled={!cancelReasonValid || cancelMutation.isPending}
-                title={cancelReasonValid ? undefined : "Pick a reason first"}
-                className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-45"
-              >
-                Yes, cancel
-              </button>
+            <button type="button" onClick={() => setCancelTarget(null)} disabled={cancelMutation.isPending} aria-label="Close cancellation dialog" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rc-ink-2 hover:bg-rc-ground disabled:opacity-60 ${focusRing}`}><X className="h-4 w-4" aria-hidden="true" /></button>
+          </div>
+          <p id={cancelDescriptionId} className="mt-2 text-sm leading-relaxed text-rc-ink-2">This cannot be undone. Please pick a reason so we can improve.</p>
+          <fieldset disabled={cancelMutation.isPending} className="mt-5">
+            <legend className="mb-2 text-sm font-semibold">Reason for cancellation</legend>
+            <div className="space-y-2">
+              {CANCEL_REASONS.map((reason) => (
+                <label key={reason} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${cancelChoice === reason ? "border-rc-yellow bg-rc-yellow-tint font-medium" : "border-rc-line hover:bg-rc-ground"}`}>
+                  <input type="radio" name={`cancel-reason-${cancelTitleId}`} value={reason} checked={cancelChoice === reason} onChange={() => setCancelChoice(reason)} className="h-4 w-4 shrink-0 accent-rc-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-yellow" />
+                  {reason}
+                </label>
+              ))}
             </div>
+            <label className="mt-4 block">
+              <span className="text-sm font-semibold">{cancelChoice === "Other" ? "Tell us what happened (required)" : "Additional details (optional)"}</span>
+              <textarea value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} rows={3} maxLength={300} required={cancelChoice === "Other"} placeholder="Tell us a little more…" className="mt-2 w-full resize-y rounded-xl border border-rc-line px-3 py-2 text-sm outline-none placeholder:text-rc-muted focus:border-rc-yellow focus:ring-2 focus:ring-rc-yellow/20" />
+            </label>
+          </fieldset>
+          <div className="mt-5 flex gap-2">
+            <button onClick={() => setCancelTarget(null)} disabled={cancelMutation.isPending} className={`min-h-11 flex-1 rounded-full border border-rc-line px-3 text-sm font-semibold hover:bg-rc-ground disabled:opacity-60 ${focusRing}`}>Keep booking</button>
+            <button onClick={confirmCancel} disabled={!cancelReasonValid || cancelMutation.isPending} title={cancelReasonValid ? undefined : "Pick a reason first"} className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-rc-red px-3 text-sm font-bold text-white hover:brightness-95 disabled:opacity-45 ${focusRing}`}>
+              {cancelMutation.isPending && <SpinnerIcon className="h-4 w-4" />}
+              {cancelMutation.isPending ? "Cancelling…" : "Yes, cancel"}
+            </button>
           </div>
         </div>
-      )}
+      </dialog>
 
       {!embedded && <Footer />}
     </div>

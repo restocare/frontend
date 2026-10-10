@@ -47,7 +47,7 @@ const faqs = [
     num: "05",
     question: "How do I get an invoice?",
     answer:
-      "Open My Orders in your account, find the booking and tap “Download Invoice”. You can print it or save it as a PDF.",
+      "Open My Bookings in your account, find the booking and tap “Download Invoice”. You can print it or save it as a PDF.",
   },
   {
     num: "06",

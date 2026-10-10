@@ -97,7 +97,7 @@ interface MenuItem {
 // Live items first, then the ones still being built. Mirrors the RN
 // AccountScreen menu (chats filtered out, like the app does).
 const MENU: MenuItem[] = [
-  { id: "orders", title: "My Orders", subtitle: "Track your bookings & history", icon: BagIcon, href: "/account/orders" },
+  { id: "orders", title: "My Bookings", subtitle: "Track your bookings & history", icon: BagIcon, href: "/account/orders" },
   { id: "profile", title: "Profile & restaurant", subtitle: "Your name, restaurant and GST", icon: StoreIcon },
   { id: "addresses", title: "Addresses", subtitle: "Where our team should come", icon: MapPinIcon },
   { id: "settings", title: "Settings", subtitle: "Preferences, privacy & account", icon: SettingsIcon, href: "/account/settings" },

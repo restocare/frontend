@@ -770,11 +770,11 @@ export function CategoryCheckout() {
                     <p className="m-0 text-[13px] font-bold text-gray-900">What happens next</p>
                     <ol className="m-0 mt-2 list-none space-y-1.5 p-0 text-[13px] text-gray-700">
                       {[
-                        `We assign your ${hourly ? (/chef/i.test(category?.name ?? "") ? "chef" : "staff") : "professional"} and the status updates in My Orders.`,
+                        `We assign your ${hourly ? (/chef/i.test(category?.name ?? "") ? "chef" : "staff") : "professional"} and the status updates in My Bookings.`,
                         done.mode === "COD"
                           ? `Pay ${formatInr(done.total)} after the service, by cash or UPI.`
                           : "You're all paid up. Nothing more to pay on the day.",
-                        "Need to change or cancel? Open the booking in My Orders.",
+                        "Need to change or cancel? Open the booking in My Bookings.",
                       ].map((t, i) => (
                         <li key={t} className="flex gap-2.5">
                           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-rc-yellow text-[11px] font-bold text-rc-ink">
@@ -792,7 +792,7 @@ export function CategoryCheckout() {
                     href="/account/orders"
                     className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-rc-yellow text-sm font-bold text-gray-900 shadow-[0_6px_16px_rgba(244,180,0,0.28)] transition hover:brightness-95 sm:flex-1"
                   >
-                    View my orders
+                    View my bookings
                     <ArrowRightIcon className="h-4 w-4" />
                   </Link>
                   <Link

@@ -91,7 +91,7 @@ const ON_DEMAND_STEPS: Step[] = [
 const ON_DEMAND_FAQS: Faq[] = [
   {
     q: "When will the professional come?",
-    a: "Bookings are for right away: the nearest available professional is assigned as soon as you confirm. You can follow the status in My Orders.",
+    a: "Bookings are for right away: the nearest available professional is assigned as soon as you confirm. You can follow the status in My Bookings.",
   },
   {
     q: "How is the price worked out?",
@@ -108,7 +108,7 @@ const ON_DEMAND_FAQS: Faq[] = [
       <>
         Yes. Add your GST number at checkout (optional), then download the invoice from{" "}
         <Link href="/account/orders" className="font-semibold text-rc-yellow-deep hover:underline">
-          My Orders
+          My Bookings
         </Link>
         .
       </>

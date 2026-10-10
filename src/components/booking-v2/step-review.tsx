@@ -241,7 +241,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
               href="/account/orders"
               className="inline-flex h-12 items-center justify-center rounded-xl bg-rc-yellow px-7 text-sm font-bold text-gray-900 transition hover:brightness-95"
             >
-              View my orders
+              View my bookings
             </Link>
             <button
               type="button"

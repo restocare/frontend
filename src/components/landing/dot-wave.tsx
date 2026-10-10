@@ -1,121 +1,72 @@
 "use client";
 
-/**
- * A field of brand-yellow dots rolling like a slow wave, seen from a low
- * angle so it fades into the distance. Used as the backdrop of dark brand
- * panels (e.g. the login page). Load it with next/dynamic and `ssr: false`:
- * it needs WebGL and keeps three.js out of the first paint.
- */
-
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import type { BufferAttribute, Points } from "three";
+import { useCallback, useRef } from "react";
+import * as THREE from "three";
+import { useThreeCanvas } from "@/src/components/three/use-three-canvas";
+import { usePrefersReducedMotion } from "@/src/lib/use-prefers-reduced-motion";
 
 const YELLOW = "#F4B400";
 
-function Wave({
-  cols,
-  rows,
-  spacing,
-  animate,
-}: {
-  cols: number;
-  rows: number;
-  spacing: number;
-  animate: boolean;
-}) {
-  const ref = useRef<Points>(null);
-
-  // Flat grid on the XZ plane; Y is filled in by the wave. The near edge
-  // sits just in front of the camera so the field never shows a border.
-  const positions = useMemo(() => {
-    const arr = new Float32Array(cols * rows * 3);
-    let i = 0;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        arr[i++] = (c - (cols - 1) / 2) * spacing;
-        arr[i++] = 0;
-        arr[i++] = 6 - r * spacing;
-      }
-    }
-    return arr;
-  }, [cols, rows, spacing]);
-
-  useFrame(({ clock, pointer, camera }) => {
-    const points = ref.current;
-    if (!points) return;
-    const t = animate ? clock.elapsedTime : 0;
-    const attr = points.geometry.attributes.position as BufferAttribute;
-    const arr = attr.array as Float32Array;
-    for (let i = 0; i < arr.length; i += 3) {
-      const x = arr[i];
-      const z = arr[i + 2];
-      arr[i + 1] =
-        Math.sin(x * 0.42 + t * 0.7) * 0.32 + Math.cos(z * 0.55 + t * 0.55) * 0.28;
-    }
-    attr.needsUpdate = true;
-
-    // Gentle parallax towards the pointer.
-    if (animate) {
-      camera.position.x += (pointer.x * 1.1 - camera.position.x) * 0.03;
-      camera.position.y += (2.4 + pointer.y * 0.4 - camera.position.y) * 0.03;
-    }
-    camera.lookAt(0, 0, -1);
-  });
-
-  return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial
-        color={YELLOW}
-        size={0.055}
-        sizeAttenuation
-        transparent
-        opacity={0.9}
-        depthWrite={false}
-      />
-    </points>
-  );
-}
-
-export function DotWave({
-  /** Matches the panel colour so far dots fade into it. */
-  background = "#1C1A17",
-  dense = true,
-  className = "",
-}: {
+/** Brand dot wave shared by profile and login panels. Direct Three.js avoids
+ * Fiber's deprecated Clock and contexts for CSS-hidden profile cards. */
+export function DotWave({ background = "#1C1A17", dense = true, className = "" }: {
   background?: string;
   dense?: boolean;
   className?: string;
 }) {
-  const [animate, setAnimate] = useState(true);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
+  const createScene = useCallback((renderer: THREE.WebGLRenderer) => {
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(background, 4, 13);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.set(0, 2.4, 6.5);
+    camera.lookAt(0, 0, -1);
+    const cols = dense ? 120 : 64;
+    const rows = dense ? 62 : 38;
+    const spacing = dense ? 0.22 : 0.3;
+    const positions = new Float32Array(cols * rows * 3);
+    let index = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        positions[index++] = (col - (cols - 1) / 2) * spacing;
+        positions[index++] = 0;
+        positions[index++] = 6 - row * spacing;
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    const attribute = new THREE.BufferAttribute(positions, 3);
+    attribute.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute("position", attribute);
+    const material = new THREE.PointsMaterial({ color: YELLOW, size: 0.055, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false });
+    const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    scene.add(points);
+    return {
+      resize: (width: number, height: number) => {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      },
+      render: (elapsed: number) => {
+        for (let i = 0; i < positions.length; i += 3) {
+          positions[i + 1] = Math.sin(positions[i] * 0.42 + elapsed * 0.7) * 0.32 + Math.cos(positions[i + 2] * 0.55 + elapsed * 0.55) * 0.28;
+        }
+        attribute.needsUpdate = true;
+        renderer.render(scene, camera);
+      },
+      dispose: () => { geometry.dispose(); material.dispose(); },
+    };
+  }, [background, dense]);
 
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setAnimate(!mq.matches);
-    queueMicrotask(sync);
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
+  useThreeCanvas(hostRef, createScene, reducedMotion === false);
 
   return (
-    <div className={className} aria-hidden>
-      <Canvas
-        camera={{ position: [0, 2.4, 6.5], fov: 50 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: true, powerPreference: "low-power" }}
-        frameloop={animate ? "always" : "demand"}
-      >
-        <fog attach="fog" args={[background, 4, 13]} />
-        <Wave
-          cols={dense ? 120 : 64}
-          rows={dense ? 62 : 38}
-          spacing={dense ? 0.22 : 0.3}
-          animate={animate}
-        />
-      </Canvas>
+    <div ref={hostRef} data-dot-wave aria-hidden="true" className={`relative overflow-hidden ${className}`}>
+      <svg viewBox="0 0 640 240" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
+        {Array.from({ length: 16 }, (_, row) => Array.from({ length: 40 }, (_, col) => (
+          <circle key={`${row}-${col}`} cx={col * 17 - 12} cy={row * 14 + Math.sin(col * 0.23 + row * 0.2) * 12} r={0.7 + row * 0.035} fill={YELLOW} opacity={0.08 + row * 0.015} />
+        )))}
+      </svg>
     </div>
   );
 }

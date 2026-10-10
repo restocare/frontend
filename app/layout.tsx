@@ -6,11 +6,13 @@ import { Providers } from "@/src/components/providers";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 // Brand wordmark only (header logo text).
@@ -18,6 +20,7 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["700"],
+  preload: false,
 });
 
 export const metadata: Metadata = {

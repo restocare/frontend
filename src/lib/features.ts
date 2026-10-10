@@ -8,3 +8,7 @@
  * URL. Set to true to bring the links back.
  */
 export const SHOW_PRODUCTS = false;
+
+/** Booking illustrations. Public flags are read at build time; rebuild after changing. */
+export const SHOW_BOOKING_ANIMATIONS =
+  process.env.NEXT_PUBLIC_SHOW_BOOKING_ANIMATIONS === "true";
