@@ -2,7 +2,8 @@
  * Typed API surface for the app. Every function here goes through `apiClient`
  * and is meant to be consumed by TanStack Query (`useQuery` / `useMutation`).
  */
-import { apiClient, API_BASE_URL, downloadFile, uploadFile } from "./apiClient";
+import { apiClient, API_BASE_URL, ApiError, downloadFile, uploadFile } from "./apiClient";
+import { parseCustomerCoupon, parseCustomerCoupons } from "@/src/lib/coupons";
 
 /* ============================== Auth ==================================== */
 
@@ -2675,9 +2676,33 @@ export interface CustomerCoupon {
 
 /** Customer coupons — the same endpoints the mobile app uses. */
 export const couponsApi = {
-  list: () => apiClient.get<CustomerCoupon[]>("/v1/coupons"),
-  apply: (couponCode: string) =>
-    apiClient.post<CustomerCoupon>("/v1/coupons/apply", { couponCode }),
+  list: async (): Promise<CustomerCoupon[]> => {
+    const response = await apiClient.get<unknown>("/v1/coupons");
+    const coupons = parseCustomerCoupons(response);
+    if (!coupons) throw new Error("Could not load your coupons. Please try again.");
+    return coupons;
+  },
+  apply: async (couponCode: string): Promise<CustomerCoupon> => {
+    const code = couponCode.trim().toUpperCase();
+    let response: unknown;
+    try {
+      response = await apiClient.post<unknown>("/v1/coupons/apply", { couponCode: code });
+    } catch (error) {
+      // The API also returns "not found" for existing campaigns that fail
+      // audience, category, minimum-spend, expiry or redemption checks.
+      if (error instanceof ApiError && error.status === 404 && /coupon not found/i.test(error.message)) {
+        throw new Error("This code was not found or is not eligible for your account or cart. Check the code, eligible service category and expiry.");
+      }
+      throw error;
+    }
+    const coupon = parseCustomerCoupon(response);
+    if (coupon && coupon.code.toUpperCase() === code && !coupon.isUsed) return coupon;
+    // Some API versions return only a confirmation message; read the selected
+    // coupon rather than manufacturing a coupon without discount details.
+    const selected = (await couponsApi.list()).find((c) => c.isApplied && !c.isUsed && c.code.toUpperCase() === code);
+    if (selected) return selected;
+    throw new Error("Could not confirm the coupon discount. Please try again.");
+  },
   remove: (couponId: number) =>
     apiClient.delete<{ message: string }>(`/v1/coupons/remove/${couponId}`),
 };

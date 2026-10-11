@@ -423,12 +423,14 @@ export function CategoryCheckout() {
     setCouponBusy(true);
     setCouponError(null);
     try {
-      if (applied && applied.code !== trimmed) {
-        await couponsApi.remove(applied.couponId).catch(() => undefined);
-        setApplied(null);
-      }
-      const res = await couponsApi.apply(trimmed);
-      setApplied(parseCoupon(res) ?? { ...res, code: res?.code ?? trimmed });
+      // The API replaces the selection atomically. Keep the current coupon
+      // until the replacement is validated successfully.
+      const coupon = await couponsApi.apply(trimmed);
+      setApplied(coupon);
+      queryClient.setQueryData<CustomerCoupon[]>(couponsKey, (current = []) => [
+        { ...coupon, isApplied: true },
+        ...current.filter((c) => c.couponId !== coupon.couponId).map((c) => ({ ...c, isApplied: false })),
+      ]);
       setCouponInput("");
     } catch (e) {
       setCouponError(messageOf(e, `${trimmed} is not a valid code.`));
@@ -439,12 +441,14 @@ export function CategoryCheckout() {
   const removeCoupon = async () => {
     if (!applied) return;
     setCouponBusy(true);
+    setCouponError(null);
     try {
       await couponsApi.remove(applied.couponId);
-    } catch {
-      // Best effort: the booking simply won't carry the code.
-    } finally {
       setApplied(null);
+      queryClient.setQueryData<CustomerCoupon[]>(couponsKey, (current = []) => current.map((c) => ({ ...c, isApplied: false })));
+    } catch (e) {
+      setCouponError(messageOf(e, "Could not remove the coupon. Please try again."));
+    } finally {
       setCouponBusy(false);
     }
   };
@@ -1379,48 +1383,10 @@ function TagIcon({ className }: { className?: string }) {
 
 /* ------------------------------- coupons ------------------------------- */
 
-/** The first list found in a response: a bare array, or one under data / coupons / items. */
-function findList(v: unknown, depth = 0): unknown[] | null {
-  if (Array.isArray(v)) return v;
-  if (!v || typeof v !== "object" || depth > 3) return null;
-  for (const k of ["data", "coupons", "items", "results", "result", "rows"]) {
-    const found = findList((v as Record<string, unknown>)[k], depth + 1);
-    if (found) return found;
-  }
-  return null;
-}
-
-/** One coupon, whatever the field names (couponId or id, code or couponCode, status or isUsed). */
-function parseCoupon(v: unknown): CustomerCoupon | null {
-  if (!v || typeof v !== "object") return null;
-  const r = v as Record<string, unknown>;
-  const code = String(r.code ?? r.couponCode ?? "").trim();
-  const couponId = Number(r.couponId ?? r.id);
-  if (!code || !Number.isFinite(couponId)) return null;
-  const status = String(r.status ?? "").toUpperCase();
-  const pct = Number(r.discountPercent ?? r.discount ?? r.percent ?? 0);
-  const flat = r.flatTotal == null ? null : Number(r.flatTotal);
-  return {
-    ...r,
-    couponId,
-    code,
-    description: typeof r.description === "string" ? r.description : null,
-    discountPercent: Number.isFinite(pct) ? pct : 0,
-    isApplied: r.isApplied === true,
-    isUsed: r.isUsed === true || status === "USED" || !!r.usedAt,
-    expiresAt: String(r.expiresAt ?? r.validTill ?? r.expiryDate ?? ""),
-    prepaidOnly: r.prepaidOnly === true,
-    discountType: r.discountType === "FLAT_TOTAL" ? "FLAT_TOTAL" : r.discountType === "PERCENT" ? "PERCENT" : undefined,
-    flatTotal: flat != null && Number.isFinite(flat) ? flat : null,
-  };
-}
-
 /** Usable coupons from GET /v1/coupons: not used, not expired. */
-function parseCoupons(res: unknown): CustomerCoupon[] {
+function parseCoupons(coupons: CustomerCoupon[]): CustomerCoupon[] {
   const now = Date.now();
-  return (findList(res) ?? [])
-    .map(parseCoupon)
-    .filter((c): c is CustomerCoupon => !!c)
+  return coupons
     .filter((c) => {
       if (c.isUsed || String((c as { status?: unknown }).status ?? "").toUpperCase() === "EXPIRED") return false;
       const t = Date.parse(c.expiresAt);
@@ -1674,14 +1640,14 @@ function CouponBox({
                 {busy ? <SpinnerIcon className="h-4 w-4" /> : "Apply"}
               </button>
             </form>
-            {error ? (
-              <p role="alert" className="m-0 mt-1.5 text-[11px] font-medium text-rc-red">
-                {error}
-              </p>
-            ) : null}
           </motion.div>
         )}
       </AnimatePresence>
+      {error ? (
+        <p role="alert" className="m-0 mt-1.5 text-[11px] font-medium text-rc-red">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
