@@ -39,10 +39,73 @@ const QUERY_KEY = ["admin", "coupon-campaigns"] as const;
 
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
+/** A tier mid-edit: text, because a box being cleared is a normal keystroke. */
+interface TierDraft {
+  minHours: string;
+  discountPercent: string;
+  maxDiscount: string;
+}
+
+/**
+ * The first thing wrong with the tier ladder, or null. Mirrors the server's
+ * bounds so the admin is told here rather than by a 400, and catches the two
+ * mistakes the DTO cannot: a duplicate threshold (which of the two rates
+ * applies would come down to row order) and a ladder that pays less for a
+ * longer booking, which no admin means to write.
+ */
+function validateTiers(tiers: TierDraft[]): string | null {
+  if (!tiers.length) return null;
+  const seen = new Set<number>();
+  const parsed: { hours: number; percent: number }[] = [];
+
+  for (const [i, t] of tiers.entries()) {
+    const row = `Tier ${i + 1}`;
+    const hours = Number(t.minHours);
+    const percent = Number(t.discountPercent);
+
+    if (!t.minHours.trim() || !Number.isFinite(hours))
+      return `${row}: enter the number of hours it starts at.`;
+    if (hours < 0.25 || hours > 720)
+      return `${row}: the threshold must be between 0.25 and 720 hours.`;
+    // The server stores minutes, so a finer threshold than this silently rounds.
+    if (Math.round(hours * 60) !== hours * 60)
+      return `${row}: hours can go to the minute — 1.5 is fine, 1.503 is not.`;
+    if (!t.discountPercent.trim() || !Number.isInteger(percent))
+      return `${row}: enter a whole percentage.`;
+    if (percent < 1 || percent > 100)
+      return `${row}: the percentage must be between 1 and 100.`;
+    if (t.maxDiscount.trim()) {
+      const cap = Number(t.maxDiscount);
+      if (!Number.isFinite(cap) || cap < 1)
+        return `${row}: the cap must be at least ₹1, or blank for no cap.`;
+      if (cap > 100000) return `${row}: the cap cannot exceed ₹1,00,000.`;
+    }
+
+    const minutes = Math.round(hours * 60);
+    if (seen.has(minutes))
+      return `${row}: ${t.minHours} hours is already a tier — give each a different threshold.`;
+    seen.add(minutes);
+    parsed.push({ hours, percent });
+  }
+
+  const ascending = [...parsed].sort((a, b) => a.hours - b.hours);
+  for (let i = 1; i < ascending.length; i++)
+    if (ascending[i].percent <= ascending[i - 1].percent)
+      return `A longer booking should not get a smaller discount: ${ascending[i].hours}h gives ${ascending[i].percent}% but ${ascending[i - 1].hours}h already gives ${ascending[i - 1].percent}%.`;
+
+  return null;
+}
+
 /** "20% off up to ₹300" / "₹1 total" — the offer in the admin's words. */
 function offerLabel(c: CampaignCoupon): string {
   if (c.discountType === "FLAT_TOTAL" && c.flatTotal != null)
     return `${rupees(c.flatTotal)} total`;
+  // A tiered coupon has no single rate, and showing the stored discountPercent
+  // would name one the shortest booking never gets.
+  if (c.hourTiers?.length)
+    return c.hourTiers
+      .map((t) => `${t.discountPercent}% from ${t.minHours}h`)
+      .join(", ");
   const pct = `${c.discountPercent ?? 0}% off`;
   return c.maxDiscount != null ? `${pct} up to ${rupees(c.maxDiscount)}` : pct;
 }
@@ -292,6 +355,16 @@ function CouponModal({
   // and requiring prepayment is a deliberate decision about who carries the
   // risk when a customer discounts a job and then is not there.
   const [prepaidOnly, setPrepaidOnly] = useState(coupon?.prepaidOnly ?? false);
+  // Tiers as text, not numbers: a half-typed "1." or a cleared box has to
+  // survive editing, and only submit cares whether it parses.
+  const [hourTiers, setHourTiers] = useState<TierDraft[]>(
+    () =>
+      coupon?.hourTiers?.map((t) => ({
+        minHours: String(t.minHours),
+        discountPercent: String(t.discountPercent),
+        maxDiscount: t.maxDiscount != null ? String(t.maxDiscount) : "",
+      })) ?? [],
+  );
   // An auto-written description stays blank here so it keeps following the
   // terms; only text an admin actually wrote is shown for editing.
   const [description, setDescription] = useState(
@@ -344,6 +417,17 @@ function CouponModal({
       visibility === "PRIVATE" ? audience.map((a) => a.userId) : undefined,
     firstOrderOnly,
     prepaidOnly,
+    // Always sent on a percentage coupon so clearing every row clears the
+    // ladder server-side; a fixed-total coupon has no length to tier on.
+    ...(discountType === "PERCENT"
+      ? {
+          hourTiers: hourTiers.map((t) => ({
+            minHours: Number(t.minHours),
+            discountPercent: Number(t.discountPercent),
+            maxDiscount: t.maxDiscount ? Number(t.maxDiscount) : null,
+          })),
+        }
+      : {}),
     description: description.trim() || undefined,
     maxRedemptions: maxRedemptions ? Number(maxRedemptions) : undefined,
     usesPerCustomer: Number(usesPerCustomer) || 1,
@@ -386,6 +470,8 @@ function CouponModal({
         return setErr("The percentage must be between 1 and 100.");
       if (maxDiscount && !(Number(maxDiscount) >= 1))
         return setErr("The maximum discount must be at least ₹1.");
+      const tierError = validateTiers(hourTiers);
+      if (tierError) return setErr(tierError);
     } else if (!(Number(flatTotal) >= 1)) {
       return setErr("The lowest chargeable amount is ₹1.");
     }
@@ -483,6 +569,9 @@ function CouponModal({
                     placeholder="e.g. 300"
                   />
                 </Field>
+                <div className="sm:col-span-2">
+                  <HourTierEditor tiers={hourTiers} onChange={setHourTiers} />
+                </div>
               </>
             ) : (
               <Field label="Customer pays (total, GST included)">
@@ -712,6 +801,140 @@ function CouponModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * The duration ladder — "5 hours → 10%, 10 hours → 20%".
+ *
+ * Empty is the normal case and stays out of the way: one line of explanation
+ * and a button. Once there are rows, the preview under them spells out what a
+ * booking of each length actually gets, because the rule that bites is the one
+ * an admin cannot see from the numbers alone — a booking shorter than every
+ * tier is refused, not quietly given the headline rate.
+ */
+function HourTierEditor({
+  tiers,
+  onChange,
+}: {
+  tiers: TierDraft[];
+  onChange: (next: TierDraft[]) => void;
+}) {
+  const set = (i: number, patch: Partial<TierDraft>) =>
+    onChange(tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+
+  const add = () =>
+    onChange([
+      ...tiers,
+      // Suggest the next rung rather than a blank row: +5h and +10% on the
+      // last one is the shape of every ladder anybody has asked for.
+      tiers.length
+        ? {
+            minHours: String(Number(tiers[tiers.length - 1].minHours || 0) + 5),
+            discountPercent: String(
+              Math.min(
+                100,
+                Number(tiers[tiers.length - 1].discountPercent || 0) + 10,
+              ),
+            ),
+            maxDiscount: "",
+          }
+        : { minHours: "5", discountPercent: "10", maxDiscount: "" },
+    ]);
+
+  const sorted = [...tiers]
+    .map((t) => ({ hours: Number(t.minHours), percent: Number(t.discountPercent) }))
+    .filter((t) => Number.isFinite(t.hours) && Number.isFinite(t.percent) && t.hours > 0)
+    .sort((a, b) => a.hours - b.hours);
+
+  return (
+    <div className="rounded-xl border border-border bg-muted/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            Discount by booking length{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Give longer bookings a bigger discount — 10% from 5 hours, 20% from
+            10. Leave this empty and the percentage above applies to a booking
+            of any length.
+          </p>
+        </div>
+        <Btn tone="ghost" small onClick={add}>
+          Add tier
+        </Btn>
+      </div>
+
+      {tiers.length > 0 && (
+        <>
+          <div className="mt-4 space-y-3">
+            {tiers.map((t, i) => (
+              <div
+                key={i}
+                className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
+              >
+                <Field label="From (hours)">
+                  <input
+                    type="number"
+                    min={0.25}
+                    max={720}
+                    step={0.25}
+                    className={inputCls}
+                    value={t.minHours}
+                    onChange={(e) => set(i, { minHours: e.target.value })}
+                  />
+                </Field>
+                <Field label="Discount %">
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    className={inputCls}
+                    value={t.discountPercent}
+                    onChange={(e) => set(i, { discountPercent: e.target.value })}
+                  />
+                </Field>
+                <Field label="Cap (₹, optional)">
+                  <input
+                    type="number"
+                    min={1}
+                    className={inputCls}
+                    value={t.maxDiscount}
+                    placeholder="no cap"
+                    onChange={(e) => set(i, { maxDiscount: e.target.value })}
+                  />
+                </Field>
+                <button
+                  type="button"
+                  onClick={() => onChange(tiers.filter((_, j) => j !== i))}
+                  aria-label={`Remove tier ${i + 1}`}
+                  className="h-9 shrink-0 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-destructive/40 hover:text-destructive"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {sorted.length > 0 && (
+            <p className="mt-3 rounded-lg bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+              A booking under {sorted[0].hours}h gets no discount and the coupon
+              is refused.{" "}
+              {sorted
+                .map(
+                  (t, i) =>
+                    `${t.hours}h${
+                      i + 1 < sorted.length ? `–${sorted[i + 1].hours}h` : "+"
+                    } → ${t.percent}%`,
+                )
+                .join(", ")}
+              . The cap on each tier replaces the maximum discount above.
+            </p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
