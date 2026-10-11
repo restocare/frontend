@@ -1291,6 +1291,22 @@ export interface CouponAudienceMember {
   mobile: string | null;
 }
 
+/**
+ * One duration tier on a coupon. The tier that applies to a booking is the
+ * highest `minHours` it reaches, so with 5h/10% and 10h/20% a 7-hour job takes
+ * 10% and a 12-hour job 20%. A booking shorter than every tier gets nothing.
+ */
+export interface CampaignCouponHourTier {
+  tierId: number;
+  /** Bookings of at least this many hours qualify; 1.5 = ninety minutes. */
+  minHours: number;
+  /** The same threshold as the server stores it. */
+  minMinutes: number;
+  discountPercent: number;
+  /** The most this tier takes off, in ₹ (GST included); null = no cap. */
+  maxDiscount: number | null;
+}
+
 export interface CampaignCoupon {
   couponId: number;
   code: string;
@@ -1324,6 +1340,12 @@ export interface CampaignCoupon {
   firstOrderOnly: boolean;
   /** Only redeemable when the customer pays online, never on COD. */
   prepaidOnly: boolean;
+  /**
+   * Duration tiers, shortest first: a booking of at least `minHours` takes
+   * `discountPercent` off. Empty means the coupon's own rate applies to any
+   * length of booking.
+   */
+  hourTiers: CampaignCouponHourTier[];
   redemptions: number;
   status: "ACTIVE" | "DISABLED" | "EXPIRED" | "EXHAUSTED";
   createdAt: string;
@@ -1348,6 +1370,11 @@ export interface CampaignCouponRules {
   imagePublicId?: string | null;
   firstOrderOnly?: boolean;
   prepaidOnly?: boolean;
+  /**
+   * Replaces the whole tier ladder; [] clears it and returns the coupon to a
+   * single rate for every booking length. Omitted leaves the tiers untouched.
+   */
+  hourTiers?: { minHours: number; discountPercent: number; maxDiscount: number | null }[];
 }
 
 export interface AdminCoupon {
