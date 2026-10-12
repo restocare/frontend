@@ -1,5 +1,7 @@
 import type { CategoryTreeNode } from "@/src/api/api";
 import type { CategoryFaq } from "@/lib/category-content";
+import type { HourlyTerms } from "@/src/lib/booking-v2/hourly-terms";
+import { categoryUsesSlots } from "@/src/lib/slot-categories";
 
 const SITE = "https://www.restocare.in";
 
@@ -12,12 +14,14 @@ const SITE = "https://www.restocare.in";
  * Google's structured-data rules.
  *
  * lowPrice is the same "From" figure the page shows (the cheapest base or
- * variant price), so the markup matches what visitors see.
+ * variant price), so the markup matches what visitors see. Slot categories
+ * use the hourly headline rate instead, as their variants are unbilled.
  */
 export function categoryJsonLd(
   category: CategoryTreeNode,
   slug: string,
   faqs: CategoryFaq[] = [],
+  headline?: HourlyTerms | null,
 ): string {
   const services = [
     ...category.services,
@@ -28,6 +32,9 @@ export function categoryJsonLd(
     ...(s.price != null && s.price > 0 ? [s.price] : []),
     ...s.variants.map((v) => v.price).filter((p) => p > 0),
   ]);
+
+  const lowPrice =
+    categoryUsesSlots(category.name) && headline ? headline.rate : prices.length ? Math.min(...prices) : null;
 
   const url = `${SITE}/category/${slug}`;
 
@@ -48,12 +55,12 @@ export function categoryJsonLd(
         url,
         provider: { "@type": "Organization", name: "RestoCare", url: SITE },
         areaServed: { "@type": "AdministrativeArea", name: "Delhi NCR" },
-        ...(prices.length
+        ...(lowPrice != null
           ? {
               offers: {
                 "@type": "AggregateOffer",
                 priceCurrency: "INR",
-                lowPrice: Math.min(...prices),
+                lowPrice,
                 offerCount: services.length,
               },
             }
