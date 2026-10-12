@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCart, type AddCandidate } from "@/src/lib/cart";
+import { variantCharge } from "@/src/lib/booking-v2/hourly-terms";
 import { CartIcon, CloseIcon, TrashIcon } from "@/src/components/icons";
 
 function inr(n: number): string {
@@ -82,6 +83,12 @@ function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
         <div className="mt-4 max-h-[50vh] space-y-2 overflow-y-auto">
           {variantTarget.variants.map((v) => {
             const active = selected === v.variantId;
+            const charge = variantTarget.useSlots
+              ? variantCharge(
+                  { price: variantTarget.price, variants: variantTarget.variants },
+                  v.name,
+                )
+              : null;
             return (
               <button
                 key={v.variantId}
@@ -107,7 +114,7 @@ function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
                   </span>
                 </span>
                 <span className="text-sm font-semibold text-gray-900">
-                  {inr(v.price)}
+                  {charge != null ? `${inr(charge)} + GST` : inr(v.price)}
                 </span>
               </button>
             );
