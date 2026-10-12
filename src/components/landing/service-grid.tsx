@@ -13,6 +13,7 @@ import {
 import { useCurrentLocation } from "@/src/lib/location";
 import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
+import { hourlyTerms } from "@/src/lib/booking-v2/hourly-terms";
 import { ArrowRightIcon, SpinnerIcon, StarIcon, StoreIcon } from "@/src/components/icons";
 
 interface ServiceGridProps {
@@ -60,6 +61,23 @@ function priceLabel(service: FlatService): string {
   if (prices.length === 0) return "Price on request";
   const min = Math.min(...prices);
   return prices.length > 1 || service.variants.length > 0 ? `From ₹${min}` : `₹${min}`;
+}
+
+/** Main price line and the sub-line under it, for the card footer. */
+function priceLines(service: FlatService): { main: string; sub: string } {
+  if (categoryUsesSlots(service.categoryName)) {
+    // Hourly staffing: base price is the hourly rate; variants are unbilled shift windows.
+    const { rate, minHours, minPrice } = hourlyTerms(service);
+    if (rate > 0) {
+      return { main: `₹${rate}/hr`, sub: `${minHours}-hr minimum ₹${minPrice}` };
+    }
+  }
+  const n = service.variants.length;
+  return {
+    main: priceLabel(service),
+    // Always present so every card has the same height
+    sub: n > 0 ? `${n} ${n === 1 ? "option" : "options"}` : "Fixed price",
+  };
 }
 
 export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
@@ -193,6 +211,7 @@ function ServiceCard({ service }: { service: FlatService }) {
   const { requestAdd } = useCart();
   const hasVariants = service.variants.length > 0;
   const useSlots = categoryUsesSlots(service.categoryName);
+  const lines = priceLines(service);
 
   const handleAdd = () => {
     if (hasVariants) {
@@ -269,14 +288,9 @@ function ServiceCard({ service }: { service: FlatService }) {
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
           <div className="min-w-0">
             <span className="block text-sm font-semibold text-gray-900">
-              {priceLabel(service)}
+              {lines.main}
             </span>
-            {/* Always present so every card has the same height */}
-            <span className="text-xs text-gray-500">
-              {hasVariants
-                ? `${service.variants.length} ${service.variants.length === 1 ? "option" : "options"}`
-                : "Fixed price"}
-            </span>
+            <span className="text-xs text-gray-500">{lines.sub}</span>
           </div>
           <motion.button
             onClick={handleAdd}
