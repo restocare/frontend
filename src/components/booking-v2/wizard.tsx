@@ -5,7 +5,8 @@
  * The step lives in the `step` query param so the browser back button walks
  * back a step; the draft lives in sessionStorage so a refresh or a login
  * round-trip keeps it. Without a draft (a WhatsApp deep link, for example)
- * the wizard starts one from the live category tree.
+ * the wizard starts one from the live category tree. A variant picked on the
+ * way in (?variantId & ?variantName) always starts a fresh draft from it.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -66,15 +67,23 @@ export function BookingWizard() {
   const searchParams = useSearchParams();
   const requestedStep = parseStep(searchParams.get("step"));
 
+  // Read once on arrival: the params are dropped once the draft is built, and
+  // that must not re-run the storage read below.
+  const [pick] = useState(() => {
+    const id = Number(searchParams.get("variantId"));
+    return id > 0 ? { variantId: id, name: searchParams.get("variantName") ?? "" } : null;
+  });
+
   // undefined = storage not read yet; null = no usable draft.
   const [draft, setDraft] = useState<BookingDraft | null | undefined>(undefined);
 
   useEffect(() => {
-    const stored = loadDraft();
+    // A picked variant starts over, whatever an earlier visit left behind.
+    const stored = pick ? null : loadDraft();
     queueMicrotask(() => {
       setDraft(stored && stored.serviceId === serviceId ? stored : null);
     });
-  }, [serviceId]);
+  }, [serviceId, pick]);
 
   // Deep link with no draft: build one from the tree.
   const tree = useQuery({
@@ -87,13 +96,17 @@ export function BookingWizard() {
     if (draft !== null) return;
     const located = locateService(tree.data, serviceId);
     if (!located) return;
-    const fresh = startDraft(located.service, {
-      categoryId: located.category.categoryId,
-      name: located.category.name,
-    });
+    const picked = pick && located.service.variants.find((v) => v.variantId === pick.variantId);
+    const fresh = startDraft(
+      located.service,
+      { categoryId: located.category.categoryId, name: located.category.name },
+      picked ? { variantId: picked.variantId, name: pick.name || picked.name } : undefined,
+    );
     saveDraft(fresh);
     queueMicrotask(() => setDraft(fresh));
-  }, [draft, tree.data, serviceId]);
+    // Drop the pick from the URL so a refresh keeps the draft and its edits.
+    if (pick) router.replace(`/booking/${serviceId}`);
+  }, [draft, tree.data, serviceId, pick, router]);
 
   const update = useCallback((patch: Partial<BookingDraft>) => {
     setDraft((current) => {

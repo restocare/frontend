@@ -2,7 +2,8 @@
 
 /**
  * Step 1 of the wizard: pick a date, then a start and an end time. A
- * fixed-price package (Deep Cleaning) only asks for the start time.
+ * fixed-price package (Deep Cleaning) only asks for the start time; a week
+ * keeps its variant's hours and the date is its first day.
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -26,7 +27,15 @@ import {
   timeOptions,
   validateRange,
 } from "@/src/lib/booking-v2/schedule";
-import { draftCopy, fullBill, isFixedDraft } from "@/src/lib/booking-v2/draft";
+import {
+  addDaysISO,
+  draftCopy,
+  draftDays,
+  fullBill,
+  isFixedDraft,
+  isWeekDraft,
+} from "@/src/lib/booking-v2/draft";
+import { NIGHT_START_MINUTES } from "@/src/lib/booking-v2/hourly-terms";
 import type { StepProps } from "./wizard";
 import { emojiForCategory } from "./category-page-v2";
 import { categoryHref } from "@/lib/category-slugs";
@@ -101,21 +110,33 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const days = useMemo(() => getDays(), []);
   const { minMinutes, rate } = draft;
   const fixed = isFixedDraft(draft);
+  const week = isWeekDraft(draft);
+  const dayCount = draftDays(draft);
+  // A week's hours are fixed, so its first day must still have its start ahead.
+  const canStart = useMemo(
+    () => (iso: string) =>
+      week ? earliestStart(iso, clock) <= draft.start : dayIsBookable(iso, minMinutes, clock),
+    [week, draft.start, minMinutes, clock],
+  );
 
   // Derived, never stored: the stored pick may have slipped into the past.
   const date = useMemo(() => {
-    const ok = days.some((d) => d.value === draft.date) && dayIsBookable(draft.date, minMinutes, clock);
+    const ok = days.some((d) => d.value === draft.date) && canStart(draft.date);
     if (ok) return draft.date;
-    return days.find((d) => dayIsBookable(d.value, minMinutes, clock))?.value ?? draft.date;
-  }, [days, draft.date, minMinutes, clock]);
+    return days.find((d) => canStart(d.value))?.value ?? draft.date;
+  }, [days, draft.date, canStart]);
 
   const earliest = earliestStart(date, clock);
   const latest = latestStart(minMinutes);
-  const start = clamp(snapToStep(draft.start), earliest, latest);
+  const start = week ? draft.start : clamp(snapToStep(draft.start), earliest, latest);
   const minEnd = start + minMinutes;
   const maxEnd = Math.min(start + MAX_MINUTES, DAY_END);
   // A fixed job always blocks the same length of time after its start.
-  const end = fixed ? start + minMinutes : clamp(snapToStep(draft.end), minEnd, maxEnd);
+  const end = week
+    ? draft.end
+    : fixed
+      ? start + minMinutes
+      : clamp(snapToStep(draft.end), minEnd, maxEnd);
 
   const startOptions = timeOptions(DAY_START, latest).map((t) => ({
     value: t,
@@ -133,6 +154,12 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const extraCount = draft.extras?.length ?? 0;
   const copy = draftCopy({ ...draft, date, start, end });
   const minHrs = minMinutes / 60;
+  const range = `${fmtDateShort(date)} - ${fmtDateShort(addDaysISO(date, dayCount - 1))}`;
+  // Any hour of the window at or after 6 PM.
+  const nightNote =
+    !fixed && end > NIGHT_START_MINUTES && (draft.nightRate ?? 0) > 0
+      ? `Hours after ${fmtTime(NIGHT_START_MINUTES)} cost ${formatInr(draft.nightRate ?? 0)}/hr extra.`
+      : null;
 
   // On phones the days scroll sideways: bring a day chosen earlier into view.
   const rowRef = useRef<HTMLDivElement>(null);
@@ -173,7 +200,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
           sub={copy.sub}
           onChange={leave}
           details={[
-            { label: "Date", value: fmtDateLong(date) },
+            week ? { label: "Dates", value: range } : { label: "Date", value: fmtDateLong(date) },
             { label: "Time", value: copy.time },
             ...(fixed ? [] : [{ label: "Duration", value: fmtDuration(minutes) }]),
           ]}
@@ -183,7 +210,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
                 label={copy.billLabel(draft.quantity > 1 ? ` × ${draft.quantity}` : "")}
                 value={formatInr(bill.subtotal)}
               />
-              {extraCount ? (
+              {extraCount && !week ? (
                 <BillRow
                   label={`${extraCount} more service${extraCount === 1 ? "" : "s"}`}
                   value={formatInr(full.extrasBase)}
@@ -199,13 +226,19 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
       }
       bar={{
         total: formatInr(bill.total),
-        note: fixed ? `${copy.time}, taxes included` : `for ${fmtDuration(minutes)}, taxes included`,
+        note: fixed
+          ? `${copy.time}, taxes included`
+          : week
+            ? `for ${dayCount} days, taxes included`
+            : `for ${fmtDuration(minutes)}, taxes included`,
         action,
       }}
     >
       <Card className="p-5 sm:p-6">
         <div className="flex items-baseline justify-between gap-3">
-          <SectionTitle note="Bookings open up to a week ahead.">Choose a date</SectionTitle>
+          <SectionTitle note={week ? `Pick the first of ${dayCount} days in a row.` : "Bookings open up to a week ahead."}>
+            {week ? "Choose a start date" : "Choose a date"}
+          </SectionTitle>
           <p className="m-0 whitespace-nowrap text-sm text-gray-500">{monthLabel(date)}</p>
         </div>
         <div
@@ -216,7 +249,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
         >
           {days.map((d, i) => {
             const selected = d.value === date;
-            const bookable = dayIsBookable(d.value, minMinutes, clock);
+            const bookable = canStart(d.value);
             const showMonth = i === 0 || d.day === "1";
             return (
               <button
@@ -275,6 +308,16 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
             </p>
           )}
         </Card>
+      ) : week ? (
+        <Card className="p-5 sm:p-6">
+          <SectionTitle note="The hours are set by the weekly shift.">Your hours</SectionTitle>
+          <p className="m-0 mt-4 text-sm text-gray-500" aria-live="polite">
+            <span className="font-semibold text-gray-900">{range}</span>, every day {fmtTime(start)} to{" "}
+            {fmtTime(end)}.{" "}
+            <span className="font-semibold text-gray-900">{fmtDuration(minutes)}</span> a day at {formatInr(rate)} an hour.
+          </p>
+          {nightNote ? <Hint>{nightNote}</Hint> : null}
+        </Card>
       ) : (
       <Card className="p-5 sm:p-6">
         <SectionTitle note={`Minimum ${minHrs} hours, maximum ${MAX_MINUTES / 60} hours. Extend by the hour.`}>
@@ -318,6 +361,7 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
             {formatInr(rate)} an hour.
           </p>
         )}
+        {nightNote ? <Hint>{nightNote}</Hint> : null}
       </Card>
       )}
     </WizardLayout>
