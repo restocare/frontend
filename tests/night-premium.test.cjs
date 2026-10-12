@@ -24,20 +24,16 @@ function load(relativePath, imports = {}) {
 const shifts = load("src/lib/booking-shifts.ts");
 const pricing = load("src/lib/booking-v2/pricing.ts");
 const schedule = load("src/lib/booking-v2/schedule.ts", { "../booking-shifts": shifts });
-// draft.ts and hourly-terms.ts import each other; resolve lazily.
-let hourlyTerms;
 const draft = load("src/lib/booking-v2/draft.ts", {
   "./pricing": pricing,
   "./cleaning": { isCleaningCategory: () => false },
-  "./hourly-terms": new Proxy({}, { get: (_, key) => hourlyTerms[key] }),
   "./schedule": schedule,
 });
-hourlyTerms = load("src/lib/booking-v2/hourly-terms.ts", {
+const { nightHoursIn, nightPremiumPerHour, variantCharge } = load("src/lib/booking-v2/hourly-terms.ts", {
   "./draft": draft,
   "./pricing": pricing,
   "./schedule": schedule,
 });
-const { nightHoursIn, nightPremiumPerHour, variantCharge } = hourlyTerms;
 
 const names = [
   "5 Hour Shift (11 AM – 4 PM)",

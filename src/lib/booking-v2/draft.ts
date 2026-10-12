@@ -14,7 +14,6 @@ import type {
 } from "@/src/api/api";
 import { TAX_RATE, computeBill, formatInr, round2, type Bill } from "./pricing";
 import { isCleaningCategory } from "./cleaning";
-import { nightHoursIn, nightPremiumPerHour } from "./hourly-terms";
 import {
   defaultWindow,
   getDays,
@@ -159,13 +158,34 @@ export function billedHours(draft: Pick<BookingDraft, "pricing" | "start" | "end
   return isFixedDraft(draft) ? 1 : draftHours(draft);
 }
 
+/*
+ * Night premium. Mirrors nightHoursIn / nightPremiumPerHour in hourly-terms.ts,
+ * which imports this module, so they can't be imported here.
+ */
+const NIGHT_START = 18 * 60;
+const MIDNIGHT = 24 * 60;
+
+/** Per-hour night surcharge: the 5-hour night shift against the 5-hour day shift; 0 if either is missing. */
+function nightRateOf(variants: { name: string; price: number }[]): number {
+  let night: number | null = null;
+  let day: number | null = null;
+  for (const v of variants) {
+    if (shiftMinutes(v.name) !== 5 * 60) continue;
+    const w = shiftWindow(v.name);
+    if (!w) continue;
+    if (w.start >= NIGHT_START) night ??= v.price;
+    else if (w.end <= NIGHT_START) day ??= v.price;
+  }
+  return night == null || day == null ? 0 : round2((night - day) / 5);
+}
+
 /**
  * Night hours billed per day. Like the catalogue's night shifts, the premium
  * applies only to a window that runs to midnight; a fixed package has none.
  */
 export function billedNightHours(draft: Pick<BookingDraft, "pricing" | "start" | "end">): number {
-  if (isFixedDraft(draft) || draft.end < 24 * 60) return 0;
-  return nightHoursIn(draft.start, draft.end);
+  if (isFixedDraft(draft) || draft.end < MIDNIGHT) return 0;
+  return (MIDNIGHT - Math.max(draft.start, NIGHT_START)) / 60;
 }
 
 export function draftDays(draft: Pick<BookingDraft, "days">): number {
@@ -256,7 +276,7 @@ export function startDraft(
     start: window.start,
     end: window.end,
     quantity: 1,
-    nightRate: nightPremiumPerHour(service.variants),
+    nightRate: nightRateOf(service.variants),
     days: week ? 7 : 1,
     address: null,
     paymentMode: null,
