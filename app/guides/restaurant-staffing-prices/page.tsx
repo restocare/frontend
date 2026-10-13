@@ -75,6 +75,7 @@ const td = "px-4 py-3 text-rc-muted";
 
 function ShiftPrices({ table }: { table: ShiftTable }) {
   return (
+    <>
     <div className="mt-4 overflow-x-auto rounded-xl border border-rc-line">
       <table className="w-full min-w-[320px] text-sm">
         <thead className="bg-gray-50">
@@ -95,6 +96,13 @@ function ShiftPrices({ table }: { table: ShiftTable }) {
         </tbody>
       </table>
     </div>
+      <p className="mt-3 text-sm text-rc-muted">
+        Prices exclude 18% GST.
+        {table.premium > 0
+          ? ` Hours after 6 PM cost ${formatInr(table.premium)}/hr extra.`
+          : ""}
+      </p>
+    </>
   );
 }
 

@@ -4,7 +4,7 @@
  * Step 3 of the hourly wizard: review, how many people, coupon, payment,
  * confirm. Online payment runs Razorpay first and creates the bookings once
  * the signature verifies, the same order of events as the flow-1 checkout.
- * One booking is created per person.
+ * One booking is created per person per day.
  */
 
 import { useEffect, useState } from "react";
@@ -18,8 +18,17 @@ import {
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { formatInr } from "@/src/lib/booking-v2/pricing";
-import { fmtDateLong, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
-import { buildPayloads, clearDraft, draftCopy, fullBill, isFixedDraft } from "@/src/lib/booking-v2/draft";
+import { fmtDateLong, fmtDateShort, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
+import {
+  addDaysISO,
+  buildPayloads,
+  clearDraft,
+  draftCopy,
+  draftDays,
+  fullBill,
+  isFixedDraft,
+  isWeekDraft,
+} from "@/src/lib/booking-v2/draft";
 import { loadRazorpayScript, openRazorpay } from "@/src/lib/razorpay";
 import { SpinnerIcon } from "@/src/components/icons";
 import type { StepProps } from "./wizard";
@@ -62,6 +71,9 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
   // A fixed package (Deep Cleaning) is one job by one crew: no headcount.
   const fixed = isFixedDraft(draft);
   const copy = draftCopy(draft);
+  const week = isWeekDraft(draft);
+  const dayCount = draftDays(draft);
+  const range = `${fmtDateShort(draft.date)} - ${fmtDateShort(addDaysISO(draft.date, dayCount - 1))}`;
   const nounOne = isChef ? "chef" : fixed ? "crew" : "person";
   const nounMany = isChef ? "chefs" : "people";
   const qtyLabel = isChef ? "Chefs" : "People";
@@ -230,8 +242,9 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
             </p>
           ) : null}
           <p className="m-0 mt-5 text-[15px] leading-relaxed text-gray-600">
-            {quantity} {quantity === 1 ? draft.serviceName : `× ${draft.serviceName}`} on{" "}
-            {fmtDateLong(draft.date)}, {fixed ? `starting ${fmtTime(draft.start)}` : `${fmtTime(draft.start)} to ${fmtTime(draft.end)}`}, at{" "}
+            {quantity} {quantity === 1 ? draft.serviceName : `× ${draft.serviceName}`}{" "}
+            {week ? `for ${dayCount} days, ${range}, every day` : `on ${fmtDateLong(draft.date)},`}{" "}
+            {fixed ? `starting ${fmtTime(draft.start)}` : `${fmtTime(draft.start)} to ${fmtTime(draft.end)}`}, at{" "}
             {addressLine || "your address"}
             {extras.length ? `, plus ${extras.map((x) => x.serviceName).join(", ")}` : ""}. {formatInr(done.total)}{" "}
             {done.mode === "COD" ? "to pay after the service." : "paid online."}
@@ -300,7 +313,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
       sub={copy.sub}
       onChange={leave}
       details={[
-        { label: "Date", value: fmtDateLong(draft.date) },
+        week ? { label: "Dates", value: range } : { label: "Date", value: fmtDateLong(draft.date) },
         { label: "Time", value: copy.time },
         ...(fixed ? [] : [{ label: qtyLabel, value: String(quantity) }]),
         ...(extras.length ? [{ label: "Added", value: `${extras.length} more` }] : []),
@@ -365,7 +378,9 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
                 <p className="m-0 mt-1 text-sm text-gray-600">
                   {fixed
                     ? `${fmtDateLong(draft.date)}, starting ${fmtTime(draft.start)}`
-                    : `${fmtDateLong(draft.date)}, ${fmtTime(draft.start)} to ${fmtTime(draft.end)} (${fmtDuration(minutes)})`}
+                    : week
+                      ? `${dayCount} days, ${range}, every day ${fmtTime(draft.start)} to ${fmtTime(draft.end)} (${fmtDuration(minutes)})`
+                      : `${fmtDateLong(draft.date)}, ${fmtTime(draft.start)} to ${fmtTime(draft.end)} (${fmtDuration(minutes)})`}
                 </p>
               </div>
               <LinkButton onClick={() => goTo("time")}>Edit</LinkButton>
@@ -404,7 +419,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
             )}
           </Card>
 
-          <ExtraServices draft={draft} update={update} />
+          {week ? null : <ExtraServices draft={draft} update={update} />}
 
           <Card className="p-5 sm:p-6">
             <div className="flex items-start gap-4">

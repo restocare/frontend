@@ -26,11 +26,15 @@ export interface BillInput {
   rate: number;
   /** People booked (each becomes its own booking). */
   quantity: number;
+  /** Hours per person that fall in the night window; default 0. */
+  nightHours?: number;
+  /** Extra rate per night hour, pre-tax; default 0. */
+  nightRate?: number;
   coupon?: BillCoupon | null;
 }
 
 export interface Bill {
-  /** Pre-tax amount of one booking: hours × rate. */
+  /** Pre-tax amount of one booking: hours × rate plus night hours × night rate. */
   perBookingBase: number;
   /** Pre-tax amount of all bookings. */
   subtotal: number;
@@ -44,8 +48,15 @@ export interface Bill {
   isFlat: boolean;
 }
 
-export function computeBill({ hours, rate, quantity, coupon }: BillInput): Bill {
-  const perBookingBase = round2(hours * rate);
+export function computeBill({
+  hours,
+  rate,
+  quantity,
+  nightHours = 0,
+  nightRate = 0,
+  coupon,
+}: BillInput): Bill {
+  const perBookingBase = round2(hours * rate + nightHours * nightRate);
   const subtotal = round2(perBookingBase * quantity);
   const tax = round2(subtotal * TAX_RATE);
   const gross = round2(subtotal + tax);

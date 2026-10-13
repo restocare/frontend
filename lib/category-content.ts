@@ -5,6 +5,8 @@
  * A slug with no entry here keeps the page's default heading and has no
  * intro or FAQ section.
  */
+import type { HourlyTerms } from "@/src/lib/booking-v2/hourly-terms";
+
 export interface CategoryFaq {
   q: string;
   a: string;
@@ -20,7 +22,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
   chef: {
     h1: "Hire a Chef for Your Restaurant in Delhi NCR",
     intro:
-      "Need a chef for your restaurant or cafe? RestoCare gives you a chef for a 5-hour or 10-hour shift, or for a full week. Shifts start at ₹799 for 5 hours. Pick the cuisine, the shift and the day, and book online.",
+      "Need a chef for your restaurant or cafe? RestoCare gives you a chef for a 5-hour or 10-hour shift, or for a full week. {price} Pick the cuisine, the shift and the day, and book online.",
     faqs: [
       {
         q: "How fast can I get a chef?",
@@ -51,7 +53,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
   "helpers-and-waiters": {
     h1: "Hire Kitchen Helpers and Waiters for Your Restaurant",
     intro:
-      "Short-staffed today? Book a kitchen helper, a waiter or housekeeping and utility staff for a 5-hour or 10-hour shift, or for a week. Shifts start at ₹599 for 5 hours. Choose the role and the shift, and book online.",
+      "Short-staffed today? Book a kitchen helper, a waiter or housekeeping and utility staff for a 5-hour or 10-hour shift, or for a week. {price} Choose the role and the shift, and book online.",
     faqs: [
       {
         q: "How quickly can I get staff?",
@@ -88,6 +90,19 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
   },
 };
 
-export function categoryContent(slug: string): CategoryContent | undefined {
-  return Object.hasOwn(CATEGORY_CONTENT, slug) ? CATEGORY_CONTENT[slug] : undefined;
+/**
+ * The approved copy for a slug. Where the intro carries a {price} slot it is
+ * filled from the live hourly headline, and dropped (with its leading space)
+ * when there is no rate.
+ */
+export function categoryContent(
+  slug: string,
+  headline?: HourlyTerms | null,
+): CategoryContent | undefined {
+  if (!Object.hasOwn(CATEGORY_CONTENT, slug)) return undefined;
+  const content = CATEGORY_CONTENT[slug];
+  const sentence = headline
+    ? ` Book at ₹${headline.rate} per hour, with a ${headline.minHours}-hour minimum of ₹${headline.minPrice}.`
+    : "";
+  return { ...content, intro: content.intro.replace(" {price}", () => sentence) };
 }

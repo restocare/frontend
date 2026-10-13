@@ -1,8 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { categoryTreeApi, queryKeys } from "@/src/api/api";
+import { useCurrentLocation } from "@/src/lib/location";
+import { categoryIdForSlug } from "@/lib/category-slugs";
+import { categoryHourlyHeadline } from "@/src/lib/booking-v2/hourly-terms";
 import {
   BadgeCheckIcon,
   BoltIcon,
@@ -25,14 +30,27 @@ interface HeroSlide {
   image: string;
 }
 
-const SLIDES: HeroSlide[] = [
-  {
+const CHEF_CATEGORY_ID = categoryIdForSlug("chef");
+const CHEF_CUISINES =
+  "Indian curry, South Indian, Tandoor, Chinese and Continental chefs for your restaurant.";
+
+/** Slide 1: priced from the live Chef category, price-free until it is known. */
+function chefSlide(
+  terms: { rate: number; minHours: number; minPrice: number } | null,
+): HeroSlide {
+  return {
     tagline: "Chefs by the hour",
-    title: "Book a chef for just ₹149/hour",
-    subtitle:
-      "Indian curry, South Indian, Tandoor, Chinese and Continental chefs for your restaurant. Minimum 5-hour shift, plus GST.",
+    title: terms
+      ? `Book a chef for just ₹${terms.rate}/hour`
+      : "Book a chef by the hour",
+    subtitle: terms
+      ? `${CHEF_CUISINES} Minimum ${terms.minHours}-hour booking (₹${terms.minPrice}), plus GST.`
+      : `${CHEF_CUISINES} Hourly booking, plus GST.`,
     image: BANNER_IMAGES[2],
-  },
+  };
+}
+
+const OTHER_SLIDES: HeroSlide[] = [
   {
     tagline: "India's trusted restaurant services app",
     title: "Skilled staff & repairs, delivered instantly",
@@ -152,16 +170,33 @@ export function Hero() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
+  // Same query (and cache entry) as ServiceGrid, so this adds no request.
+  const { coords } = useCurrentLocation();
+  const { data } = useQuery({
+    queryKey: queryKeys.categoryTreeAt(coords),
+    queryFn: () => categoryTreeApi.tree(coords),
+  });
+  const slides = useMemo(() => {
+    const chef = data?.find((c) => c.categoryId === CHEF_CATEGORY_ID);
+    const live = chef && chef.isPublished !== false && !chef.comingSoon;
+    const services = live
+      ? [...chef.services, ...chef.groups.flatMap((g) => g.services)].filter(
+          (s) => s.isActive !== false,
+        )
+      : [];
+    return [chefSlide(live ? categoryHourlyHeadline(services) : null), ...OTHER_SLIDES];
+  }, [data]);
+
   useEffect(() => {
-    if (SLIDES.length < 2 || paused) return;
+    if (slides.length < 2 || paused) return;
     const id = setInterval(
-      () => setIndex((i) => (i + 1) % SLIDES.length),
+      () => setIndex((i) => (i + 1) % slides.length),
       SLIDE_INTERVAL_MS,
     );
     return () => clearInterval(id);
-  }, [paused]);
+  }, [paused, slides.length]);
 
-  const activeIndex = index % SLIDES.length;
+  const activeIndex = index % slides.length;
 
   return (
     <section className="w-full">
@@ -178,7 +213,7 @@ export function Hero() {
             {/* All slides stay mounted in one grid cell, so the hero keeps the
                 height of the tallest slide and the page never shifts. */}
             <div className="grid">
-              {SLIDES.map((slide, i) => (
+              {slides.map((slide, i) => (
                 <div
                   key={i}
                   aria-hidden={i !== activeIndex}
@@ -238,9 +273,9 @@ export function Hero() {
             </div>
 
             {/* Slide dots — in the text column, on the page grid */}
-            {SLIDES.length > 1 && (
+            {slides.length > 1 && (
               <div className="mt-7 flex items-center">
-                {SLIDES.map((_, i) => (
+                {slides.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setIndex(i)}
@@ -263,7 +298,7 @@ export function Hero() {
           {/* Right: local Banner image container — centred below lg, anchored
               to the right column edge on desktop. */}
           <div className="relative mx-auto aspect-2/3 w-full max-w-72 overflow-hidden sm:max-w-sm lg:ml-auto lg:mr-0 xl:max-w-md">
-            {SLIDES.map((slide, i) => (
+            {slides.map((slide, i) => (
               <Image
                 key={i}
                 src={slide.image}

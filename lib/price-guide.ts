@@ -1,9 +1,10 @@
 import type { CategoryTreeNode, CategoryTreeService } from "@/src/api/api";
+import { nightPremiumPerHour, variantCharge } from "@/src/lib/booking-v2/hourly-terms";
 
 /**
  * Reads the price guide's tables out of the live category tree. Nothing here
- * holds a price: every figure comes from the tree, so the guide matches what
- * checkout charges.
+ * holds a price: every figure comes from the tree and is priced the way the
+ * wizard charges, so the guide matches what checkout charges.
  */
 
 export type PriceCell = { price: number; from: boolean } | null;
@@ -17,6 +18,8 @@ export interface ShiftRow {
 export interface ShiftTable {
   /** Per-hour rate the catalogue lists on the services, or null if it has none. */
   hourly: number | null;
+  /** Night surcharge per hour after 6 PM; 0 when the catalogue has none. */
+  premium: number;
   rows: ShiftRow[];
 }
 
@@ -69,8 +72,10 @@ export function shiftTable(category: CategoryTreeNode): ShiftTable | null {
     for (const v of s.variants) {
       const c = classify(v.name, v.durationMinutes);
       if (!c || !(v.price > 0)) continue;
+      const charge = variantCharge(s, v.name);
+      if (charge == null || !(charge > 0)) continue;
       const k = `${c.shift}:${c.period}`;
-      found.set(k, [...(found.get(k) ?? []), v.price]);
+      found.set(k, [...(found.get(k) ?? []), charge]);
     }
   }
   if (found.size === 0) return null;
@@ -84,13 +89,19 @@ export function shiftTable(category: CategoryTreeNode): ShiftTable | null {
 
   // The service-level price is the hourly rate only when every shift costs
   // more than it (same rule the category page uses before saying "/hour").
-  const variantPrices = [...found.values()].flat();
-  const lowestShift = Math.min(...variantPrices);
+  const lowestShift = Math.min(
+    ...services.flatMap((s) => s.variants.map((v) => v.price)).filter((p) => p > 0),
+  );
   const rates = services
     .map((s) => s.price)
     .filter((p): p is number => p != null && p > 0 && p < lowestShift);
 
+  const premiums = services
+    .map((s) => nightPremiumPerHour(s.variants))
+    .filter((p) => p > 0);
+
   return {
+    premium: premiums.length ? Math.min(...premiums) : 0,
     hourly: rates.length ? Math.min(...rates) : null,
     rows: SHIFT_ROWS.map((r) => ({
       label: r.label,

@@ -9,9 +9,8 @@ import {
   queryKeys,
   type CategoryTreeNode,
   type CategoryTreeService,
-  type CategoryTreeVariant,
 } from "@/src/api/api";
-import { parseVariantShift } from "@/src/lib/booking-shifts";
+import { hourlyTerms, nightPremiumPerHour } from "@/src/lib/booking-v2/hourly-terms";
 import { useCurrentLocation } from "@/src/lib/location";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
@@ -336,15 +335,6 @@ function CategoryPageContent() {
   );
 }
 
-/** Shortest shift among a staffing service's variants, read from names like
- *  "5 Hour Shift (11 AM – 4 PM)". Week-long shifts carry no hour count. */
-function shortestShiftHours(variants: CategoryTreeVariant[]): number | null {
-  const hours = variants
-    .map((v) => parseVariantShift(v.name).durationHours)
-    .filter((h): h is number => h != null && h > 0);
-  return hours.length ? Math.min(...hours) : null;
-}
-
 function ServiceCard({
   service,
   eager,
@@ -382,7 +372,8 @@ function ServiceCard({
     basePrice != null &&
     lowestVariant != null &&
     basePrice < lowestVariant;
-  const minShiftHours = useSlots ? shortestShiftHours(service.variants) : null;
+  const terms = isHourly ? hourlyTerms(service) : null;
+  const nightPremium = isHourly ? nightPremiumPerHour(service.variants) : 0;
   const displayPrice = basePrice ?? lowestVariant;
   const showFrom = !isHourly && hasVariants && displayPrice != null;
   // Whole sentences only, never cut mid-sentence.
@@ -501,12 +492,15 @@ function ServiceCard({
                 ) : null}
               </p>
             )}
-            {isHourly ? (
+            {terms ? (
               <p className="mt-1.5 text-xs text-gray-500">
-                {minShiftHours
-                  ? `Minimum ${minShiftHours}-hour shift`
-                  : "Booked by the shift"}
-                {lowestVariant != null ? `, from ${formatPrice(lowestVariant)}` : ""}
+                {`Minimum ${terms.minHours}-hour booking: ${formatPrice(terms.minPrice)} + GST`}
+                {nightPremium > 0 ? (
+                  <>
+                    <br />
+                    {`Hours after 6 PM cost ${formatPrice(nightPremium)}/hr extra`}
+                  </>
+                ) : null}
               </p>
             ) : null}
           </div>

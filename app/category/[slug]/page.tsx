@@ -10,6 +10,7 @@ import {
   fetchCategoryTree,
 } from "@/lib/category-tree-server";
 import { categoryJsonLd } from "@/lib/category-json-ld";
+import { categoryHourlyHeadline } from "@/src/lib/booking-v2/hourly-terms";
 import { categoryContent } from "@/lib/category-content";
 import { CategoryPageClient } from "./category-page-client";
 import { CategoryFaqs, CategoryIntro } from "./category-content-sections";
@@ -44,7 +45,14 @@ export default async function CategoryPage({
   if (tree) queryClient.setQueryData(CATEGORY_TREE_ALL_KEY, tree);
 
   const category = tree?.find((c) => c.categoryId === categoryId);
-  const content = categoryContent(slug);
+  const headline = category
+    ? categoryHourlyHeadline(
+        [...category.services, ...category.groups.flatMap((g) => g.services)].filter(
+          (s) => s.isActive !== false,
+        ),
+      )
+    : null;
+  const content = categoryContent(slug, headline);
 
   // New category flow (NEXT_PUBLIC_RC_CATEGORY_FLOW=2), built separately;
   // flow 1 renders the current page below, unchanged.
@@ -61,7 +69,7 @@ export default async function CategoryPage({
       {category && category.isPublished !== false ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs) }}
+          dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs, headline) }}
         />
       ) : null}
       <HydrationBoundary state={dehydrate(queryClient)}>

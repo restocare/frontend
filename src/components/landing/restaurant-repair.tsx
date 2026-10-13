@@ -21,7 +21,6 @@ const SERVICES = [
     rating: "4.73",
     reviews: "1.2k",
     hasInstant: true,
-    price: "₹149",
     image: "/Kitchen Equipment Repair.png",
   },
   {
@@ -31,7 +30,6 @@ const SERVICES = [
     rating: "4.74",
     reviews: "850",
     hasInstant: false,
-    price: "₹99",
     image: "/Exhaust Fan Repair.png",
   },
   {
@@ -41,7 +39,6 @@ const SERVICES = [
     rating: "4.79",
     reviews: "2.1k",
     hasInstant: false,
-    price: "₹199",
     image: "/Commercial Plumbing.png",
   },
   {
@@ -51,7 +48,6 @@ const SERVICES = [
     rating: "4.83",
     reviews: "3.4k",
     hasInstant: true,
-    price: "₹99",
     image: "/Switchboard Repair & Replacement.png",
   },
   {
@@ -61,7 +57,6 @@ const SERVICES = [
     rating: "4.80",
     reviews: "1.1k",
     hasInstant: true,
-    price: "₹249",
     image: "/HVAC Maintenance.png",
   },
 ];
@@ -87,6 +82,32 @@ export function RestaurantRepair() {
     const map = new Map<string, number>();
     for (const c of data ?? []) {
       map.set(c.name.trim().toLowerCase(), c.categoryId);
+    }
+    return map;
+  }, [data]);
+
+  // "From ₹X" per category: cheapest positive price among its live services
+  // (direct and in published groups). Missing/unpublished/unpriced → no entry.
+  const fromPriceByName = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of data ?? []) {
+      if (c.isPublished === false) continue;
+      const services = [
+        ...(c.services ?? []),
+        ...(c.groups ?? [])
+          .filter((g) => g.isPublished !== false)
+          .flatMap((g) => g.services ?? []),
+      ];
+      const prices: number[] = [];
+      for (const s of services) {
+        if (s.isActive === false) continue;
+        if (s.price != null) prices.push(s.price);
+        else for (const v of s.variants ?? []) prices.push(v.price);
+      }
+      const positive = prices.filter((p) => p > 0);
+      if (positive.length > 0) {
+        map.set(c.name.trim().toLowerCase(), Math.min(...positive));
+      }
     }
     return map;
   }, [data]);
@@ -177,7 +198,12 @@ export function RestaurantRepair() {
 
                     {/* Price + CTA — opens the related category page */}
                     <div className="mt-auto flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
-                      <span className="font-bold text-gray-900">{service.price}</span>
+                      {/* Fixed height keeps the card stable when no price shows */}
+                      <span className="min-h-6 font-bold text-gray-900">
+                        {fromPriceByName.has(service.category.trim().toLowerCase())
+                          ? `From ₹${fromPriceByName.get(service.category.trim().toLowerCase())}`
+                          : null}
+                      </span>
                       <MotionLink
                         href={bookHref(service.category)}
                         whileHover={{ scale: 1.05 }}

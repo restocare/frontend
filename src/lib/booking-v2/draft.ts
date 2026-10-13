@@ -22,6 +22,7 @@ import {
   fmtTime,
   pickShiftVariant,
   shiftMinutes,
+  shiftWindow,
   toHHmm,
 } from "./schedule";
 
@@ -69,6 +70,10 @@ export interface BookingDraft {
   start: number;
   end: number;
   quantity: number;
+  /** Night premium per night hour, pre-tax. Missing on older drafts: 0. */
+  nightRate?: number;
+  /** Consecutive days booked from `date`, same window each day: 7 for a week. Missing: 1. */
+  days?: number;
   address: DraftAddress | null;
   paymentMode: "COD" | "RAZORPAY" | null;
   couponCode: string | null;
@@ -89,6 +94,8 @@ export interface DraftExtra {
   serviceImage: string | null;
   categoryName: string;
   rate: number;
+  /** Night premium per night hour. Missing on older drafts: 0. */
+  nightRate?: number;
   minMinutes: number;
   variants: DraftVariant[];
 }
@@ -151,27 +158,78 @@ export function billedHours(draft: Pick<BookingDraft, "pricing" | "start" | "end
   return isFixedDraft(draft) ? 1 : draftHours(draft);
 }
 
+/*
+ * Night premium. Mirrors nightHoursIn / nightPremiumPerHour in hourly-terms.ts,
+ * which imports this module, so they can't be imported here.
+ */
+const NIGHT_START = 18 * 60;
+const MIDNIGHT = 24 * 60;
+
+/** Per-hour night surcharge: the 5-hour night shift against the 5-hour day shift; 0 if either is missing. */
+function nightRateOf(variants: { name: string; price: number }[]): number {
+  let night: number | null = null;
+  let day: number | null = null;
+  for (const v of variants) {
+    if (shiftMinutes(v.name) !== 5 * 60) continue;
+    const w = shiftWindow(v.name);
+    if (!w) continue;
+    if (w.start >= NIGHT_START) night ??= v.price;
+    else if (w.end <= NIGHT_START) day ??= v.price;
+  }
+  return night == null || day == null ? 0 : round2((night - day) / 5);
+}
+
+/**
+ * Night hours billed per day. Like the catalogue's night shifts, the premium
+ * applies only to a window that runs to midnight; a fixed package has none.
+ */
+export function billedNightHours(draft: Pick<BookingDraft, "pricing" | "start" | "end">): number {
+  if (isFixedDraft(draft) || draft.end < MIDNIGHT) return 0;
+  return (MIDNIGHT - Math.max(draft.start, NIGHT_START)) / 60;
+}
+
+export function draftDays(draft: Pick<BookingDraft, "days">): number {
+  return draft.days && draft.days > 1 ? draft.days : 1;
+}
+
+export function isWeekDraft(draft: Pick<BookingDraft, "days">): boolean {
+  return draftDays(draft) > 1;
+}
+
 /** The copy the three steps share, so hourly and fixed read right everywhere. */
 export function draftCopy(draft: BookingDraft) {
   const fixed = isFixedDraft(draft);
   const minutes = draft.end - draft.start;
+  const days = draftDays(draft);
+  const night = billedNightHours(draft) * (draft.nightRate ? 1 : 0);
+  const nightLabel = (hrs: number) =>
+    night > 0 ? ` + ${hrs} night ${hrs === 1 ? "hr" : "hrs"} × ${formatInr(draft.nightRate ?? 0)}` : "";
   return {
     title: fixed ? `Book ${draft.serviceName}` : `Book a ${draft.serviceName}`,
     sub: fixed
       ? `${formatInr(draft.rate)} package, taxes extra`
-      : `${formatInr(draft.rate)}/hour, minimum ${draft.minMinutes / 60} hrs`,
+      : days > 1
+        ? `${days} days × ${fmtDuration(minutes)} × ${formatInr(draft.rate)}${nightLabel(night * days)}`
+        : night > 0
+          ? `${fmtDuration(minutes)} × ${formatInr(draft.rate)}${nightLabel(night)}`
+          : `${formatInr(draft.rate)}/hour, minimum ${draft.minMinutes / 60} hrs`,
     time: fixed ? `Starts ${fmtTime(draft.start)}` : `${fmtTime(draft.start)} to ${fmtTime(draft.end)}`,
     /** Bill line before tax, e.g. "5 hrs × ₹149" or "Washroom Essential". */
     billLabel: (extra = "") =>
       fixed
         ? `${draft.serviceName}${draft.quantity > 1 ? ` × ${draft.quantity}` : ""}`
-        : `${fmtDuration(minutes)} × ${formatInr(draft.rate)}${extra}`,
+        : `${days > 1 ? `${days} days × ` : ""}${fmtDuration(minutes)} × ${formatInr(draft.rate)}${nightLabel(night * days)}${extra}`,
   };
 }
 
+/**
+ * A fresh draft. `pick` is the variant chosen in the picker: its window opens
+ * the draft, and a week variant books 7 days of that daily window.
+ */
 export function startDraft(
   service: CategoryTreeService,
   category: { categoryId: number; name: string },
+  pick?: { variantId: number; name: string },
 ): BookingDraft {
   if (isCleaningCategory(category.name)) {
     const sizes = service.variants.map((v) => v.price).filter((p) => p > 0);
@@ -197,7 +255,9 @@ export function startDraft(
   }
 
   const minMinutes = minShiftMinutes(service.variants);
-  const window = defaultWindow(service.variants, minMinutes);
+  const window =
+    (pick && shiftWindow(pick.name)) || defaultWindow(service.variants, minMinutes);
+  const week = !!pick && /\bweek\b/i.test(pick.name);
   const days = getDays(2);
   return {
     serviceId: service.serviceId,
@@ -216,6 +276,8 @@ export function startDraft(
     start: window.start,
     end: window.end,
     quantity: 1,
+    nightRate: nightRateOf(service.variants),
+    days: week ? 7 : 1,
     address: null,
     paymentMode: null,
     couponCode: null,
@@ -241,6 +303,7 @@ export function extraFromService(
     serviceImage: d.serviceImage,
     categoryName: d.categoryName,
     rate: d.rate,
+    nightRate: d.nightRate,
     minMinutes: d.minMinutes,
     variants: d.variants,
   };
@@ -248,11 +311,12 @@ export function extraFromService(
 
 /** Pre-tax price of one extra for this draft's time window. */
 export function extraBase(draft: BookingDraft, extra: DraftExtra): number {
-  return round2(extra.rate * billedHours(draft));
+  return round2(extra.rate * billedHours(draft) + billedNightHours(draft) * (extra.nightRate ?? 0));
 }
 
 /** Why an extra can't join this window, or null when it fits. */
 export function extraProblem(draft: BookingDraft, extra: DraftExtra): string | null {
+  if (isWeekDraft(draft)) return "Add-ons aren't available for weekly bookings";
   if (isFixedDraft(draft)) return null;
   const needs = extra.minMinutes;
   return draft.end - draft.start < needs ? `Needs at least ${needs / 60} hrs` : null;
@@ -273,12 +337,7 @@ export interface FullBill {
  * plus every extra at its own price for the same window.
  */
 export function fullBill(draft: BookingDraft, coupon: CustomerCoupon | null): FullBill {
-  const main = computeBill({
-    hours: billedHours(draft),
-    rate: draft.rate,
-    quantity: draft.quantity,
-    coupon,
-  });
+  const main = mainBill(draft, coupon);
   const extrasBase = round2((draft.extras ?? []).reduce((sum, x) => sum + extraBase(draft, x), 0));
   const extrasTax = round2(extrasBase * TAX_RATE);
   return {
@@ -291,8 +350,27 @@ export function fullBill(draft: BookingDraft, coupon: CustomerCoupon | null): Fu
   };
 }
 
+/** The main service: per-day base × days × people, coupon on one booking. */
+function mainBill(draft: BookingDraft, coupon: CustomerCoupon | null): Bill {
+  return computeBill({
+    hours: billedHours(draft),
+    rate: draft.rate,
+    quantity: draft.quantity * draftDays(draft),
+    nightHours: billedNightHours(draft),
+    nightRate: draft.nightRate ?? 0,
+    coupon,
+  });
+}
+
+/** `iso` (yyyy-mm-dd) moved by `n` days, across month and year ends. */
+export function addDaysISO(iso: string, n: number): string {
+  if (!n) return iso;
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
 /**
- * One booking per person. The percentage coupon's share comes off the first
+ * One booking per person per day. The percentage coupon's share comes off the first
  * booking and the code rides with it, exactly as the flow-1 checkout does; a
  * flat-total coupon is priced by the server, so every line keeps its base.
  */
@@ -303,12 +381,7 @@ export function buildPayloads(
 ): CreateBookingPayload[] {
   const address = draft.address;
   if (!address) throw new Error("Pick an address before booking.");
-  const bill = computeBill({
-    hours: billedHours(draft),
-    rate: draft.rate,
-    quantity: draft.quantity,
-    coupon,
-  });
+  const bill = mainBill(draft, coupon);
   const variantId = pickShiftVariant(draft.variants, draft.start, draft.end);
   const blocked = (draft.extras ?? []).map((x) => extraProblem(draft, x)).find(Boolean);
   if (blocked) throw new Error(`${blocked} for one of the added services. Change the hours or remove it.`);
@@ -329,14 +402,15 @@ export function buildPayloads(
     paymentMode: draft.paymentMode ?? "COD",
   }));
 
-  const mains = Array.from({ length: draft.quantity }, (_, i) => {
+  const quantity = draft.quantity;
+  const mains = Array.from({ length: quantity * draftDays(draft) }, (_, i) => {
     const carriesCoupon = i === 0 && !!coupon;
     return {
       userId,
       professionalId: null,
       serviceId: draft.serviceId,
       variantId,
-      bookingDate: draft.date,
+      bookingDate: addDaysISO(draft.date, Math.floor(i / quantity)),
       startTime: toHHmm(draft.start),
       endTime: toHHmm(draft.end),
       totalAmount:
