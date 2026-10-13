@@ -54,30 +54,34 @@ export default async function CategoryPage({
     : null;
   const content = categoryContent(slug, headline);
 
+  const jsonLd =
+    category && category.isPublished !== false ? (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs, headline) }}
+      />
+    ) : null;
+  const intro = content ? <CategoryIntro intro={content.intro} /> : undefined;
+  const faqs = content?.faqs.length ? <CategoryFaqs faqs={content.faqs} /> : undefined;
+
   // New category flow (NEXT_PUBLIC_RC_CATEGORY_FLOW=2), built separately;
-  // flow 1 renders the current page below, unchanged.
+  // both flows get the same JSON-LD, intro and FAQs in the server HTML.
   if (CATEGORY_FLOW === 2) {
     return (
-      <HydrationBoundary state={dehydrate(queryClient)}>
-        <CategoryFlowV2Page slug={slug} heading={content?.h1} />
-      </HydrationBoundary>
+      <>
+        {jsonLd}
+        <HydrationBoundary state={dehydrate(queryClient)}>
+          <CategoryFlowV2Page slug={slug} heading={content?.h1} intro={intro} faqs={faqs} />
+        </HydrationBoundary>
+      </>
     );
   }
 
   return (
     <>
-      {category && category.isPublished !== false ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs, headline) }}
-        />
-      ) : null}
+      {jsonLd}
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <CategoryPageClient
-          heading={content?.h1}
-          intro={content ? <CategoryIntro intro={content.intro} /> : undefined}
-          faqs={content?.faqs.length ? <CategoryFaqs faqs={content.faqs} /> : undefined}
-        />
+        <CategoryPageClient heading={content?.h1} intro={intro} faqs={faqs} />
       </HydrationBoundary>
     </>
   );

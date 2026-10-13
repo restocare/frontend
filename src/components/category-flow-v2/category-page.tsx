@@ -6,7 +6,7 @@
  * (the existing CategoryBanner), then cart | services | sub-categories.
  */
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
@@ -177,12 +177,18 @@ export function CategoryFlowV2Page({
   slug,
   sub,
   heading,
+  intro,
+  faqs,
 }: {
   slug: string;
   /** Area slug on /category/[slug]/[sub] (Deep Cleaning areas). */
   sub?: string;
   /** SEO H1 from lib/category-content.ts, when the category has one. */
   heading?: string;
+  /** Server-rendered intro (CategoryIntro), shown under the banner. */
+  intro?: ReactNode;
+  /** Server-rendered FAQ list (CategoryFaqs), shown at the bottom. */
+  faqs?: ReactNode;
 }) {
   const categoryId = categoryIdForSlug(slug);
   const { coords } = useCurrentLocation();
@@ -227,7 +233,9 @@ export function CategoryFlowV2Page({
     body = (
       <>
         <CategoryBanner {...banner} ctaHref="#services" />
+        {intro}
         <CategoryLayout category={category} group={group} />
+        {faqs}
       </>
     );
   }
