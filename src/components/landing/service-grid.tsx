@@ -7,50 +7,17 @@ import { useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
   queryKeys,
-  type CategoryTreeNode,
-  type CategoryTreeService,
 } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
 import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
+import { flattenServices, type FlatService } from "@/src/lib/landing-services";
 import { hourlyTerms } from "@/src/lib/booking-v2/hourly-terms";
 import { ArrowRightIcon, SpinnerIcon, StarIcon, StoreIcon } from "@/src/components/icons";
 
 interface ServiceGridProps {
   search: string;
   categoryId: number | null;
-}
-
-/** A service flattened out of the category → group → service tree. */
-interface FlatService extends CategoryTreeService {
-  categoryName: string;
-  groupName: string;
-}
-
-function flattenServices(
-  categories: CategoryTreeNode[],
-  categoryId: number | null,
-): FlatService[] {
-  const scoped = categoryId
-    ? categories.filter((c) => c.categoryId === categoryId)
-    : categories;
-
-  return scoped.flatMap((category) => [
-    // Services attached directly to the category.
-    ...category.services.map((service) => ({
-      ...service,
-      categoryName: category.name,
-      groupName: category.name,
-    })),
-    // Services nested under sub-categories.
-    ...category.groups.flatMap((group) =>
-      group.services.map((service) => ({
-        ...service,
-        categoryName: category.name,
-        groupName: group.name,
-      })),
-    ),
-  ]);
 }
 
 function priceLabel(service: FlatService): string {
@@ -101,12 +68,8 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
   });
 
   const services = useMemo(() => {
-    let flat = flattenServices(data ?? [], categoryId);
-    // On the home "Popular services" row (no category selected) only show the
-    // services an admin has marked as featured. The category page shows all.
-    if (!categoryId) {
-      flat = flat.filter((s) => s.isFeatured);
-    }
+    // Live categories only; the home row (no category) is featured-only.
+    const flat = flattenServices(data ?? [], categoryId);
     const q = search.trim().toLowerCase();
     if (!q) return flat;
     return flat.filter(
