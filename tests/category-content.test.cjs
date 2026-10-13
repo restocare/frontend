@@ -52,6 +52,18 @@ test("existing categories are unchanged", () => {
   assert.equal(categoryContent("deep-cleaning").faqs.length, 1);
 });
 
+test("only electrician hides the price-guide link", () => {
+  assert.equal(categoryContent("electrician").showGuideLink, false);
+  for (const slug of ["chef", "helpers-and-waiters", "deep-cleaning"]) {
+    assert.notEqual(categoryContent(slug).showGuideLink, false);
+  }
+});
+
+test("page passes showGuideLink to the single CategoryIntro", () => {
+  const page = fs.readFileSync(path.join(__dirname, "..", "app/category/[slug]/page.tsx"), "utf8");
+  assert.ok(page.includes("guideLink={content.showGuideLink !== false}"));
+});
+
 test("plumber has no content entry", () => {
   assert.equal(categoryContent("plumber"), undefined);
 });

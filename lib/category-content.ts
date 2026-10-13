@@ -17,6 +17,8 @@ export interface CategoryContent {
   h1: string;
   intro: string;
   faqs: CategoryFaq[];
+  /** False hides the staffing price-guide link under the intro. Default true. */
+  showGuideLink?: boolean;
 }
 
 const ELECTRICIAN_DESCRIPTION =
@@ -96,6 +98,7 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
     h1: "Electrician for Restaurants in Delhi NCR",
     intro: ELECTRICIAN_DESCRIPTION,
     faqs: [],
+    showGuideLink: false,
   },
 };
 

@@ -61,7 +61,7 @@ export default async function CategoryPage({
         dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs, headline) }}
       />
     ) : null;
-  const intro = content ? <CategoryIntro intro={content.intro} /> : undefined;
+  const intro = content ? <CategoryIntro intro={content.intro} guideLink={content.showGuideLink !== false} /> : undefined;
   const faqs = content?.faqs.length ? <CategoryFaqs faqs={content.faqs} /> : undefined;
 
   // New category flow (NEXT_PUBLIC_RC_CATEGORY_FLOW=2), built separately;
