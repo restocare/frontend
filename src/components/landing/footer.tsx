@@ -299,9 +299,9 @@ export function Footer() {
         </div>
 
         <div className="mt-10 border-t border-gray-800 pt-6 text-center">
-          <p>
-            © 2025 Restocare, a brand operated by Restroedge Private Limited.
-            All rights reserved.
+          <p suppressHydrationWarning>
+            © {new Date().getFullYear()} Restocare, a brand operated by
+            Restroedge Private Limited. All rights reserved.
           </p>
         </div>
       </div>
