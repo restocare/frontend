@@ -99,9 +99,9 @@ function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
                     : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                <span className="flex items-center gap-3">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
                   <span
-                    className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                       active ? "border-gray-900" : "border-gray-300"
                     }`}
                   >
@@ -113,13 +113,16 @@ function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
                     {v.name}
                   </span>
                 </span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {charge != null ? `${inr(charge)} + GST` : inr(v.price)}
+                <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-gray-900">
+                  {charge != null ? inr(charge) : inr(v.price)}
                 </span>
               </button>
             );
           })}
         </div>
+        {variantTarget.useSlots ? (
+          <p className="mt-3 text-xs text-gray-500">Prices exclude 18% GST.</p>
+        ) : null}
 
         <button
           disabled={selected == null}

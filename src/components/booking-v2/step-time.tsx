@@ -29,6 +29,7 @@ import {
 } from "@/src/lib/booking-v2/schedule";
 import {
   addDaysISO,
+  billedNightHours,
   draftCopy,
   draftDays,
   fullBill,
@@ -155,9 +156,10 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const copy = draftCopy({ ...draft, date, start, end });
   const minHrs = minMinutes / 60;
   const range = `${fmtDateShort(date)} - ${fmtDateShort(addDaysISO(date, dayCount - 1))}`;
-  // Any hour of the window at or after 6 PM.
+  // Only when the window is billed night hours (a night shift), not a day
+  // shift that merely runs past 6 PM.
   const nightNote =
-    !fixed && end > NIGHT_START_MINUTES && (draft.nightRate ?? 0) > 0
+    !fixed && billedNightHours({ ...draft, start, end }) > 0 && (draft.nightRate ?? 0) > 0
       ? `Hours after ${fmtTime(NIGHT_START_MINUTES)} cost ${formatInr(draft.nightRate ?? 0)}/hr extra.`
       : null;
 
