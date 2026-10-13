@@ -56,6 +56,19 @@ echo
 
 key() { printf 'S_%s' "$(printf '%s' "$1" | tr -c 'a-zA-Z0-9\n' '_')"; }
 
+# absence <path> <grep-pattern> <label>: PASS only when the page returned 200 and has no match.
+# A page that failed to load has an empty body, so it must FAIL rather than pass vacuously.
+absence() {
+  local k s n
+  k="$(key "$1")"; s="${!k}"
+  if [ "$s" != 200 ]; then
+    fail "$1 $3 (skipped: $1 returned $s)"
+    return
+  fi
+  n="$(count "$2" "$(fname "$1")")"
+  check "$([ "$n" = 0 ] && echo 1 || echo 0)" "$1 $3 (got $n)"
+}
+
 # 200 on every page
 for p in "${PAGES[@]}"; do
   k="$(key "$p")"; s="${!k}"
@@ -68,8 +81,7 @@ check "$([ "$n" = 1 ] && echo 1 || echo 0)" "homepage has exactly one <h1 (got $
 
 # no bailout
 for p in "${PAGES[@]}"; do
-  n="$(count 'BAILOUT_TO_CLIENT_SIDE_RENDERING' "$(fname "$p")")"
-  check "$([ "$n" = 0 ] && echo 1 || echo 0)" "$p has no BAILOUT_TO_CLIENT_SIDE_RENDERING (got $n)"
+  absence "$p" 'BAILOUT_TO_CLIENT_SIDE_RENDERING' "has no BAILOUT_TO_CLIENT_SIDE_RENDERING"
 done
 
 # canonical and no noindex on indexable pages
@@ -91,8 +103,7 @@ for p in "${FAQ_PAGES[@]}"; do
   n="$(count 'FAQPage' "$(fname "$p")")"
   check "$([ "$n" -ge 1 ] && echo 1 || echo 0)" "$p has FAQPage (got $n)"
 done
-n="$(count 'FAQPage' "$(fname /category/electrician)")"
-check "$([ "$n" = 0 ] && echo 1 || echo 0)" "/category/electrician has no FAQPage (got $n)"
+absence /category/electrician 'FAQPage' "has no FAQPage"
 
 # 404 for unknown slug
 fetch /category/not-a-real-slug
@@ -122,13 +133,11 @@ for slug in "${COMING_SOON[@]}"; do
 done
 
 # numeric category links on homepage
-n="$(count 'href="/category/[0-9][0-9]*' "$(fname /)")"
-check "$([ "$n" = 0 ] && echo 1 || echo 0)" "homepage has no href=\"/category/<digits>\" (got $n)"
+absence / 'href="/category/[0-9][0-9]*' "(homepage) has no href=\"/category/<digits>\""
 
 # aggregateRating anywhere
 for p in "${PAGES[@]}"; do
-  n="$(count 'aggregateRating' "$(fname "$p")")"
-  check "$([ "$n" = 0 ] && echo 1 || echo 0)" "$p has no aggregateRating (got $n)"
+  absence "$p" 'aggregateRating' "has no aggregateRating"
 done
 
 echo

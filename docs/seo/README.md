@@ -18,6 +18,16 @@ count, canonical href, robots meta), then one `PASS`/`FAIL` line per check and a
 summary. Exit code is 1 if any check failed, 0 only if all passed. An unreachable
 host fails the checks (status `000`); it does not crash.
 
+Absence checks (no bailout, no electrician `FAQPage`, no numeric homepage links, no
+`aggregateRating`) only count as PASS when the page they read returned 200; otherwise
+they FAIL with `skipped: <path> returned <status>` so an empty body is never a pass.
+
+## Redirects
+
+The script does not follow redirects (no `curl -L`) on purpose: an apex or `http://`
+URL that redirects should be flagged. A 301/302 shows up as a failed "returns 200"
+check, so pass the final canonical base URL (e.g. `https://www.restocare.in`).
+
 ## Checks and why
 
 | Check | Why |
