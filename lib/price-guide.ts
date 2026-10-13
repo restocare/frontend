@@ -24,6 +24,7 @@ export interface ShiftTable {
 }
 
 export interface ItemRow {
+  serviceId: number;
   name: string;
   price: number;
   unit: string;
@@ -112,6 +113,16 @@ export function shiftTable(category: CategoryTreeNode): ShiftTable | null {
 }
 
 /**
+ * What the guide leads a staffing section with: the 5-hour shift row first,
+ * the hourly rate second. The row is null when its day and night cells are
+ * both empty, so the page falls back to the hourly line alone.
+ */
+export function shiftLead(table: ShiftTable): { shift: ShiftRow | null; hourly: number | null } {
+  const row = table.rows[0];
+  return { shift: row && (row.day || row.night) ? row : null, hourly: table.hourly };
+}
+
+/**
  * Units ops confirmed for the Deep Cleaning items (docs/seo/category-briefs.md).
  * Keyed by service id; the name and price on the page still come from the
  * catalogue. Items with no confirmed unit are left off the table rather than
@@ -135,7 +146,7 @@ export function cleaningTable(category: CategoryTreeNode): {
   const services = allServices(category);
   const rows = services.flatMap((s) =>
     CLEANING_UNITS[s.serviceId] && s.price != null && s.price > 0
-      ? [{ name: s.name, price: s.price, unit: CLEANING_UNITS[s.serviceId] }]
+      ? [{ serviceId: s.serviceId, name: s.name, price: s.price, unit: CLEANING_UNITS[s.serviceId] }]
       : [],
   );
   return rows.length ? { rows, totalItems: services.length } : null;
