@@ -6,6 +6,7 @@ import { fetchCategoryTree } from "@/lib/category-tree-server";
 import {
   cleaningTable,
   formatInr,
+  shiftLead,
   shiftTable,
   type PriceCell,
   type ShiftTable,
@@ -131,12 +132,23 @@ function Section({
   );
 }
 
-function Hourly({ rate }: { rate: number | null | undefined }) {
-  if (!rate) return null;
+function ShiftLead({ table }: { table: ShiftTable | null }) {
+  if (!table) return null;
+  const { shift, hourly } = shiftLead(table);
+  if (!shift && !hourly) return null;
   return (
-    <p className="mt-3 text-lg font-semibold text-rc-ink">
-      From {formatInr(rate)} per hour
-    </p>
+    <>
+      {shift ? (
+        <p className="mt-3 text-lg font-semibold text-rc-ink">
+          5-hour shift: day <Cell cell={shift.day} />, night <Cell cell={shift.night} />
+        </p>
+      ) : null}
+      {hourly ? (
+        <p className={`${shift ? "mt-1 text-sm font-normal text-rc-muted" : "mt-3 text-lg font-semibold text-rc-ink"}`}>
+          {shift ? "Hourly rate:" : "From"} {formatInr(hourly)} per hour
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -183,14 +195,14 @@ export default async function PriceGuidePage() {
           <p className="mt-3 text-base leading-relaxed text-rc-muted">{HOW_TO_CHOOSE}</p>
         </section>
 
-        <Section title="Chef" slug="chef" lead={<Hourly rate={chef?.hourly} />}>
+        <Section title="Chef" slug="chef" lead={<ShiftLead table={chef} />}>
           {chef ? <ShiftPrices table={chef} /> : unavailable("chef")}
         </Section>
 
         <Section
           title="Helpers & Waiter"
           slug="helpers-and-waiters"
-          lead={<Hourly rate={helpers?.hourly} />}
+          lead={<ShiftLead table={helpers} />}
         >
           {helpers ? <ShiftPrices table={helpers} /> : unavailable("helpers-and-waiters")}
         </Section>
@@ -220,8 +232,8 @@ export default async function PriceGuidePage() {
               </div>
               {cleaning.totalItems > cleaning.rows.length ? (
                 <p className="mt-3 text-sm text-rc-muted">
-                  The catalogue lists {cleaning.totalItems} cleaning items in all; the
-                  category page has the full list.
+                  This table shows {cleaning.rows.length} of the cleaning items; the
+                  category page lists them all.
                 </p>
               ) : null}
             </>

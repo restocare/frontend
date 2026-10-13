@@ -19,6 +19,11 @@ import { PartnerCTA, Testimonials } from "@/src/components/landing/testimonials"
 import { FAQs } from "@/src/components/landing/faqs";
 import { Footer } from "@/src/components/landing/footer";
 
+// Hardcoded repair section; flip to true when repair launches.
+const SHOW_REPAIR = false;
+// Count-up starts at 0 (server HTML says 0+/0%/0) and there are no confirmed numbers.
+const SHOW_STATS = false;
+
 export function HomeContent() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -50,18 +55,22 @@ export function HomeContent() {
         <Reveal>
           <WhyChooseUs />
         </Reveal>
-        <Reveal>
-          <StatsBand />
-        </Reveal>
+        {SHOW_STATS && (
+          <Reveal>
+            <StatsBand />
+          </Reveal>
+        )}
         <Reveal>
           <TopProviders />
         </Reveal>
         <Reveal>
           <Brands />
         </Reveal>
-        <Reveal>
-          <RestaurantRepair />
-        </Reveal>
+        {SHOW_REPAIR && (
+          <Reveal>
+            <RestaurantRepair />
+          </Reveal>
+        )}
 
         <Reveal>
           <PartnerCTA />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
@@ -117,6 +117,13 @@ export function PopularCategories(_props: PopularCategoriesProps) {
             </div>
           )}
 
+          <Link
+            href="/guides/restaurant-staffing-prices"
+            className="mt-5 inline-flex self-start text-sm font-semibold text-orange-600 transition hover:text-orange-700 hover:underline"
+          >
+            See restaurant staffing prices
+          </Link>
+
           {/* Bottom CTA — fills the remaining space nicely */}
           <div className="mt-auto pt-8">
             <div className="relative flex flex-col items-center justify-between gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-orange-500 via-orange-500 to-amber-500 px-5 py-4 text-white sm:flex-row sm:text-left">
@@ -225,12 +232,21 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
   );
 
   // Deep Cleaning (new flow): ask which area first, then open that section.
+  // Still a real link so crawlers and modified clicks reach the category page.
   if (cleaningPicker && category.groups.length > 0) {
     return (
       <>
-        <motion.button type="button" onClick={() => setPickerOpen(true)} {...tileProps}>
+        <MotionLink
+          href={categoryHref(category.categoryId)}
+          onClick={(e: MouseEvent<HTMLAnchorElement>) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            setPickerOpen(true);
+          }}
+          {...tileProps}
+        >
           {tileBody}
-        </motion.button>
+        </MotionLink>
         <CleaningSubcategoryDialog
           category={category}
           open={pickerOpen}

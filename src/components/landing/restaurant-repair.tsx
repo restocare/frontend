@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
 import { categoryHref } from "@/lib/category-slugs";
-import { ArrowRightIcon, BoltIcon, StarIcon } from "@/src/components/icons";
+import { ArrowRightIcon, StarIcon } from "@/src/components/icons";
 
 /** Next.js Link with framer-motion gesture props. */
 const MotionLink = motion.create(Link);
@@ -20,7 +20,6 @@ const SERVICES = [
     category: "Technician",
     rating: "4.73",
     reviews: "1.2k",
-    hasInstant: true,
     image: "/Kitchen Equipment Repair.png",
   },
   {
@@ -29,7 +28,6 @@ const SERVICES = [
     category: "Electrician",
     rating: "4.74",
     reviews: "850",
-    hasInstant: false,
     image: "/Exhaust Fan Repair.png",
   },
   {
@@ -38,7 +36,6 @@ const SERVICES = [
     category: "Plumber",
     rating: "4.79",
     reviews: "2.1k",
-    hasInstant: false,
     image: "/Commercial Plumbing.png",
   },
   {
@@ -47,7 +44,6 @@ const SERVICES = [
     category: "Electrician",
     rating: "4.83",
     reviews: "3.4k",
-    hasInstant: true,
     image: "/Switchboard Repair & Replacement.png",
   },
   {
@@ -56,7 +52,6 @@ const SERVICES = [
     category: "AC & Appliance Repair",
     rating: "4.80",
     reviews: "1.1k",
-    hasInstant: true,
     image: "/HVAC Maintenance.png",
   },
 ];
@@ -185,15 +180,6 @@ export function RestaurantRepair() {
                         <StarIcon className="h-3.5 w-3.5 text-yellow-400" />
                         <span>{service.rating}</span>
                       </div>
-
-                      {service.hasInstant && (
-                        <>
-                          <span className="text-gray-300">•</span>
-                          <span className="flex items-center gap-1 rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-green-600">
-                            <BoltIcon className="h-3 w-3" /> Instant
-                          </span>
-                        </>
-                      )}
                     </div>
 
                     {/* Price + CTA — opens the related category page */}

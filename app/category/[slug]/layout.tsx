@@ -24,6 +24,11 @@ const CATEGORY_OVERRIDES: Record<string, { title: string; description: string }>
     description:
       "Professional kitchen deep cleaning in Delhi NCR — duct, hood, floor, equipment and grease trap services for restaurants and cloud kitchens.",
   },
+  electrician: {
+    title: "Electrician for Restaurants in Delhi NCR",
+    description:
+      "Book an electrician for your restaurant or commercial kitchen in Delhi NCR, priced per job, with taxes extra.",
+  },
 };
 
 export async function generateMetadata({

@@ -10,7 +10,6 @@ import { categoryIdForSlug } from "@/lib/category-slugs";
 import { categoryHourlyHeadline } from "@/src/lib/booking-v2/hourly-terms";
 import {
   BadgeCheckIcon,
-  BoltIcon,
   ShieldIcon,
   StarIcon,
 } from "@/src/components/icons";
@@ -52,28 +51,35 @@ function chefSlide(
 
 const OTHER_SLIDES: HeroSlide[] = [
   {
-    tagline: "India's trusted restaurant services app",
-    title: "Skilled staff & repairs, delivered instantly",
+    tagline: "Restaurant staff, by the shift",
+    title: "Chefs, kitchen helpers and waiters, by the shift",
     subtitle:
-      "Book verified chefs, helpers, technicians and maintenance pros for your restaurant — on demand, near you.",
+      "Book a chef, a kitchen helper or a waiter for a 5-hour or 10-hour shift, or for a week, across Delhi NCR.",
     image: BANNER_IMAGES[0],
   },
   {
-    tagline: "Verified professionals at your doorstep",
-    title: "Your restaurant, our care — every single day",
+    tagline: "Kitchen deep cleaning",
+    title: "Commercial kitchen deep cleaning, item by item",
     subtitle:
-      "From deep cleaning to kitchen equipment repair, Restocare keeps your restaurant running without a hitch.",
+      "From the burners and exhaust to the floors, walls and freezers. Choose what you need and book online.",
     image: BANNER_IMAGES[1],
   },
 ];
 
 // Service highlights surfaced on the banner (Pronto-style trust strip).
 const HIGHLIGHTS = [
-  { Icon: BoltIcon, label: "Instant Service" },
   { Icon: BadgeCheckIcon, label: "Verified Staff" },
   { Icon: StarIcon, label: "Certified Staff" },
   { Icon: ShieldIcon, label: "Quality Assured" },
 ];
+
+/** Only the first slide is the page's h1; later slides use h2 with identical styling. */
+function SlideHeading({
+  as: Tag,
+  ...props
+}: { as: "h1" | "h2" } & React.HTMLAttributes<HTMLHeadingElement>) {
+  return <Tag {...props} />;
+}
 
 const SLIDE_INTERVAL_MS = 5000;
 
@@ -226,12 +232,13 @@ export function Hero() {
                     {slide.tagline}
                   </p>
 
-                  <h1
+                  <SlideHeading
+                    as={i === 0 ? "h1" : "h2"}
                     className="animate-fade-up mt-4 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl xl:text-6xl"
                     style={{ animationDelay: "0.08s" }}
                   >
                     <HighlightedTitle title={slide.title} />
-                  </h1>
+                  </SlideHeading>
 
                   <p
                     className="animate-fade-up mt-4 max-w-lg text-sm text-gray-600 sm:text-base lg:text-lg"

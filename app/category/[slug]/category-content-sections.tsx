@@ -7,20 +7,28 @@ import { ChevronDownIcon } from "@/src/components/icons";
 const WHATSAPP_URL = "https://wa.me/919953532995";
 
 /** Intro paragraph under the banner. Server-rendered. */
-export function CategoryIntro({ intro }: { intro: string }) {
+export function CategoryIntro({
+  intro,
+  guideLink = true,
+}: {
+  intro: string;
+  guideLink?: boolean;
+}) {
   return (
     <section className="mx-auto max-w-7xl px-4 pb-2 pt-6 sm:px-6">
       <p className="max-w-3xl text-[15px] leading-relaxed text-rc-muted sm:text-base">{intro}</p>
-      <p className="mt-3 text-sm text-rc-muted">
-        Compare shift and item prices across categories in our{" "}
-        <Link
-          href="/guides/restaurant-staffing-prices"
-          className="font-semibold text-rc-ink underline"
-        >
-          restaurant staffing price guide
-        </Link>
-        .
-      </p>
+      {guideLink && (
+        <p className="mt-3 text-sm text-rc-muted">
+          Compare shift and item prices across categories in our{" "}
+          <Link
+            href="/guides/restaurant-staffing-prices"
+            className="font-semibold text-rc-ink underline"
+          >
+            restaurant staffing price guide
+          </Link>
+          .
+        </p>
+      )}
     </section>
   );
 }

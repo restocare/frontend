@@ -3,7 +3,8 @@
  * docs/seo/category-briefs.md. Used word for word: the H1, the intro under
  * the banner, and the FAQs (visible on the page and in the FAQPage JSON-LD).
  * A slug with no entry here keeps the page's default heading and has no
- * intro or FAQ section.
+ * intro or FAQ section. Electrician has no FAQs by design (none approved),
+ * so its page renders no FAQ section and no FAQPage JSON-LD.
  */
 import type { HourlyTerms } from "@/src/lib/booking-v2/hourly-terms";
 
@@ -16,7 +17,12 @@ export interface CategoryContent {
   h1: string;
   intro: string;
   faqs: CategoryFaq[];
+  /** False hides the staffing price-guide link under the intro. Default true. */
+  showGuideLink?: boolean;
 }
+
+const ELECTRICIAN_DESCRIPTION =
+  "Book an electrician for your restaurant or commercial kitchen in Delhi NCR, priced per job, with taxes extra.";
 
 const CATEGORY_CONTENT: Record<string, CategoryContent> = {
   chef: {
@@ -87,6 +93,12 @@ const CATEGORY_CONTENT: Record<string, CategoryContent> = {
         a: "You can pay by UPI, cards or net banking. Yes, you get a GST invoice.",
       },
     ],
+  },
+  electrician: {
+    h1: "Electrician for Restaurants in Delhi NCR",
+    intro: ELECTRICIAN_DESCRIPTION,
+    faqs: [],
+    showGuideLink: false,
   },
 };
 
