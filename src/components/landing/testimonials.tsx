@@ -131,12 +131,14 @@ function Star({ filled }: { filled: boolean }) {
   );
 }
 
-export function Testimonials() {
+export function Testimonials({ reviews = REVIEWS }: { reviews?: Review[] }) {
   const reduceMotion = useReducedMotion();
   const [[index, dir], setSlide] = useState<[number, number]>([0, 1]);
   const [paused, setPaused] = useState(false);
-  const review = REVIEWS[index];
-  const total = REVIEWS.length;
+  const review = reviews[index];
+  const total = reviews.length;
+  // With a single review there is nothing to page through: no counter, arrows, dots or autoplay.
+  const multiple = total > 1;
 
   const go = useCallback(
     (next: number, direction?: number) =>
@@ -148,7 +150,9 @@ export function Testimonials() {
   );
   const prev = () => go(index - 1, -1);
   const nextSlide = () => go(index + 1, 1);
-  const autoplay = !reduceMotion;
+  const autoplay = multiple && !reduceMotion;
+
+  if (!review) return null;
 
   return (
     <section className="bg-white py-12 sm:py-16">
@@ -168,13 +172,15 @@ export function Testimonials() {
           </div>
 
           {/* Counter + arrows (desktop position; repeated below on phones) */}
-          <div className="hidden items-center gap-3 sm:flex">
-            <span className="text-sm font-semibold tabular-nums text-gray-400">
-              <span className="text-gray-900">{String(index + 1).padStart(2, "0")}</span> /{" "}
-              {String(total).padStart(2, "0")}
-            </span>
-            <NavArrows onPrev={prev} onNext={nextSlide} />
-          </div>
+          {multiple && (
+            <div className="hidden items-center gap-3 sm:flex">
+              <span className="text-sm font-semibold tabular-nums text-gray-400">
+                <span className="text-gray-900">{String(index + 1).padStart(2, "0")}</span> /{" "}
+                {String(total).padStart(2, "0")}
+              </span>
+              <NavArrows onPrev={prev} onNext={nextSlide} />
+            </div>
+          )}
         </div>
 
         <motion.div
@@ -201,7 +207,7 @@ export function Testimonials() {
           </span>
 
           <motion.div
-            drag={reduceMotion ? false : "x"}
+            drag={multiple && !reduceMotion ? "x" : false}
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.12}
             onDragEnd={(_, info) => {
@@ -288,49 +294,51 @@ export function Testimonials() {
           </motion.div>
 
           {/* Logo rail: tap a brand to jump; the active one carries the timer */}
-          <div className="relative flex flex-wrap items-center justify-between gap-4 border-t border-rc-ink/10 px-6 py-5 sm:px-10 lg:px-14">
-            <div className="flex items-center gap-2 sm:gap-3" role="tablist" aria-label="Reviews">
-              {REVIEWS.map((r, i) => {
-                const active = i === index;
-                return (
-                  <button
-                    key={r.brand}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    aria-label={`Show review from ${r.brand}`}
-                    onClick={() => go(i)}
-                    className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white ring-2 transition-all duration-300 sm:h-12 sm:w-12 ${
-                      active
-                        ? "scale-110 ring-rc-yellow shadow-md"
-                        : "ring-transparent opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
-                    }`}
-                  >
-                    <Image src={r.logo} alt="" fill sizes="48px" className="object-cover" />
-                    {active && autoplay && (
-                      <span
-                        key={index}
-                        aria-hidden
-                        onAnimationEnd={nextSlide}
-                        className="absolute inset-x-0 bottom-0 h-1 origin-left bg-rc-yellow-deep"
-                        style={{
-                          animation: `rc-review-progress ${AUTOPLAY_MS}ms linear forwards`,
-                          animationPlayState: paused ? "paused" : "running",
-                        }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+          {multiple && (
+            <div className="relative flex flex-wrap items-center justify-between gap-4 border-t border-rc-ink/10 px-6 py-5 sm:px-10 lg:px-14">
+              <div className="flex items-center gap-2 sm:gap-3" role="tablist" aria-label="Reviews">
+                {reviews.map((r, i) => {
+                  const active = i === index;
+                  return (
+                    <button
+                      key={r.brand}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      aria-label={`Show review from ${r.brand}`}
+                      onClick={() => go(i)}
+                      className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white ring-2 transition-all duration-300 sm:h-12 sm:w-12 ${
+                        active
+                          ? "scale-110 ring-rc-yellow shadow-md"
+                          : "ring-transparent opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
+                      }`}
+                    >
+                      <Image src={r.logo} alt="" fill sizes="48px" className="object-cover" />
+                      {active && autoplay && (
+                        <span
+                          key={index}
+                          aria-hidden
+                          onAnimationEnd={nextSlide}
+                          className="absolute inset-x-0 bottom-0 h-1 origin-left bg-rc-yellow-deep"
+                          style={{
+                            animation: `rc-review-progress ${AUTOPLAY_MS}ms linear forwards`,
+                            animationPlayState: paused ? "paused" : "running",
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-            <div className="flex items-center gap-3 sm:hidden">
-              <span className="text-sm font-semibold tabular-nums text-gray-500">
-                {index + 1} / {total}
-              </span>
-              <NavArrows onPrev={prev} onNext={nextSlide} />
+              <div className="flex items-center gap-3 sm:hidden">
+                <span className="text-sm font-semibold tabular-nums text-gray-500">
+                  {index + 1} / {total}
+                </span>
+                <NavArrows onPrev={prev} onNext={nextSlide} />
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
       </div>
     </section>
