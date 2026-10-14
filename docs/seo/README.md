@@ -43,6 +43,10 @@ check, so pass the final canonical base URL (e.g. `https://www.restocare.in`).
 | `/sitemap.xml` lists exactly the Phase 1 URLs from `app/sitemap.ts` (`/`, `/about`, `/contact`, the four live categories, the guide) and none of the coming-soon slugs | Phase 1 URL lock. The URL list is printed. Hosts are ignored so local runs work. |
 | Homepage has no `href="/category/<digits>"` | Links must use slugs, not numeric ids. |
 | No fetched page contains `aggregateRating` | Card ratings are hardcoded; rating markup would be fabricated. |
+| Homepage has `Organization` (`#organization`) and `WebSite` (`#website`) JSON-LD | Site-level structured data must be in the server HTML. |
+| `/real-estate`, `/cart`, `/checkout`, `/account` return 200 and their robots meta contains `noindex` | These pages are deliberately kept out of the index. They are checked separately and are not required to have a canonical. |
+| `/robots.txt` returns 200 and disallows `/real-estate`, `/cart`, `/checkout`, `/account/`, `/account/login`, `/delete-account`, `/payment/*`, `/api/*` | Crawlers must be kept off private and non-content paths. The Disallow lines are printed. |
+| The guide contains `datePublished` and `dateModified` | Article JSON-LD must carry its dates. |
 
 ## Not a gate
 
