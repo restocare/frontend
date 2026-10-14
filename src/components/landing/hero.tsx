@@ -20,7 +20,7 @@ const APP_STORE_URL =
   "https://apps.apple.com/in/app/restocare-stop-revenue-loss/id6787001148";
 
 // Right-side photos from public/Banner.
-const BANNER_IMAGES = ["/Banner/2.png", "/Banner/1.png", "/Banner/3.png"] as const;
+const BANNER_IMAGES = ["/Banner/2.webp", "/Banner/1.webp", "/Banner/3.webp"] as const;
 
 interface HeroSlide {
   tagline: string;
