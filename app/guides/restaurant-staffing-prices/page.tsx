@@ -11,9 +11,11 @@ import {
   type PriceCell,
   type ShiftTable,
 } from "@/lib/price-guide";
+import { formatGuideDate, GUIDE_PUBLISHED, GUIDE_UPDATED } from "@/lib/guide-meta";
+import { ORGANIZATION_REF, SITE_URL } from "@/lib/site-identity";
 import { GuideShell } from "../_guide-shell";
 
-const SITE = "https://www.restocare.in";
+const SITE = SITE_URL;
 const PAGE_URL = `${SITE}/guides/restaurant-staffing-prices`;
 const TITLE = "Restaurant staffing prices in Delhi NCR (2026)";
 // Intro from docs/seo/category-briefs.md ("Price guide"), used as written.
@@ -55,8 +57,12 @@ const jsonLd = {
       url: PAGE_URL,
       mainEntityOfPage: PAGE_URL,
       inLanguage: "en-IN",
-      author: { "@type": "Organization", name: "RestoCare", url: SITE },
-      publisher: { "@type": "Organization", name: "RestoCare", url: SITE },
+      datePublished: GUIDE_PUBLISHED,
+      dateModified: GUIDE_UPDATED,
+      // The guide inherits the root app/opengraph-image route.
+      image: `${SITE}/opengraph-image`,
+      author: ORGANIZATION_REF,
+      publisher: ORGANIZATION_REF,
     },
   ],
 };
@@ -189,6 +195,9 @@ export default async function PriceGuidePage() {
         </nav>
         <h1 className="mt-4 text-3xl font-bold tracking-tight text-rc-ink sm:text-4xl">{TITLE}</h1>
         <p className="mt-4 text-base leading-relaxed text-rc-muted">{INTRO}</p>
+        <p className="mt-2 text-sm text-rc-muted">
+          Updated <time dateTime={GUIDE_UPDATED}>{formatGuideDate(GUIDE_UPDATED)}</time>
+        </p>
 
         <section className="mt-10">
           <h2 className="text-2xl font-bold tracking-tight text-rc-ink">How to choose</h2>
