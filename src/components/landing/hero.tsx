@@ -73,14 +73,6 @@ const HIGHLIGHTS = [
   { Icon: ShieldIcon, label: "Quality Assured" },
 ];
 
-/** Only the first slide is the page's h1; later slides use h2 with identical styling. */
-function SlideHeading({
-  as: Tag,
-  ...props
-}: { as: "h1" | "h2" } & React.HTMLAttributes<HTMLHeadingElement>) {
-  return <Tag {...props} />;
-}
-
 const SLIDE_INTERVAL_MS = 5000;
 
 /** Render a title with the last two words highlighted in brand amber. */
@@ -216,6 +208,9 @@ export function Hero() {
             is content-height (no dead space); on lg it fills 80dvh. */}
         <div className="relative z-10 mx-auto grid w-full max-w-7xl flex-1 items-end gap-x-10 gap-y-6 px-4 pt-8 sm:px-6 lg:grid-cols-2 lg:pt-12">
           <div className="self-center pb-2 lg:pb-16">
+            <h1 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500 sm:text-xs">
+              Restaurant staff and kitchen deep cleaning in Delhi NCR
+            </h1>
             {/* All slides stay mounted in one grid cell, so the hero keeps the
                 height of the tallest slide and the page never shifts. */}
             <div className="grid">
@@ -232,13 +227,12 @@ export function Hero() {
                     {slide.tagline}
                   </p>
 
-                  <SlideHeading
-                    as={i === 0 ? "h1" : "h2"}
+                  <h2
                     className="animate-fade-up mt-4 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl xl:text-6xl"
                     style={{ animationDelay: "0.08s" }}
                   >
                     <HighlightedTitle title={slide.title} />
-                  </SlideHeading>
+                  </h2>
 
                   <p
                     className="animate-fade-up mt-4 max-w-lg text-sm text-gray-600 sm:text-base lg:text-lg"
