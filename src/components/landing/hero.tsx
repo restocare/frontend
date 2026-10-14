@@ -318,8 +318,9 @@ export function Hero() {
                 className={`object-contain object-bottom transition-opacity duration-700 ${
                   i === activeIndex ? "opacity-100" : "opacity-0"
                 }`}
+                // Only slide 0 is fetched up front: it is the LCP image.
                 preload={i === 0}
-                loading={i === 0 ? undefined : "eager"}
+                loading={i === 0 ? undefined : "lazy"}
               />
             ))}
           </div>
