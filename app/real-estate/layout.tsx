@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
 import { Toaster } from "sonner";
 import { NavigationProgress } from "@/components/navigation-progress";
@@ -11,8 +12,9 @@ const urbanist = Urbanist({
   display: "swap",
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Real Estate — AI Sales Agent",
+  robots: { index: false, follow: false },
 };
 
 export default function RealEstateLayout({
