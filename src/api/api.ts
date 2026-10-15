@@ -4027,6 +4027,194 @@ export const crmSalesApi = {
     ),
 };
 
+/* ----------------------- Marketing leads (call centre) ------------------ */
+// The ad-sourced lead sheet behind /dashboard/leads. Gated by the
+// "marketing-leads" permission module — unrelated to crmSalesApi above
+// (restaurant pipeline) and to the real-estate leads section.
+
+export type LeadMasterType =
+  | "platforms"
+  | "staff-categories"
+  | "callers"
+  | "call-statuses";
+
+export interface LeadMasterRow {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  /** call-statuses only: badge colour (#RRGGBB). */
+  color?: string | null;
+  /** staff-categories only. */
+  parentId?: number | null;
+  /** Leads referencing this entry — delete is refused while non-zero. */
+  usage: number;
+  /** staff-categories only: sub-types nested under a main category. */
+  children?: LeadMasterRow[];
+}
+
+export interface LeadRequirementRef {
+  categoryId: number;
+  name: string;
+  parentId: number | null;
+  parentName: string | null;
+  /** "Chef > Tandoor" or "Waiter" — ready for chips and exports. */
+  label: string;
+}
+
+export interface MarketingLeadRow {
+  leadId: number;
+  platformId: number;
+  platform: { platformId: number; name: string };
+  fullName: string;
+  phoneNumber: string;
+  restaurantName: string | null;
+  location: string | null;
+  callerId: number | null;
+  caller: { callerId: number; name: string } | null;
+  callStatusId: number | null;
+  callStatus: { statusId: number; name: string; color: string | null } | null;
+  callRemarks: string | null;
+  requirements: LeadRequirementRef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketingLeadList {
+  total: number;
+  page: number;
+  limit: number;
+  leads: MarketingLeadRow[];
+}
+
+export type MarketingLeadListParams = {
+  q?: string;
+  platformId?: number;
+  staffCategoryId?: number;
+  callerId?: number;
+  callStatusId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  sort?: string;
+  order?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+};
+
+export type MarketingLeadBody = {
+  platformId?: number;
+  fullName?: string;
+  phoneNumber?: string;
+  restaurantName?: string;
+  location?: string;
+  callerId?: number | null;
+  callStatusId?: number | null;
+  callRemarks?: string;
+  staffCategoryIds?: number[];
+};
+
+export interface LeadImportPreview {
+  total: number;
+  valid: number;
+  invalid: { row: number; reason: string }[];
+  duplicates: {
+    row: number;
+    phoneNumber: string;
+    existingLeadId?: number;
+    repeatedInFile: boolean;
+  }[];
+  newMasters: {
+    platforms: string[];
+    callers: string[];
+    callStatuses: string[];
+    staffCategories: string[];
+  };
+}
+
+export interface LeadImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  failures: { row: number; reason: string }[];
+  newMasters: string[];
+}
+
+export const marketingLeadsApi = {
+  list: (params: MarketingLeadListParams) =>
+    apiClient.get<MarketingLeadList>(`/v1/admin/leads${toQueryString(params)}`),
+  get: (id: number) => apiClient.get<MarketingLeadRow>(`/v1/admin/leads/${id}`),
+  /** 409 with { existingLeadId } on a duplicate phone unless force. */
+  create: (body: MarketingLeadBody, force = false) =>
+    apiClient.post<MarketingLeadRow>(
+      `/v1/admin/leads${force ? "?force=true" : ""}`,
+      body,
+    ),
+  update: (id: number, body: MarketingLeadBody, force = false) =>
+    apiClient.put<MarketingLeadRow>(
+      `/v1/admin/leads/${id}${force ? "?force=true" : ""}`,
+      body,
+    ),
+  /** Inline table edit: caller / status / remarks. */
+  updateCall: (
+    id: number,
+    body: { callerId?: number | null; callStatusId?: number | null; callRemarks?: string },
+  ) => apiClient.patch<MarketingLeadRow>(`/v1/admin/leads/${id}/call`, body),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/admin/leads/${id}`),
+  bulkDelete: (ids: number[]) =>
+    apiClient.post<{ deleted: number }>("/v1/admin/leads/bulk-delete", { ids }),
+  bulkUpdate: (body: { ids: number[]; callerId?: number; callStatusId?: number }) =>
+    apiClient.patch<{ updated: number }>("/v1/admin/leads/bulk-update", body),
+  /** Filtered export; pass ids for the checkbox selection only. */
+  exportCsv: (params: MarketingLeadListParams & { ids?: number[] }) =>
+    downloadFile(
+      `/v1/admin/leads/export.csv${toQueryString({
+        ...params,
+        ids: params.ids?.length ? params.ids.join(",") : undefined,
+      })}`,
+    ),
+  importTemplate: () => downloadFile("/v1/admin/leads/import-template.csv"),
+  importPreview: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadFile<LeadImportPreview>("/v1/admin/leads/import/preview", fd);
+  },
+  importConfirm: (file: File, duplicateMode: "skip" | "update" | "create") => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("duplicateMode", duplicateMode);
+    return uploadFile<LeadImportResult>("/v1/admin/leads/import/confirm", fd);
+  },
+  masters: {
+    list: (type: LeadMasterType) =>
+      apiClient.get<LeadMasterRow[]>(`/v1/admin/lead-masters/${type}`),
+    create: (
+      type: LeadMasterType,
+      body: { name: string; parentId?: number; color?: string },
+    ) => apiClient.post<LeadMasterRow>(`/v1/admin/lead-masters/${type}`, body),
+    update: (
+      type: LeadMasterType,
+      id: number,
+      body: { name: string; parentId?: number; color?: string },
+    ) => apiClient.put<LeadMasterRow>(`/v1/admin/lead-masters/${type}/${id}`, body),
+    toggle: (type: LeadMasterType, id: number) =>
+      apiClient.patch<LeadMasterRow>(`/v1/admin/lead-masters/${type}/${id}/toggle`, {}),
+    remove: (type: LeadMasterType, id: number) =>
+      apiClient.delete<{ deleted: boolean }>(`/v1/admin/lead-masters/${type}/${id}`),
+    reorder: (type: LeadMasterType, ids: number[]) =>
+      apiClient.patch<{ reordered: number }>(`/v1/admin/lead-masters/${type}/reorder`, {
+        ids,
+      }),
+  },
+};
+
+export const marketingLeadKeys = {
+  leads: (p: object) => ["marketing-leads", "list", p] as const,
+  lead: (id: number) => ["marketing-leads", "detail", id] as const,
+  masters: (type: LeadMasterType) => ["marketing-leads", "masters", type] as const,
+};
+
 /* -------------------------- CRM: Support desk --------------------------- */
 
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
@@ -4142,7 +4330,11 @@ export type CampaignSegment =
   | "HIGH_REVENUE_CLIENTS"
   | "POTENTIAL_CLIENTS"
   /** Not a rule — the exact customers an admin ticked. */
-  | "SELECTED_CUSTOMERS";
+  | "SELECTED_CUSTOMERS"
+  /** Imported ad/call-centre leads, not customer accounts. */
+  | "MARKETING_LEADS"
+  /** Not a rule — the exact leads an admin ticked on the Leads page. */
+  | "SELECTED_LEADS";
 export type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "FAILED";
 
 export interface CampaignRow {
@@ -4340,6 +4532,8 @@ export const crmCampaignsApi = {
     templateParams?: string[];
     dailyCap?: number;
     recipientUserIds?: number[];
+    /** SELECTED_LEADS only — MarketingLead ids ticked on the Leads page. */
+    recipientLeadIds?: number[];
     headerMediaUrl?: string;
     couponCode?: string;
   }) => apiClient.post<CampaignRow>("/v1/crm/campaigns", body),

@@ -4,14 +4,14 @@
  * Google Maps JavaScript API loader + Places (New) autocomplete for the
  * dispatcher geofence editor — the same search quality as google.com/maps.
  *
- * Requires, on {@link GOOGLE_MAPS_API_KEY} in the Google Cloud console:
+ * Requires, on the key saved in Admin → Configure, in the Google Cloud console:
  *   1. "Maps JavaScript API" enabled (for the map itself).
  *   2. "Places API (New)" or the legacy "Places API" enabled (for search —
  *      both paths are implemented; New is preferred, legacy is the fallback).
  * They must also be allowed under the key's API restrictions. Until then the
  * map surfaces an auth error — see {@link onGoogleMapsAuthFailure}.
  */
-import { GOOGLE_MAPS_API_KEY } from "@/src/lib/maps";
+import { getGoogleMapsApiKey } from "@/src/lib/maps";
 
 declare global {
   interface Window {
@@ -46,34 +46,36 @@ export function onGoogleMapsAuthFailure(handler: () => void): () => void {
 /** Load the Maps JS SDK once and reuse it across all maps/searches. */
 export function loadGoogleMaps(): Promise<typeof google> {
   if (loadPromise) return loadPromise;
-  loadPromise = new Promise((resolve, reject) => {
+  loadPromise = (async () => {
     if (typeof window === "undefined") {
-      loadPromise = null;
-      reject(new Error("Google Maps can only load in the browser"));
-      return;
+      throw new Error("Google Maps can only load in the browser");
     }
     if (window.google?.maps) {
-      resolve(window.google);
-      return;
+      return window.google;
     }
-    // Google calls this global when the key is invalid or the Maps JavaScript
-    // API isn't enabled — surface it so the UI can explain instead of showing
-    // Google's greyed-out map.
-    window.gm_authFailure = () => {
-      authFailed = true;
-      window.dispatchEvent(new Event(AUTH_EVENT));
-    };
-    window.__rcGmapsReady = () => resolve(window.google);
-    const script = document.createElement("script");
-    script.src =
-      "https://maps.googleapis.com/maps/api/js" +
-      `?key=${GOOGLE_MAPS_API_KEY}&v=weekly&loading=async&callback=__rcGmapsReady`;
-    script.async = true;
-    script.onerror = () => {
-      loadPromise = null;
-      reject(new Error("Failed to load Google Maps"));
-    };
-    document.head.appendChild(script);
+    const key = await getGoogleMapsApiKey();
+    return new Promise<typeof google>((resolve, reject) => {
+      // Google calls this global when the key is invalid or the Maps JavaScript
+      // API isn't enabled — surface it so the UI can explain instead of showing
+      // Google's greyed-out map.
+      window.gm_authFailure = () => {
+        authFailed = true;
+        window.dispatchEvent(new Event(AUTH_EVENT));
+      };
+      window.__rcGmapsReady = () => resolve(window.google);
+      const script = document.createElement("script");
+      script.src =
+        "https://maps.googleapis.com/maps/api/js" +
+        `?key=${encodeURIComponent(key)}&v=weekly&loading=async&callback=__rcGmapsReady`;
+      script.async = true;
+      script.onerror = () => {
+        reject(new Error("Failed to load Google Maps"));
+      };
+      document.head.appendChild(script);
+    });
+  })().catch((error) => {
+    loadPromise = null;
+    throw error;
   });
   return loadPromise;
 }

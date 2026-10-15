@@ -217,7 +217,7 @@ export function GeofenceMapEditor({
   const boundaryShapesRef = useRef<(google.maps.Polygon | google.maps.Polyline)[]>([]);
   const boundarySeqRef = useRef(0); // drop boundary results from superseded picks
   const [authError, setAuthError] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [boundaryStatus, setBoundaryStatus] = useState<"idle" | "loading" | "none" | "error">(
     "idle",
   );
@@ -265,8 +265,10 @@ export function GeofenceMapEditor({
           map.fitBounds(bounds, 40);
           didFitRef.current = true;
         }
-      } catch {
-        if (!cancelled) setLoadError(true);
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : "The Google Maps script failed to load.");
+        }
       }
     })();
     return () => {
@@ -466,7 +468,7 @@ export function GeofenceMapEditor({
     return () => clearTimeout(timer);
   }, [boundaryStatus]);
 
-  const showBlocker = authError || loadError;
+  const showBlocker = authError || !!loadError;
 
   return (
     <div className={`isolate relative z-0 w-full ${className}`}>
@@ -499,12 +501,12 @@ export function GeofenceMapEditor({
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-background/90 p-6 text-center">
           <div className="max-w-md space-y-2">
             <p className="text-sm font-semibold text-foreground">
-              Google Maps couldn’t start with this API key
+              Google Maps couldn’t start
             </p>
             <p className="text-sm text-muted-foreground">
               {authError
-                ? "Enable “Maps JavaScript API” and “Places API (New)” for this key in the Google Cloud console (and allow them under the key’s API restrictions), then reload this page."
-                : "The Google Maps script failed to load. Check the network connection and reload this page."}
+                ? "Check the key in Admin → Configure → Map Configuration. Enable Maps JavaScript API and allow this website in its Google Cloud restrictions, then reload this page."
+                : loadError}
             </p>
           </div>
         </div>

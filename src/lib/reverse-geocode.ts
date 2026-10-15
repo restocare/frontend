@@ -4,7 +4,7 @@
  * runs inline; lifted out so the hourly booking flow can share it.
  */
 
-import { GOOGLE_MAPS_API_KEY } from "@/src/lib/maps";
+import { getGoogleMapsApiKey } from "@/src/lib/maps";
 
 export interface GeocodeResult {
   address: string;
@@ -24,8 +24,9 @@ export const EMPTY_GEOCODE: GeocodeResult = {
 
 async function viaGoogle(lat: number, lng: number): Promise<GeocodeResult | null> {
   try {
+    const key = await getGoogleMapsApiKey();
     const res = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`,
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${encodeURIComponent(key)}`,
     );
     const data = (await res.json()) as {
       status?: string;
