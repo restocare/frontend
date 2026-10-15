@@ -23,6 +23,7 @@ import {
   MapPinIcon,
   MonitorIcon,
   PaletteIcon,
+  PhoneIcon,
   PolygonIcon,
   RouteIcon,
   SettingsIcon,
@@ -392,6 +393,14 @@ const CRM_NAV: NavGroup = {
       href: "/dashboard/crm/sales-leads",
       icon: TagIcon,
       permission: "sales-leads.view",
+    },
+    {
+      // Ad/call-centre lead sheet (marketing-leads module) — not the
+      // restaurant pipeline above, and not the real-estate leads section.
+      label: "Leads",
+      href: "/dashboard/leads",
+      icon: PhoneIcon,
+      permission: "marketing-leads.view",
     },
     {
       label: "Customers",

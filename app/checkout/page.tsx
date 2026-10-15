@@ -33,7 +33,7 @@ import {
   TrashIcon,
   PencilIcon,
 } from "@/src/components/icons";
-import { GOOGLE_MAPS_API_KEY } from "@/src/lib/maps";
+import { getGoogleMapsApiKey } from "@/src/lib/maps";
 
 function inr(n: number): string {
   return `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
@@ -83,8 +83,9 @@ async function reverseGeocodeGoogle(
   lng: number,
 ): Promise<GeocodeResult | null> {
   try {
+    const key = await getGoogleMapsApiKey();
     const res = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`,
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${encodeURIComponent(key)}`,
     );
     const data = (await res.json()) as {
       status?: string;

@@ -1,20 +1,32 @@
-/**
- * Google Maps platform config.
- *
- * Required: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, restricted to this app's origin
- * in the Google Cloud console. There is no fallback — a key that works for
- * one environment (e.g. the partner Android app's key) is wrong for others
- * and, being unrestricted, is billable by anyone who lifts it from the
- * bundle. See PR description for the key each environment should use.
- */
-export const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+import { API_BASE_URL } from "@/src/api/apiClient";
 
-if (!GOOGLE_MAPS_API_KEY) {
-  const message =
-    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set — maps features (checkout geocoding, address autocomplete) will fail.";
-  if (process.env.NODE_ENV === "development") {
-    throw new Error(message);
-  } else {
-    console.error(message);
-  }
+/** The admin Configure page stores this browser-visible key in the backend. */
+let keyPromise: Promise<string> | null = null;
+
+export function getGoogleMapsApiKey(): Promise<string> {
+  if (keyPromise) return keyPromise;
+
+  keyPromise = (async () => {
+    const response = await fetch(`${API_BASE_URL}/v1/configure/public`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error("Could not load the Google Maps key from Admin → Configure.");
+    }
+
+    const config = (await response.json()) as { googleMapsApiKey?: unknown };
+    const key = typeof config.googleMapsApiKey === "string"
+      ? config.googleMapsApiKey.trim()
+      : "";
+    if (!key) {
+      throw new Error("Add a Google Maps key in Admin → Configure → Map Configuration.");
+    }
+    return key;
+  })().catch((error) => {
+    keyPromise = null; // A later attempt can recover after the config is fixed.
+    throw error;
+  });
+
+  return keyPromise;
 }

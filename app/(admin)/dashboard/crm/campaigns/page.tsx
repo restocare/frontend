@@ -67,15 +67,24 @@ const SEGMENTS: { key: CampaignSegment; label: string; hint: string }[] = [
     label: "Potential clients",
     hint: "Signed up but never booked",
   },
+  {
+    key: "MARKETING_LEADS",
+    label: "Imported leads",
+    hint: "Every lead on the Leads page — prospects, not customer accounts",
+  },
 ];
 
-// SELECTED_CUSTOMERS is deliberately absent from SEGMENTS: it is not a rule an
-// admin can pick here, it comes from ticking people on the Customers page. It
-// still needs a readable label when such a campaign is listed.
+// SELECTED_CUSTOMERS / SELECTED_LEADS are deliberately absent from SEGMENTS:
+// they are not rules an admin can pick here, they come from ticking people on
+// the Customers or Leads page. They still need a readable label when such a
+// campaign is listed.
+const pickedLabels: Record<string, string> = {
+  SELECTED_CUSTOMERS: "Selected customers",
+  SELECTED_LEADS: "Selected leads",
+};
+
 const segmentLabel = (key: string) =>
-  key === "SELECTED_CUSTOMERS"
-    ? "Selected customers"
-    : (SEGMENTS.find((s) => s.key === key)?.label ?? key);
+  pickedLabels[key] ?? SEGMENTS.find((s) => s.key === key)?.label ?? key;
 
 const statusToneMap: Record<string, string> = {
   DRAFT: "warning",
