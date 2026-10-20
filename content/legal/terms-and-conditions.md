@@ -24,7 +24,7 @@ These Terms & Conditions ("Terms") apply when you use:
 
 Together, we call these the "Platform".
 
-RestoCare is operated by **Restroedge Private Limited**, a company incorporated in India (CIN: [[CONFIRM: CIN]]), with its registered office at [[CONFIRM: registered office address, worded exactly as in the footer]]. In these Terms, "RestoCare", "we" and "us" mean Restroedge Private Limited.
+RestoCare is operated by **Restroedge Private Limited**, a company incorporated in India (CIN: U86900DL2024PTC438872), with its registered office at [[CONFIRM: registered office address, worded exactly as in the footer]]. In these Terms, "RestoCare", "we" and "us" mean Restroedge Private Limited.
 
 By creating an account, making a booking or placing an order, you agree to these Terms, our [Privacy Policy](/privacy-policy) and our [Refund & Cancellation Policy](/refund-cancellation-policy). If you don't agree, please don't use the Platform.
 
@@ -238,13 +238,13 @@ If you have a problem, please contact us first. Most issues can be resolved thro
 
 In line with the Consumer Protection (E-Commerce) Rules, 2020 and the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, our Grievance Officer is:
 
-- **Name:** [[CONFIRM: name of a real, named person]]
-- **Designation:** [[CONFIRM: designation]]
+- **Name:** Simran Ahuja
+- **Designation:** HR Executive
 - **Email:** [[CONFIRM: grievance email, e.g. grievance@restocare.in]]
-- **Phone:** [[CONFIRM: phone number]]
+- **Phone:** +91 92170 10927
 - **Address:** Restroedge Private Limited, [[CONFIRM: registered office address]]
 
-We acknowledge every grievance within 24 hours and aim to resolve it within 15 days.
+[[CONFIRM: Keep this sentence only once a grievance-handling process and team are in place. The founders said none exists today. We acknowledge every grievance within 24 hours and aim to resolve it within 15 days.]]
 
 ## 26. Changes to these Terms
 
