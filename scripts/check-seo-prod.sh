@@ -12,6 +12,8 @@ PAGES=(/ /category/chef /category/helpers-and-waiters /category/deep-cleaning /c
 CATEGORY_PAGES=(/category/chef /category/helpers-and-waiters /category/deep-cleaning /category/electrician)
 FAQ_PAGES=(/category/chef /category/helpers-and-waiters /category/deep-cleaning)
 COMING_SOON=(plumber technician ac-appliance-repair pest-control)
+NOINDEX_PAGES=(/real-estate /cart /checkout /account)
+ROBOTS_DISALLOW=(/real-estate /cart /checkout /account/ /account/login /delete-account '/payment/*' '/api/*')
 EXPECTED_SITEMAP=(/ /about /contact /category/chef /category/helpers-and-waiters /category/deep-cleaning /category/electrician /guides/restaurant-staffing-prices)
 
 FAILS=0
@@ -139,6 +141,53 @@ absence / 'href="/category/[0-9][0-9]*' "(homepage) has no href=\"/category/<dig
 for p in "${PAGES[@]}"; do
   absence "$p" 'aggregateRating' "has no aggregateRating"
 done
+
+# homepage Organization + WebSite JSON-LD (tolerates spacing variants in the JSON)
+if [ "$S__" = 200 ]; then
+  hf="$(fname /)"
+  n="$(count '"@type" *: *"Organization"' "$hf")"; m="$(count '#organization' "$hf")"
+  check "$([ "$n" -ge 1 ] && [ "$m" -ge 1 ] && echo 1 || echo 0)" "homepage has Organization JSON-LD with #organization (type=$n id=$m)"
+  n="$(count '"@type" *: *"WebSite"' "$hf")"; m="$(count '#website' "$hf")"
+  check "$([ "$n" -ge 1 ] && [ "$m" -ge 1 ] && echo 1 || echo 0)" "homepage has WebSite JSON-LD with #website (type=$n id=$m)"
+else
+  fail "homepage Organization JSON-LD (skipped: / returned $S__)"
+  fail "homepage WebSite JSON-LD (skipped: / returned $S__)"
+fi
+
+# noindex pages: must load (200) and carry a noindex robots meta
+for p in "${NOINDEX_PAGES[@]}"; do
+  fetch "$p"
+  r="$(robots "$(fname "$p")")"
+  ok=0; [ "$STATUS" = 200 ] && case "$r" in *noindex*) ok=1 ;; esac
+  check "$ok" "$p returns 200 and robots meta contains noindex (got $STATUS, robots='$r')"
+done
+
+# robots.txt
+fetch /robots.txt
+rf="$(fname /robots.txt)"
+DISALLOWS="$(tr -d '\r' < "$rf" | grep -i '^Disallow:' | sed -E 's/^[Dd]isallow: *//; s/ +$//')"
+echo
+echo "robots.txt Disallow lines (HTTP $STATUS):"
+if [ -n "$DISALLOWS" ]; then echo "$DISALLOWS" | sed 's/^/  Disallow: /'; else echo "  (none)"; fi
+echo
+check "$([ "$STATUS" = 200 ] && echo 1 || echo 0)" "/robots.txt returns 200 (got $STATUS)"
+for d in "${ROBOTS_DISALLOW[@]}"; do
+  ok=0
+  [ "$STATUS" = 200 ] && echo "$DISALLOWS" | grep -qxF -- "$d" && ok=1
+  check "$ok" "/robots.txt disallows $d"
+done
+
+# guide Article dates
+if [ "$S__guides_restaurant_staffing_prices" = 200 ]; then
+  gf="$(fname /guides/restaurant-staffing-prices)"
+  for field in datePublished dateModified; do
+    n="$(count "$field" "$gf")"
+    check "$([ "$n" -ge 1 ] && echo 1 || echo 0)" "/guides/restaurant-staffing-prices has $field (got $n)"
+  done
+else
+  fail "/guides/restaurant-staffing-prices has datePublished (skipped: returned $S__guides_restaurant_staffing_prices)"
+  fail "/guides/restaurant-staffing-prices has dateModified (skipped: returned $S__guides_restaurant_staffing_prices)"
+fi
 
 echo
 echo "Summary: $PASSES passed, $FAILS failed"

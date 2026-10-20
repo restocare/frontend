@@ -8,6 +8,7 @@ import {
   CATEGORY_TREE_ALL_KEY,
   fetchCategoryTree,
 } from "@/lib/category-tree-server";
+import { siteJsonLd } from "@/lib/site-identity";
 import { HomeContent } from "./_home-content";
 
 // TODO: update title and description once repair categories (Plumber, Electrician,
@@ -44,8 +45,14 @@ export default async function Home() {
   if (tree) queryClient.setQueryData(CATEGORY_TREE_ALL_KEY, tree);
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <HomeContent />
-    </HydrationBoundary>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: siteJsonLd() }}
+      />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <HomeContent />
+      </HydrationBoundary>
+    </>
   );
 }

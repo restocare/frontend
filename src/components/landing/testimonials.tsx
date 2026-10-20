@@ -313,7 +313,7 @@ export function Testimonials({ reviews = REVIEWS }: { reviews?: Review[] }) {
                           : "ring-transparent opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
                       }`}
                     >
-                      <Image src={r.logo} alt="" fill sizes="48px" className="object-cover" />
+                      <Image src={r.logo} alt={r.brand} fill sizes="48px" className="object-cover" />
                       {active && autoplay && (
                         <span
                           key={index}
