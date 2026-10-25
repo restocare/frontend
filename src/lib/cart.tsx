@@ -14,6 +14,7 @@ import {
   type CartItemData,
   type CartResponse,
 } from "@/src/api/api";
+import { trackEvent } from "@/lib/meta";
 
 const SESSION_KEY = "rc_cart_session";
 
@@ -108,7 +109,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         quantity: 1,
         sessionId,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
+      // A service "Book" click that reached the cart. The cart modal that
+      // follows is the checkout funnel's first step.
+      trackEvent("AddToCart", {
+        content_ids: [String(vars.serviceId)],
+        content_type: "product",
+        currency: "INR",
+      });
       invalidate();
       setVariantTarget(null);
       setMiniOpen(true);
@@ -158,6 +166,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         addMutation.mutate({ serviceId, variantId }),
       addItemAsync: async (serviceId, variantId) => {
         await cartApi.add({ serviceId, variantId, quantity: 1, sessionId });
+        trackEvent("AddToCart", {
+          content_ids: [String(serviceId)],
+          content_type: "product",
+          currency: "INR",
+        });
         await invalidate();
       },
       closeVariant: () => setVariantTarget(null),

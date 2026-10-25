@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
 import { useCart } from "@/src/lib/cart";
+import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import {
   getBookingSchedule,
@@ -301,6 +302,20 @@ export default function CheckoutPage() {
   const couponNeedsPrepay =
     !!appliedCoupon?.prepaidOnly && paymentMode === "COD";
 
+  // Meta InitiateCheckout: once per visit, as soon as the cart has loaded.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || cartItems.length === 0) return;
+    checkoutTracked.current = true;
+    trackEvent("InitiateCheckout", {
+      value: grandTotal,
+      currency: "INR",
+      content_ids: cartItems.map((i) => String(i.serviceId)),
+      content_type: "product",
+      num_items: cartItems.length,
+    });
+  }, [cartItems, grandTotal]);
+
   useEffect(() => {
     if (!user) return;
     couponsApi
@@ -509,9 +524,23 @@ export default function CheckoutPage() {
   };
 
   const submitBookings = async (payloads: CreateBookingPayload[]) => {
+    const bookingIds: number[] = [];
     for (const p of payloads) {
-      await bookingApi.create(p);
+      const created = await bookingApi.create(p);
+      if (created?.bookingId) bookingIds.push(created.bookingId);
     }
+    // Meta Purchase, once per order (the booking ids identify the order).
+    trackPurchaseOnce(
+      bookingIds.join("-"),
+      {
+        value: grandTotal || payloads.reduce((s, p) => s + p.totalAmount, 0),
+        currency: "INR",
+        content_ids: payloads.map((p) => String(p.serviceId)),
+        content_type: "product",
+        num_items: payloads.length,
+      },
+      { email: user?.email ?? undefined, phone: user?.mobile ?? undefined },
+    );
     await clearCartAndSchedules();
     setSuccess(true);
     setTimeout(() => router.push("/"), 2200);

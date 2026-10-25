@@ -7,6 +7,8 @@ import { AnimatePresence, MotionConfig, motion, type Variants } from "framer-mot
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
 import { contactApi, normalizeMobileNumber } from "@/src/api/api";
+import { trackEvent } from "@/lib/meta";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import {
   ArrowRightIcon,
   ClockIcon,
@@ -53,6 +55,9 @@ function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+// Each channel card fires Meta Contact (+ Lead for WhatsApp) on click.
+const MotionTrackedLink = motion.create(TrackedLink);
 
 const ACTIONS: { Icon: Icon; title: string; value: string; note: string; href: string; external?: boolean }[] = [
   {
@@ -173,6 +178,24 @@ export default function ContactPage() {
         message: `${message.trim()}\n\nPhone: +91 ${normalizeMobileNumber(phone)}`,
       }),
     onSuccess: () => {
+      // Meta Lead only once the API has accepted the message (never on click
+      // or on a validation failure). React Query calls onSuccess once per
+      // mutate(), so one submission is one Lead.
+      const [firstName, ...restName] = name.trim().split(/\s+/);
+      const userData = {
+        email,
+        phone: `91${normalizeMobileNumber(phone)}`,
+        firstName,
+        lastName: restName.join(" ") || undefined,
+      };
+      trackEvent("Lead", { content_name: topic, content_category: "contact_form" }, userData);
+      if (topic === "Partner with us" || topic === "Careers") {
+        trackEvent(
+          "CompleteRegistration",
+          { content_name: topic === "Careers" ? "career" : "partner", status: "submitted" },
+          userData,
+        );
+      }
       setSubmitted(true);
       setName("");
       setPhone("");
@@ -274,7 +297,7 @@ export default function ContactPage() {
                 className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
               >
                 {ACTIONS.map(({ Icon, title, value, note, href, external }) => (
-                  <motion.a
+                  <MotionTrackedLink
                     key={title}
                     href={href}
                     target={external ? "_blank" : undefined}
@@ -301,7 +324,7 @@ export default function ContactPage() {
                       <span className="mt-0.5 block text-xs text-rc-muted">{note}</span>
                     </span>
                     <ArrowRightIcon className="h-4 w-4 shrink-0 text-rc-muted transition-transform group-hover:translate-x-1 sm:hidden" />
-                  </motion.a>
+                  </MotionTrackedLink>
                 ))}
               </motion.div>
             </div>

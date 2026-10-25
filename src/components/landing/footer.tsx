@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MailIcon, MapPinIcon, PhoneIcon } from "@/src/components/icons";
 import { SHOW_PRODUCTS } from "@/src/lib/features";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 
 // Legal pages that render (no [[CONFIRM]] markers left); set at build time in
 // next.config.ts. Unlisted ones 404, so their links stay hidden.
@@ -187,9 +188,9 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <PhoneIcon className="h-4 w-4 shrink-0 text-yellow-500" />
-                <a href="tel:+919953532995" className="hover:text-white transition">
+                <TrackedLink href="tel:+919953532995" className="hover:text-white transition">
                   +91 99535 32995
-                </a>
+                </TrackedLink>
               </li>
               <li className="flex items-center gap-3">
                 <MailIcon className="h-4 w-4 shrink-0 text-yellow-500" />
@@ -308,7 +309,7 @@ export function Footer() {
 
       {/* Floating WhatsApp Button — the one contact button. On phones it
           lifts above a page's fixed bottom bar (marked data-bottom-bar). */}
-      <a
+      <TrackedLink
         href="https://wa.me/919953532995"
         target="_blank"
         rel="noopener noreferrer"
@@ -316,7 +317,7 @@ export function Footer() {
         aria-label="Contact us on WhatsApp"
       >
         <WhatsAppIcon className="h-8 w-8" />
-      </a>
+      </TrackedLink>
 
       {/* Floating Scroll to Top Button (appears after one screen of scroll) */}
       <button

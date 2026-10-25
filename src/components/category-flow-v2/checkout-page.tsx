@@ -22,7 +22,7 @@
  * same maths as the other flows. Once anything is booked, the cart is emptied.
  */
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -44,6 +44,7 @@ import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { categoryHref } from "@/lib/category-slugs";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { TAX_RATE, formatInr, round2 } from "@/src/lib/booking-v2/pricing";
+import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCleaningCart, type CartLine } from "@/src/lib/booking-v2/cleaning-cart";
 import { hourlyRate } from "@/src/lib/booking-v2/draft";
 import {
@@ -494,6 +495,34 @@ export function CategoryCheckout() {
   const couponNeedsPrepay = !!applied?.prepaidOnly && payment === "COD";
   const ready = lines.length > 0 && stepsDone === steps.length && !placing && !couponNeedsPrepay;
 
+  // Meta Purchase, once per order: the booking ids identify the order.
+  const reportPurchase = (ids: number[], amount: number) =>
+    trackPurchaseOnce(
+      ids.join("-"),
+      {
+        value: amount,
+        currency: "INR",
+        content_ids: lines.map((l) => String(l.serviceId)),
+        content_type: "product",
+        num_items: ids.length,
+      },
+      { email: user?.email ?? undefined, phone: user?.mobile ?? user?.phone ?? undefined },
+    );
+
+  // Meta InitiateCheckout: once per visit, as soon as the cart has lines.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || lines.length === 0) return;
+    checkoutTracked.current = true;
+    trackEvent("InitiateCheckout", {
+      value: total,
+      currency: "INR",
+      content_ids: lines.map((l) => String(l.serviceId)),
+      content_type: "product",
+      num_items: lines.length,
+    });
+  }, [lines, total]);
+
   const missing = !lines.length
     ? "Your cart is empty."
     : !detailsOk
@@ -599,6 +628,7 @@ export function CategoryCheckout() {
           return;
         }
         emptyCart();
+        reportPurchase(ids, bookedTotal);
         setDone({ ids, failed, total: bookedTotal, mode: "COD", paymentProblem: null, when, saved, couponCode, items, where });
         window.scrollTo(0, 0);
         return;
@@ -640,6 +670,7 @@ export function CategoryCheckout() {
             ids.length ? "some services" : "the booking"
           } could not be booked. Our team will book ${ids.length ? "them" : "it"} for you or refund you; you can also call support with this payment ID.`
         : null;
+      if (ids.length) reportPurchase(ids, bookedTotal);
       setDone({
         ids,
         failed,

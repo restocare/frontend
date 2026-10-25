@@ -16,6 +16,7 @@ import { CategoryPageClient } from "./category-page-client";
 import { CategoryFaqs, CategoryIntro } from "./category-content-sections";
 import { CATEGORY_FLOW } from "@/src/lib/category-flow";
 import { CategoryFlowV2Page } from "@/src/components/category-flow-v2/category-page";
+import { MetaViewContent } from "@/components/analytics/MetaViewContent";
 
 /**
  * Server boundary so an unmapped slug 404s for real. Calling notFound() from
@@ -61,6 +62,18 @@ export default async function CategoryPage({
         dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, slug, content?.faqs, headline) }}
       />
     ) : null;
+  // Meta ViewContent for the service / category page (client-side, on mount).
+  const viewContent = (
+    <MetaViewContent
+      contentName={category?.name ?? content?.h1 ?? slug}
+      contentIds={
+        category
+          ? [...category.services, ...category.groups.flatMap((g) => g.services)].map((s) => s.serviceId)
+          : [categoryId]
+      }
+      contentCategory={slug}
+    />
+  );
   const intro = content ? <CategoryIntro intro={content.intro} guideLink={content.showGuideLink !== false} /> : undefined;
   const faqs = content?.faqs.length ? <CategoryFaqs faqs={content.faqs} /> : undefined;
 
@@ -70,6 +83,7 @@ export default async function CategoryPage({
     return (
       <>
         {jsonLd}
+        {viewContent}
         <HydrationBoundary state={dehydrate(queryClient)}>
           <CategoryFlowV2Page slug={slug} heading={content?.h1} intro={intro} faqs={faqs} />
         </HydrationBoundary>
@@ -80,6 +94,7 @@ export default async function CategoryPage({
   return (
     <>
       {jsonLd}
+      {viewContent}
       <HydrationBoundary state={dehydrate(queryClient)}>
         <CategoryPageClient heading={content?.h1} intro={intro} faqs={faqs} />
       </HydrationBoundary>

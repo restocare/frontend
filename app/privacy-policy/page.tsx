@@ -174,6 +174,7 @@ const sections: PolicySection[] = [
           "Razorpay for payment processing",
           "Firebase for app infrastructure, notifications, analytics, or authentication",
           "Google services for maps, login, analytics, or related functionality",
+          "Meta (Facebook) Pixel and Conversions API for measuring our advertising. These set the _fbp and _fbc cookies in your browser and receive hashed (SHA-256) contact details when you submit a form or make a booking, so Meta can attribute conversions to our ads",
         ],
         footer:
           "These third-party services may collect, process, or store your data in accordance with their own privacy policies. We encourage users to review the privacy policies of such third parties separately.",

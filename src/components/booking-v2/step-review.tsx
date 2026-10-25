@@ -18,6 +18,7 @@ import {
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { formatInr } from "@/src/lib/booking-v2/pricing";
+import { trackPurchaseOnce } from "@/lib/meta";
 import { fmtDateLong, fmtDateShort, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
 import {
   addDaysISO,
@@ -200,6 +201,18 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
         ids.push(result.bookingId);
       }
       clearDraft();
+      // Meta Purchase, once per order (the booking ids identify the order).
+      trackPurchaseOnce(
+        ids.join("-"),
+        {
+          value: bill.total,
+          currency: "INR",
+          content_ids: [String(draft.serviceId)],
+          content_type: "product",
+          num_items: ids.length,
+        },
+        { email: user?.email ?? undefined, phone: user?.mobile ?? user?.phone ?? undefined },
+      );
       setDone({ ids, mode: payment, total: bill.total });
       window.scrollTo(0, 0);
     } catch (e) {

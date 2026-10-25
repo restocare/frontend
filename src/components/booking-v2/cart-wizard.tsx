@@ -29,6 +29,7 @@ import {
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { TAX_RATE, formatInr, round2 } from "@/src/lib/booking-v2/pricing";
+import { trackPurchaseOnce } from "@/lib/meta";
 import { clockNow, fmtDateLong, fmtTime, getDays, monthShort } from "@/src/lib/booking-v2/schedule";
 import {
   ARRIVAL_WINDOWS,
@@ -660,6 +661,18 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
           paymentProblem = messageOf(e, "The payment did not go through.");
         }
       }
+      // Meta Purchase, once per order (the booking ids identify the order).
+      trackPurchaseOnce(
+        booked.map((b) => b.id).join("-"),
+        {
+          value: total,
+          currency: "INR",
+          content_ids: lines.map((l) => String(l.serviceId)),
+          content_type: "product",
+          num_items: booked.length,
+        },
+        { email: user.email ?? undefined, phone: user.mobile ?? user.phone ?? undefined },
+      );
       onDone({ booked, failed, mode, total, when, paymentProblem });
       window.scrollTo(0, 0);
     } catch (e) {
