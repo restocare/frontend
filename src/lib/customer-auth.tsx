@@ -17,8 +17,10 @@ import {
   type CustomerUser,
 } from "@/src/api/api";
 import {
+  CUSTOMER_USER_KEY,
   clearAuth,
   getToken,
+  isAdminSession,
   setRefreshToken,
   setSessionId,
   setToken,
@@ -27,7 +29,7 @@ import {
 // Guest cart session id — kept in sync with SESSION_KEY in src/lib/cart.tsx.
 const CART_SESSION_KEY = "rc_cart_session";
 
-const USER_KEY = "rc.customer";
+const USER_KEY = CUSTOMER_USER_KEY;
 const DEVICE_KEY = "rc.deviceId";
 
 function getDeviceId(): string {
@@ -85,12 +87,13 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
-  // Hydrate the stored customer (only treat as logged in if a token is present
-  // too). Deferred to a microtask so we never setState synchronously in-effect.
+  // Hydrate the stored customer: logged in only if a token is present AND it is
+  // not an admin-console token (same storage keys; see isAdminSession).
+  // Deferred to a microtask so we never setState synchronously in-effect.
   useEffect(() => {
     queueMicrotask(() => {
       const stored = readStoredUser();
-      if (stored && getToken()) setUser(stored);
+      if (stored && getToken() && !isAdminSession()) setUser(stored);
       setIsHydrating(false);
     });
   }, []);
@@ -129,6 +132,9 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
         throw new Error(res.message || "Verification failed. Please try again.");
       }
 
+      // One identity per browser: drop any admin-console session first so the
+      // console cannot later run on this customer's token.
+      clearAuth();
       setToken(res.accessToken);
       if (res.refreshToken) setRefreshToken(res.refreshToken);
       if (res.sessionId) setSessionId(res.sessionId);

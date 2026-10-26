@@ -312,9 +312,11 @@ export function Hero() {
                 className={`object-contain object-bottom transition-opacity duration-700 ${
                   i === activeIndex ? "opacity-100" : "opacity-0"
                 }`}
-                // Only slide 0 is fetched up front: it is the LCP image.
+                // Slide 0 is preloaded as the LCP image. The others sit in the
+                // viewport too (stacked, faded out) and become the LCP element
+                // once the carousel rotates, so they load eagerly rather than lazily.
                 preload={i === 0}
-                loading={i === 0 ? undefined : "lazy"}
+                loading="eager"
               />
             ))}
           </div>

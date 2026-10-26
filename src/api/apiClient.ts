@@ -12,10 +12,10 @@ import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 function resolveApiBaseUrl(): string {
   // Local development must always talk to the local backend, so it works even
   // if a production URL was baked into the build.
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000/api";
-  }
+  // if (typeof window !== "undefined") {
+  //   const host = window.location.hostname;
+  //   if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000/api";
+  // }
 
   // The env-configured URL wins everywhere, localhost included, so `next dev`
   // talks to the live API by default. To develop against a local backend, set
@@ -29,7 +29,10 @@ export const API_BASE_URL = resolveApiBaseUrl();
 const ACCESS_TOKEN_KEY = "rc.accessToken";
 const REFRESH_TOKEN_KEY = "rc.refreshToken";
 const SESSION_ID_KEY = "rc.sessionId";
+/** Admin-console user; written only by the console login. */
 const USER_KEY = "rc.user";
+/** Storefront customer; written only by the customer OTP login. */
+export const CUSTOMER_USER_KEY = "rc.customer";
 
 /* ----------------------------- token storage ---------------------------- */
 
@@ -71,9 +74,19 @@ export function setSessionId(sessionId: string): void {
 /** Wipe every auth artifact (used on logout and when a refresh fails). */
 export function clearAuth(): void {
   if (typeof window === "undefined") return;
-  [ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_ID_KEY, USER_KEY].forEach((k) =>
+  [ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_ID_KEY, USER_KEY, CUSTOMER_USER_KEY].forEach((k) =>
     window.localStorage.removeItem(k),
   );
+}
+
+/**
+ * True when the stored token belongs to an admin-console login. The token keys
+ * are shared by the console and the storefront, so the storefront must not
+ * treat an admin's token as a customer session (every customer call would 401).
+ */
+export function isAdminSession(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean(window.localStorage.getItem(USER_KEY));
 }
 
 /* ------------------------ silent token refresh -------------------------- */

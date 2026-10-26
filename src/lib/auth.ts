@@ -19,6 +19,9 @@ export function persistSession(params: {
   permissions?: string[];
   roleNames?: string[];
 }) {
+  // One identity per browser: a storefront customer logged in earlier must not
+  // survive into the console (and vice versa), or the two would share a token.
+  clearAuth();
   setToken(params.accessToken);
   // The refresh token is required for the silent token refresh in apiClient;
   // without it, the first 401 after the access token expires forces a logout.
