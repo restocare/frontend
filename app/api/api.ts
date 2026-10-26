@@ -118,7 +118,7 @@ export const authApi = {
     };
   },
 
-  changePassword: async (newPassword: string, _confirmPassword: string) => {
+  changePassword: async (newPassword: string) => {
     const response = await apiClient.post("/api/v1/admin/change-password", {
       newPassword,
     });

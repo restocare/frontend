@@ -723,7 +723,7 @@ export default function AllLeadsPage() {
   const paginatedLeads = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredLeads.slice(start, start + itemsPerPage);
-  }, [filteredLeads, currentPage]);
+  }, [filteredLeads, currentPage, itemsPerPage]);
 
   function toggleExpand(id: string) {
     setExpandedRows((prev) => {

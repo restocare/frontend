@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { taskApi, type TaskPriority, type TaskRow, type TaskStatus } from "@/src/api/api";
+import { taskApi, type TaskRow, type TaskStatus } from "@/src/api/api";
 import { TaskDetailDrawer } from "@/src/components/dashboard/task-detail-drawer";
 import { PlusIcon, SpinnerIcon } from "@/src/components/icons";
 import { TaskFormModal } from "@/src/components/tasks/task-form";

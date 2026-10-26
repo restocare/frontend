@@ -185,7 +185,7 @@ export default function FormResponsesPage({ params }: { params: Promise<{ slug: 
     const paginated = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
         return filtered.slice(start, start + itemsPerPage);
-    }, [filtered, currentPage]);
+    }, [filtered, currentPage, itemsPerPage]);
 
     const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || statusFilter !== "all";
 

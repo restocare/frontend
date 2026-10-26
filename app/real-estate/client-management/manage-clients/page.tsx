@@ -222,7 +222,6 @@ export default function ManageClientsPage() {
       })) as Client[];
       setClients(normalizedData);
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error("Failed to load clients");
     } finally {
@@ -266,7 +265,6 @@ export default function ManageClientsPage() {
       setEditingClient(null);
       void fetchClients();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error("Failed to update client");
     }
@@ -284,7 +282,6 @@ export default function ManageClientsPage() {
       setDeleteTarget(null);
       void fetchClients();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error(
         (e as { response?: { data?: { message?: string } } })?.response?.data
@@ -304,7 +301,6 @@ export default function ManageClientsPage() {
       toast.success(result.message ?? (client.isBlocked ? "Client unblocked" : "Client blocked"));
       void fetchClients();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error("Failed to update client status");
     } finally {

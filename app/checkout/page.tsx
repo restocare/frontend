@@ -391,7 +391,7 @@ export default function CheckoutPage() {
     setLongitude(a.longitude != null ? String(a.longitude) : "");
   };
 
-  const useCurrentLocation = () => {
+  const locateMe = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setAddressesError("Geolocation is not supported in this browser.");
       return;
@@ -472,8 +472,7 @@ export default function CheckoutPage() {
     if (cartItems.length === 0) return;
     if (selectedAddressId || address) return; // already have an address
     setAutoLocated(true);
-    useCurrentLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    locateMe();
   }, [autoLocated, cartItems.length, selectedAddressId, address]);
 
   const buildPayloads = (mode: PaymentMode): CreateBookingPayload[] => {
@@ -1121,7 +1120,7 @@ export default function CheckoutPage() {
           ) : null}
 
           <button
-            onClick={useCurrentLocation}
+            onClick={locateMe}
             disabled={isLocating}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-700 py-3 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
           >

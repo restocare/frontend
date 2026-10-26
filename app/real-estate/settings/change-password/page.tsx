@@ -36,7 +36,7 @@ export default function ChangePasswordPage() {
   const passwordsMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
 
   const mutation = useMutation({
-    mutationFn: () => authApi.changePassword(newPassword, confirmPassword),
+    mutationFn: () => authApi.changePassword(newPassword),
     onSuccess: () => {
       toast.success("Password changed successfully.");
       setNewPassword("");

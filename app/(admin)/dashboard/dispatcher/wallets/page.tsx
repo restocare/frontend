@@ -20,7 +20,7 @@ export default function PartnerWalletsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [adjust, setAdjust] = useState<AdjustTarget | null>(null);
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.partnerWallets(search.trim(), status),
     queryFn: () => dispatcherApi.listWallets(search.trim() || undefined, status),
     placeholderData: keepPreviousData,

@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- user-uploaded project images come from arbitrary hosts; next/image needs each host in remotePatterns. */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";

@@ -286,7 +286,7 @@ const RolesPermissionsPanel = memo(function RolesPermissionsPanel() {
     () => (rolesQuery.data ?? []).filter((r) => r.name !== 'super_admin'),
     [rolesQuery.data]
   )
-  const grouped = groupedQuery.data ?? {}
+  const grouped = useMemo(() => groupedQuery.data ?? {}, [groupedQuery.data])
 
   // You can only grant permissions you hold yourself. A non-super-admin therefore
   // only sees modules it has at least one permission in — this hides Tenants from

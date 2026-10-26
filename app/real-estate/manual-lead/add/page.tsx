@@ -237,9 +237,11 @@ export default function AddManualLeadPage() {
       const rows = await parseExcel(file);
       setParsedRows(rows);
       const errCount = rows.filter((r) => r._error).length;
-      errCount > 0
-        ? toast.warning(`${rows.length} rows parsed · ${errCount} will be skipped (missing required fields)`)
-        : toast.success(`${rows.length} rows ready to import`);
+      if (errCount > 0) {
+        toast.warning(`${rows.length} rows parsed · ${errCount} will be skipped (missing required fields)`);
+      } else {
+        toast.success(`${rows.length} rows ready to import`);
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to parse file"); setUploadFileName("");
     } finally {
