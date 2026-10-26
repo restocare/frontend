@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi, queryKeys, type CustomerDetail } from "@/src/api/api";
@@ -80,14 +80,11 @@ function CustomerView({ customer }: { customer: CustomerDetail }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Permission reads hit localStorage — resolve after mount to avoid SSR/CSR skew.
-  const [canManage, setCanManage] = useState(false);
-  const [canDelete, setCanDelete] = useState(false);
-  useEffect(() => {
-    setCanManage(hasPermission("customers.update"));
-    const role = getStoredUser()?.role;
-    setCanDelete(role === "ADMIN" || role === "SUPER_ADMIN");
-  }, []);
+  // Safe to read localStorage during render: the dashboard shell only mounts
+  // pages after the client-side auth check, so this never runs during SSR.
+  const canManage = hasPermission("customers.update");
+  const accountRole = getStoredUser()?.role;
+  const canDelete = accountRole === "ADMIN" || accountRole === "SUPER_ADMIN";
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.customer(customer.userId) });

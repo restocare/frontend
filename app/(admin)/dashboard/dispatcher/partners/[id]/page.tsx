@@ -10,7 +10,6 @@ import {
   queryKeys,
   type PartnerDetail,
   type PartnerDocumentField,
-  type PartnerEarnings,
   type PartnerOnboardingStatus,
   type UpdatePartnerInput,
 } from "@/src/api/api";

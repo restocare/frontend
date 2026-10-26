@@ -32,7 +32,8 @@ function SetPasswordInner() {
   const params = useSearchParams();
   const token = params.get("token");
 
-  const [checking, setChecking] = useState(true);
+  // Nothing to check without a token, so start settled in that case.
+  const [checking, setChecking] = useState(Boolean(token));
   const [valid, setValid] = useState(false);
   // Distinguish a definitive "token invalid" from a transient failure (network
   // blip / API cold start) so a good link opened during an outage can retry.
@@ -47,12 +48,7 @@ function SetPasswordInner() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!token) {
-      setChecking(false);
-      setValid(false);
-      setCheckFailed(false);
-      return;
-    }
+    if (!token) return;
     let cancelled = false;
     (async () => {
       setChecking(true);

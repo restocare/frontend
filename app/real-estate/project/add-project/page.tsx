@@ -75,7 +75,7 @@ export default function AddProjectPage() {
     if (!existingProject) return;
     const rawBuilders = existingProject.builders ?? existingProject.builderName;
     const builders: string[] = Array.isArray(rawBuilders)
-      ? rawBuilders
+      ? rawBuilders.map((b) => (typeof b === "string" ? b : b?.name ?? "")).filter(Boolean)
       : typeof rawBuilders === "string" && rawBuilders
       ? rawBuilders.split(",").map((s: string) => s.trim()).filter(Boolean)
       : [];

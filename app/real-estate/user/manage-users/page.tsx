@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
-import { userApi } from '@/app/api/api'
+import { userApi, type ApiUser, type UpdateUserPayload, type UserRoleRef } from '@/app/api/api'
+import { getApiErrorMessage } from '@/app/api/errors'
 import { X, Mail, Phone, User as UserIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -21,9 +22,9 @@ const normalizeRole = (name: string) =>
 
 // True if any of the user's roles is super_admin. Used to keep super admins
 // out of any list shown to a non-super-admin (the backend enforces this too).
-const userHasSuperAdmin = (roles: any[] | undefined): boolean => {
+const userHasSuperAdmin = (roles: UserRoleRef[] | undefined): boolean => {
     if (!roles) return false;
-    return roles.some((r: any) => {
+    return roles.some((r) => {
         const n = typeof r === "string" ? r : (r?.role?.name || r?.name || "");
         return normalizeRole(n) === "superadmin";
     });
@@ -35,8 +36,8 @@ const Page = () => {
     const itemsPerPage = 5
     const { user: loggedInUser } = useAuthStore()
 
-    const [userToDelete, setUserToDelete] = useState<any>(null)
-    const [userToEdit, setUserToEdit] = useState<any>(null)
+    const [userToDelete, setUserToDelete] = useState<ApiUser | null>(null)
+    const [userToEdit, setUserToEdit] = useState<ApiUser | null>(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [editFormData, setEditFormData] = useState({
         name: "",
@@ -61,9 +62,9 @@ const Page = () => {
           ? firstUserRole
           : (firstUserRole?.role?.name || firstUserRole?.name || "");
         const isSuperAdmin = normalizeRole(loggedInUserRoleName) === "superadmin";
-        const withoutSelf = users.filter((u: any) => u.id !== loggedInUser?.id);
+        const withoutSelf = users.filter((u) => u.id !== loggedInUser?.id);
         if (isSuperAdmin) return withoutSelf;
-        return withoutSelf.filter((u: any) => !userHasSuperAdmin(u.roles));
+        return withoutSelf.filter((u) => !userHasSuperAdmin(u.roles));
     }, [users, loggedInUser]);
 
     // Delete User Mutation
@@ -73,14 +74,14 @@ const Page = () => {
             toast.success("User deleted successfully")
             queryClient.invalidateQueries({ queryKey: ['users'] })
         },
-        onError: (err: any) => {
-            toast.error(err?.response?.data?.message || err?.message || "Failed to delete user")
+        onError: (err: unknown) => {
+            toast.error(getApiErrorMessage(err, "Failed to delete user"))
         }
     })
 
     // Edit User Mutation
     const editUserMutation = useMutation({
-        mutationFn: async ({ id, payload, roleIds }: { id: string, payload: any, roleIds: string[] }) => {
+        mutationFn: async ({ id, payload, roleIds }: { id: string, payload: UpdateUserPayload, roleIds: string[] }) => {
             // Update core user details
             await userApi.updateUser(id, payload);
             // Sync roles
@@ -94,15 +95,15 @@ const Page = () => {
             setIsEditModalOpen(false)
             setUserToEdit(null)
         },
-        onError: (err: any) => {
-            toast.error(err?.response?.data?.message || err?.message || "Failed to update user")
+        onError: (err: unknown) => {
+            toast.error(getApiErrorMessage(err, "Failed to update user"))
         }
     })
 
-    const handleEditClick = (user: any) => {
+    const handleEditClick = (user: ApiUser) => {
         setUserToEdit(user)
         const userRole = user.roles?.[0];
-        const roleId = typeof userRole === 'object' && userRole?.role ? userRole.role.id : (userRole?.id || "");
+        const roleId = typeof userRole === 'object' ? userRole.role?.id ?? userRole.id ?? "" : "";
         
         setEditFormData({
             name: user.name || "",
@@ -113,7 +114,7 @@ const Page = () => {
         setIsEditModalOpen(true)
     }
 
-    const getRoleName = (roles: any[] | undefined): string => {
+    const getRoleName = (roles: UserRoleRef[] | undefined): string => {
         if (!roles || roles.length === 0) return 'User';
         const firstRole = roles[0];
         if (typeof firstRole === 'string') return firstRole;
@@ -190,7 +191,7 @@ const Page = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                currentUsers.map((user: any, index: number) => {
+                                currentUsers.map((user, index) => {
                                     const roleName = formatRoleName(getRoleName(user.roles));
                                     const userStatus = user.status || (user.isPasswordSet ? 'Active' : 'Pending');
                                     const userName = user.name || user.email.split('@')[0];

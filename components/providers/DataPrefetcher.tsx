@@ -3,10 +3,12 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
-import { projectApi, usersApi, rolesApi, permissionsApi, reportsApi } from "@/app/api/api";
+import { projectApi, usersApi, rolesApi, permissionsApi, reportsApi, type ApiProject } from "@/app/api/api";
 import { manualLeadsApi } from "@/app/api/manualLeadsApi";
 import { fetchAllFormAndWhatsappLeads } from "@/app/real-estate/lead-management/lib/formLeads";
 import apiClient from "@/app/api/apiClient";
+import { unwrapList } from "@/app/api/unwrapList";
+import { normalizeProject } from "@/app/real-estate/project/lib/normalize-project";
 
 export function DataPrefetcher() {
   const queryClient = useQueryClient();
@@ -30,31 +32,10 @@ export function DataPrefetcher() {
 
     const isSuperAdmin = (roleName || "").toLowerCase().replace(/[_\s]/g, "") === "superadmin";
 
-    // 1. Prefetch Projects (with mapping to match manage-projects/page.tsx)
+    // 1. Prefetch Projects, in the same shape manage-projects/page.tsx reads.
     queryClient.prefetchQuery({
       queryKey: ["projects"],
-      queryFn: async () => {
-        const data = await projectApi.getProjects();
-        const list: any[] = Array.isArray(data) ? data : (data as any)?.data ?? [];
-        return list.map((p: any) => ({
-          ...p,
-          projectName: p.projectName ?? p.project_name ?? "",
-          builders: Array.isArray(p.builders)
-            ? p.builders.map((b: any) => (typeof b === "string" ? b : b?.name ?? ""))
-            : typeof p.builderName === "string" && p.builderName
-            ? p.builderName.split(",").map((s: string) => s.trim())
-            : typeof p.builder_name === "string" && p.builder_name
-            ? p.builder_name.split(",").map((s: string) => s.trim())
-            : [],
-          projectSubType: p.projectSubType ?? p.project_sub_type,
-          projectLandArea: p.projectLandArea ?? p.project_land_area,
-          startDate: p.startDate ?? p.start_date,
-          endDate: p.endDate ?? p.end_date,
-          possessionDate: p.possessionDate ?? p.possession_date,
-          basicAmenities: p.basicAmenities ?? p.basic_amenities ?? [],
-          featuredAmenities: p.featuredAmenities ?? p.featured_amenities ?? [],
-        }));
-      },
+      queryFn: async () => unwrapList<ApiProject>(await projectApi.getProjects()).map(normalizeProject),
     });
 
     // 2. Prefetch Users (both keys used in the app)

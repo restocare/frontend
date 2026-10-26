@@ -205,7 +205,7 @@ export default function ManageClientsPage() {
     try {
       setLoading(true);
       const rawData = await clientApi.getClients();
-      const normalizedData = (Array.isArray(rawData) ? rawData : []).map((c: any) => ({
+      const normalizedData = (Array.isArray(rawData) ? rawData : []).map((c) => ({
         id: c.id || c._id || "",
         client_name: c.clientName || c.client_name || c.name || "Unknown Client",
         company_name: c.companyName || c.company_name || c.name || "Unknown Company",
@@ -222,7 +222,6 @@ export default function ManageClientsPage() {
       })) as Client[];
       setClients(normalizedData);
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error("Failed to load clients");
     } finally {
@@ -266,7 +265,6 @@ export default function ManageClientsPage() {
       setEditingClient(null);
       void fetchClients();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error("Failed to update client");
     }
@@ -284,7 +282,6 @@ export default function ManageClientsPage() {
       setDeleteTarget(null);
       void fetchClients();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error(
         (e as { response?: { data?: { message?: string } } })?.response?.data
@@ -304,7 +301,6 @@ export default function ManageClientsPage() {
       toast.success(result.message ?? (client.isBlocked ? "Client unblocked" : "Client blocked"));
       void fetchClients();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast.error("Failed to update client status");
     } finally {

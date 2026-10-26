@@ -1,0 +1,6 @@
+#!/bin/sh
+# Lint the staged source files so a lint error can't be committed.
+# Installed by `npm install` via scripts/setup-git-hooks.mjs.
+files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs')
+[ -z "$files" ] && exit 0
+npx eslint --max-warnings=0 $files

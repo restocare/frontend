@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/app/api/errors";
 import { manualLeadsApi, ManualLeadBulkRow } from "@/app/api/manualLeadsApi";
 
 interface ManualLeadUploadState {
@@ -29,8 +30,8 @@ export const useManualLeadUploadStore = create<ManualLeadUploadState>((set, get)
       .then((res) => {
         toast.success(`${res?.inserted ?? rows.length} lead${rows.length !== 1 ? "s" : ""} imported successfully!`);
       })
-      .catch((err: any) => {
-        toast.error(err?.response?.data?.message || err?.message || "Bulk import failed");
+      .catch((err: unknown) => {
+        toast.error(getApiErrorMessage(err, "Bulk import failed"));
       })
       .finally(() => {
         set({ isUploading: false, progress: 0, fileName: "" });

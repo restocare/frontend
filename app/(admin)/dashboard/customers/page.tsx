@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,15 +28,11 @@ export default function CustomersPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Permission reads hit localStorage, so resolve them after mount to keep the
-  // server and client render in sync.
-  const [canManage, setCanManage] = useState(false);
-  const [canDelete, setCanDelete] = useState(false);
-  useEffect(() => {
-    setCanManage(hasPermission("customers.update"));
-    const role = getStoredUser()?.role;
-    setCanDelete(role === "ADMIN" || role === "SUPER_ADMIN");
-  }, []);
+  // Safe to read localStorage during render: the dashboard shell only mounts
+  // pages after the client-side auth check, so this never runs during SSR.
+  const canManage = hasPermission("customers.update");
+  const accountRole = getStoredUser()?.role;
+  const canDelete = accountRole === "ADMIN" || accountRole === "SUPER_ADMIN";
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.customers(search.trim()),

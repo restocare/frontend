@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSyncedState } from "@/hooks/useSyncedState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { auraApi, queryKeys, type AuraSettings } from "@/src/api/api";
@@ -24,10 +25,8 @@ export default function AuraSettingsPage() {
     queryFn: auraApi.settings,
   });
 
-  const [form, setForm] = useState<AuraSettings | null>(null);
-  useEffect(() => {
-    if (data) setForm(data);
-  }, [data]);
+  // Editable draft, re-seeded whenever the query refetches.
+  const [form, setForm] = useSyncedState<AuraSettings | null>(data ?? null);
 
   const saveMutation = useMutation({
     mutationFn: auraApi.saveSettings,

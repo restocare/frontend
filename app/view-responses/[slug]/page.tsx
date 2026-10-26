@@ -44,7 +44,7 @@ export default function FormResponsesPage({ params }: { params: Promise<{ slug: 
     const slug = resolvedParams.slug;
 
     const [form, setForm] = useState<FormConfig | null>(null);
-    const [formResponses, setFormResponses] = useState<Array<{ submittedAt?: string; createdAt?: string; responses: Record<string, any> }>>([]);
+    const [formResponses, setFormResponses] = useState<Array<{ submittedAt?: string; createdAt?: string; responses: Record<string, string | number | boolean | string[] | null> }>>([]);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
 
@@ -68,8 +68,8 @@ export default function FormResponsesPage({ params }: { params: Promise<{ slug: 
                     try {
                         const listRes = await apiClient.get(`/api/meta-forms`);
                         if (listRes.status === 200) {
-                            const allForms: any[] = listRes.data;
-                            currentForm = allForms.find((f: any) =>
+                            const allForms = listRes.data as FormConfig[];
+                            currentForm = allForms.find((f) =>
                                 f.id === slug || (f.schema && f.schema.length > 0 && f.schema[0]["Form ID"] === slug)
                             ) || null;
                         }

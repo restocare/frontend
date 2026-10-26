@@ -16,6 +16,7 @@ import { userApi } from "@/app/api/api";
 import { useAuthStore } from "@/store/authStore";
 import type { Lead } from "./types";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/app/api/errors";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,8 +151,8 @@ function LeadEditModal({ lead, onClose }: { lead: ManualLead; onClose: () => voi
       qc.invalidateQueries({ queryKey: ["manual-leads"] });
       onClose();
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || "Update failed");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Update failed"));
     },
   });
 
@@ -323,8 +324,8 @@ function FormLeadEditModal({ lead, onClose }: { lead: Lead; onClose: () => void 
       qc.invalidateQueries({ queryKey: ["form-whatsapp-leads-all"] });
       onClose();
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || "Update failed");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Update failed"));
     },
   });
 
@@ -554,11 +555,11 @@ export default function AllLeadsPage() {
       setAiMode(aiMode);
       return { previousAiMode };
     },
-    onError: (err: any, _aiMode, context) => {
+    onError: (err: unknown, _aiMode, context) => {
       if (context?.previousAiMode !== undefined) {
         setAiMode(context.previousAiMode);
       }
-      toast.error(err?.response?.data?.message || "Failed to update AI mode");
+      toast.error(getApiErrorMessage(err, "Failed to update AI mode"));
     },
   });
 
@@ -599,7 +600,7 @@ export default function AllLeadsPage() {
         return next;
       });
     },
-    onError: (err: any, { leadId }, context) => {
+    onError: (err: unknown, { leadId }, context) => {
       setTogglingIds((prev) => {
         const next = new Set(prev);
         next.delete(leadId);
@@ -608,7 +609,7 @@ export default function AllLeadsPage() {
       if (context?.previousLeads) {
         queryClient.setQueryData(["manual-leads"], context.previousLeads);
       }
-      toast.error(err?.response?.data?.message || "Failed to update AI mode");
+      toast.error(getApiErrorMessage(err, "Failed to update AI mode"));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["manual-leads"] });
@@ -639,7 +640,7 @@ export default function AllLeadsPage() {
         return next;
       });
     },
-    onError: (err: any, { leadId }, context) => {
+    onError: (err: unknown, { leadId }, context) => {
       setTogglingIds((prev) => {
         const next = new Set(prev);
         next.delete(leadId);
@@ -648,7 +649,7 @@ export default function AllLeadsPage() {
       if (context?.previousLeads) {
         queryClient.setQueryData(["form-whatsapp-leads-all"], context.previousLeads);
       }
-      toast.error(err?.response?.data?.message || "Failed to update AI mode");
+      toast.error(getApiErrorMessage(err, "Failed to update AI mode"));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["form-whatsapp-leads-all"] });
@@ -723,7 +724,7 @@ export default function AllLeadsPage() {
   const paginatedLeads = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredLeads.slice(start, start + itemsPerPage);
-  }, [filteredLeads, currentPage]);
+  }, [filteredLeads, currentPage, itemsPerPage]);
 
   function toggleExpand(id: string) {
     setExpandedRows((prev) => {

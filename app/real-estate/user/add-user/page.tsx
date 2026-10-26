@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/store/authStore";
-import { userApi } from "@/app/api/api";
+import { userApi, type CreateUserPayload } from "@/app/api/api";
+import { getApiErrorMessage } from "@/app/api/errors";
 import { toast } from "sonner";
 
 
@@ -51,7 +52,7 @@ export default function AddUserPage() {
     const normalizedLoggedInRole = loggedInUserRoleName.toLowerCase().replace(/_/g, "").replace(/\s/g, "");
     const isSuperAdmin = normalizedLoggedInRole === "superadmin" || normalizedLoggedInRole === "super_admin";
 
-    return roles.filter((role: any) => {
+    return roles.filter((role) => {
       const nameLower = role.name.toLowerCase().replace(/_/g, "").replace(/\s/g, "");
       
       // Regular admins shouldn't create superadmins
@@ -69,8 +70,8 @@ export default function AddUserPage() {
     if (filteredRoles.length > 0 && !selectedRoleId) {
       // Prefer sales_executive as a default, otherwise choose first role that is not admin/super_admin
       const defaultRole = 
-        filteredRoles.find((r: any) => r.name.toLowerCase() === "sales_executive") ||
-        filteredRoles.find((r: any) => !r.name.toLowerCase().includes("admin")) ||
+        filteredRoles.find((r) => r.name.toLowerCase() === "sales_executive") ||
+        filteredRoles.find((r) => !r.name.toLowerCase().includes("admin")) ||
         filteredRoles[0];
 
       if (defaultRole) {
@@ -82,7 +83,7 @@ export default function AddUserPage() {
   }, [filteredRoles, selectedRoleId]);
 
   const createUserMutation = useMutation({
-    mutationFn: (payload: any) => userApi.createUser(payload),
+    mutationFn: (payload: CreateUserPayload) => userApi.createUser(payload),
     onSuccess: () => {
       toast.success("User created successfully!");
       setFormData({
@@ -94,9 +95,9 @@ export default function AddUserPage() {
       });
       router.push("/real-estate/user/manage-users");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("Create User Error:", error);
-      toast.error(error?.response?.data?.message || error?.message || "Failed to create user");
+      toast.error(getApiErrorMessage(error, "Failed to create user"));
     },
   });
 

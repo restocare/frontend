@@ -315,21 +315,18 @@ export function BookingsView() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const [canManage, setCanManage] = useState(false);
-  // Creating is its own grant, so a role that may edit bookings isn't
-  // automatically offered a button the backend would refuse.
-  const [canCreate, setCanCreate] = useState(false);
-  const [canDelete, setCanDelete] = useState(false);
-  useEffect(() => {
-    setCanManage(hasPermission("bookings.update"));
-    setCanCreate(hasPermission("bookings.create"));
-    setCanDelete(hasPermission("bookings.delete"));
-  }, []);
+  // Safe at render: the dashboard shell mounts this view only after the
+  // client-side auth check. Creating is its own grant, so a role that may edit
+  // bookings isn't automatically offered a button the backend would refuse.
+  const canManage = hasPermission("bookings.update");
+  const canCreate = hasPermission("bookings.create");
+  const canDelete = hasPermission("bookings.delete");
 
-  // Reset to the first page whenever the filter, search or date range changes.
-  useEffect(() => {
+  // Every filter change starts again from the first page.
+  const applyFilter = (update: () => void) => {
+    update();
     setPage(1);
-  }, [tab, search, dateFrom, dateTo]);
+  };
 
   const params = {
     status:
@@ -589,7 +586,7 @@ export function BookingsView() {
             return (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key)}
+                onClick={() => applyFilter(() => setTab(t.key))}
                 className={`relative -mb-px border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                   active
                     ? "border-primary text-primary"
@@ -610,7 +607,7 @@ export function BookingsView() {
             <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => applyFilter(() => setSearch(e.target.value))}
               placeholder="Search by name, mobile, booking ID or date"
               className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
             />
@@ -636,7 +633,7 @@ export function BookingsView() {
                 type="date"
                 value={dateFrom}
                 max={dateTo || undefined}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => applyFilter(() => setDateFrom(e.target.value))}
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </div>
@@ -652,17 +649,19 @@ export function BookingsView() {
                 type="date"
                 value={dateTo}
                 min={dateFrom || undefined}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => applyFilter(() => setDateTo(e.target.value))}
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </div>
             {(dateFrom || dateTo) && (
               <>
                 <button
-                  onClick={() => {
-                    setDateFrom("");
-                    setDateTo("");
-                  }}
+                  onClick={() =>
+                    applyFilter(() => {
+                      setDateFrom("");
+                      setDateTo("");
+                    })
+                  }
                   className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
                 >
                   Clear dates

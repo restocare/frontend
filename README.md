@@ -30,8 +30,9 @@ npm run build       # next build
 ```
 
 The same four steps run on every pull request and push to `main` via
-`.github/workflows/ci.yml`. Lint is non-blocking there until the existing
-errors are cleared.
+`.github/workflows/ci.yml`; a lint error or warning fails the build.
+`npm install` also installs a pre-commit hook (`.githooks/pre-commit`) that
+lints the staged files, so a lint error cannot be committed by accident.
 
 ## Learn More
 

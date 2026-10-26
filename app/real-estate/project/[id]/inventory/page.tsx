@@ -67,7 +67,7 @@ export default function InventoryPage() {
     enabled: !!id && !cachedName,
   });
 
-  const displayName = cachedName || (project as any)?.projectName || (project as any)?.project_name || "";
+  const displayName = cachedName || project?.projectName || project?.project_name || "";
 
   const {
     data: propertiesData,
@@ -622,7 +622,7 @@ export default function InventoryPage() {
                 <tbody>
                   {filteredProperties.map((prop, i) => (
                     <tr
-                      key={(prop as any).id ?? i}
+                      key={String(prop.id ?? i)}
                       className="border-b border-neutral-100 dark:border-neutral-800/50 last:border-0 hover:bg-neutral-50 dark:hover:bg-neutral-900/20 transition-colors"
                     >
                       <td className="px-4 py-2.5 text-muted-foreground/60 tabular-nums">{(page - 1) * limit + i + 1}</td>

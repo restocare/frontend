@@ -14,9 +14,11 @@ import { Pagination } from "@/components/ui/Pagination";
 import {
   manualLeadsApi, ManualLead, SummaryEntry, LEAD_STATUS_OPTIONS,
 } from "@/app/api/manualLeadsApi";
-import { projectApi } from "@/app/api/api";
+import { projectApi, type ApiProject } from "@/app/api/api";
+import { unwrapList } from "@/app/api/unwrapList";
 import { ProjectDropdown } from "../ProjectDropdown";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/app/api/errors";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -66,7 +68,11 @@ function EditModal({ lead, onClose }: { lead: ManualLead; onClose: () => void })
   const qc = useQueryClient();
   const { data: projects = [] } = useQuery<{ id: string; projectName: string }[]>({
     queryKey: ["projects"],
-    queryFn: projectApi.getProjects,
+    queryFn: async () =>
+      unwrapList<ApiProject>(await projectApi.getProjects()).map((p) => ({
+        id: p.id,
+        projectName: p.projectName ?? p.project_name ?? "",
+      })),
   });
   const [fields, setFields] = useState({
     customerName: lead.customerName,
@@ -98,8 +104,8 @@ function EditModal({ lead, onClose }: { lead: ManualLead; onClose: () => void })
       qc.invalidateQueries({ queryKey: ["manual-leads"] });
       onClose();
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || "Update failed");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Update failed"));
     },
   });
 
@@ -290,8 +296,8 @@ function DeleteModal({ lead, onClose }: { lead: ManualLead; onClose: () => void 
       qc.invalidateQueries({ queryKey: ["manual-leads"] });
       onClose();
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || "Delete failed");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Delete failed"));
     },
   });
 
