@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 
 function FormStatMini({ formId }: { formId: string }) {
-    const { data: submissions = [], isLoading } = useQuery<any[]>({
+    const { data: submissions = [], isLoading } = useQuery<{ responses?: Record<string, unknown> }[]>({
         queryKey: ["form-submissions-mini", formId],
         queryFn: async () => {
             const res = await apiClient.get(`/api/meta-forms/${formId}/submissions`);
@@ -42,13 +42,13 @@ function FormStatMini({ formId }: { formId: string }) {
     const total = submissions.length;
     const callConnected = submissions.filter(s => {
         const combined = Object.values(s.responses ?? {})
-            .map((v: any) => (Array.isArray(v) ? v.join(" ") : String(v ?? "")).toLowerCase())
+            .map((v) => (Array.isArray(v) ? v.join(" ") : String(v ?? "")).toLowerCase())
             .join(" ");
         return combined.includes("call connected");
     }).length;
     const pending = submissions.filter(s => {
         const combined = Object.values(s.responses ?? {})
-            .map((v: any) => (Array.isArray(v) ? v.join(" ") : String(v ?? "")).toLowerCase())
+            .map((v) => (Array.isArray(v) ? v.join(" ") : String(v ?? "")).toLowerCase())
             .join(" ");
         return !combined.includes("call connected") && !combined.includes("call initiated") && !combined.includes("not interested") && !combined.includes("inactive") && !combined.includes("active");
     }).length;

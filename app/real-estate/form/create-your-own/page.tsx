@@ -1,5 +1,7 @@
 "use client";
 import apiClient from "@/app/api/apiClient";
+import { type ApiProject } from "@/app/api/api";
+import { unwrapList } from "@/app/api/unwrapList";
 import { projectApi } from "@/app/api/api";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -60,6 +62,29 @@ interface Block {
     created: boolean;
     required: boolean;
 }
+
+/** One field of the exported schema (the shape stored on the meta-form). */
+interface FormSchemaItem {
+    Id: string;
+    Type: BlockType;
+    Label: string;
+    Required: boolean;
+    Placeholder: string;
+    "Form ID": string;
+    Order: number;
+    Options?: string[];
+    "Slider Settings"?: { Min: number; Max: number; Step: number; Prefix: string };
+}
+
+interface MetaForm {
+    id: string;
+    title: string;
+    description: string;
+    schema: string | FormSchemaItem[];
+}
+
+const matchesFormId = (f: MetaForm, id: string | null) =>
+    f.id === id || (Array.isArray(f.schema) && f.schema[0]?.["Form ID"] === id);
 
 function BudgetSlider({
     min,
@@ -239,9 +264,7 @@ function FormBuilder() {
     const { data: availableProjects = [], isFetched: projectsFetched } = useQuery<{ id: string; projectName: string }[]>({
         queryKey: ["projects"],
         queryFn: async () => {
-            const data = await projectApi.getProjects();
-            const list: any[] = Array.isArray(data) ? data : (data as any)?.data ?? [];
-            return list.map((p: any) => ({
+            return unwrapList<ApiProject>(await projectApi.getProjects()).map((p) => ({
                 id: p.id,
                 projectName: p.projectName ?? p.project_name ?? "",
             }));
@@ -257,9 +280,7 @@ function FormBuilder() {
                 if (res.status === 200) return res.data;
             } catch {
                 const listRes = await apiClient.get("/api/meta-forms");
-                const form = listRes.data.find(
-                    (f: any) => f.id === editId || (f.schema && f.schema[0] && f.schema[0]["Form ID"] === editId)
-                );
+                const form = (listRes.data as MetaForm[]).find((f) => matchesFormId(f, editId));
                 if (!form) throw new Error(`Form with id "${editId}" not found.`);
                 return form;
             }
@@ -268,10 +289,8 @@ function FormBuilder() {
         staleTime: 5 * 60 * 1000,
         initialData: () => {
             if (!editId) return undefined;
-            const cached = queryClient.getQueryData<any[]>(["meta-forms"]);
-            return cached?.find(
-                (f: any) => f.id === editId || (f.schema?.[0]?.["Form ID"] === editId)
-            );
+            const cached = queryClient.getQueryData<MetaForm[]>(["meta-forms"]);
+            return cached?.find((f) => matchesFormId(f, editId));
         },
         retry: false,
     });
@@ -294,7 +313,7 @@ function FormBuilder() {
         /* eslint-enable react-hooks/set-state-in-effect */
 
         const schema = typeof fetchedForm.schema === "string" ? JSON.parse(fetchedForm.schema) : fetchedForm.schema;
-        const loadedBlocks = schema.map((item: any, idx: number) => {
+        const loadedBlocks = (schema as FormSchemaItem[]).map((item, idx) => {
             const baseId = Number(item.Id) || Date.now() + idx;
             let options: Option[] = [];
 
@@ -372,8 +391,8 @@ function FormBuilder() {
             setShowConfirmModal(false);
             router.push("/real-estate/form/manage-forms");
         },
-        onError: (error: any) => {
-            toast.error(error?.message || "Something went wrong. Please try again.");
+        onError: (error: Error) => {
+            toast.error(error.message || "Something went wrong. Please try again.");
         },
     });
 
@@ -382,7 +401,7 @@ function FormBuilder() {
         // When editing, preserve the existing form ID instead of regenerating from the title
         const formIdSlug = editId || createSlug(title) || "dynamic-form";
         return blocks.map((block, index) => {
-            const jsonField: any = {
+            const jsonField: FormSchemaItem = {
                 "Id": block.id.toString(),
                 "Type": block.type,
                 "Label": block.label || "Untitled Field",

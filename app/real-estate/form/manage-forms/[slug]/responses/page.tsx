@@ -64,11 +64,14 @@ interface CallRecord {
     createdAt: string;
 }
 
+/** A submitted field value: text, number, choice, a checkbox group, or empty. */
+type ResponseValue = string | number | boolean | string[] | null;
+
 interface Submission {
     id?: string;
     submittedAt?: string;
     createdAt?: string;
-    responses: Record<string, any>;
+    responses: Record<string, ResponseValue>;
     callSummary?: string | null;
     callMade?: boolean;
     calls?: CallRecord[];
@@ -110,7 +113,7 @@ export default function FormResponsesPage({ params }: { params: Promise<{ slug: 
                 if (res.status === 200) raw = res.data;
             } catch {
                 const listRes = await apiClient.get("/api/meta-forms");
-                raw = (listRes.data as any[]).find((f: any) =>
+                raw = (listRes.data as FormConfig[]).find((f) =>
                     f.id === slug || (f.schema && f.schema.length > 0 && f.schema[0]["Form ID"] === slug)
                 ) ?? null;
             }

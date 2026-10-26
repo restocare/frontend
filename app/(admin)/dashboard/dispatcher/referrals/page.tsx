@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   referralApi,
@@ -181,8 +181,8 @@ function SettingsCard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [canManage, setCanManage] = useState(false);
-  useEffect(() => setCanManage(hasPermission("referrals.manage")), []);
+  // Safe at render: the dashboard shell mounts pages only after the client auth check.
+  const canManage = hasPermission("referrals.manage");
 
   const { data: settings, isLoading } = useQuery({
     queryKey: queryKeys.referralSettings,

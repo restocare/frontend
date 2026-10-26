@@ -17,6 +17,9 @@ import { projectApi } from "@/app/api/api";
 import { ProjectDropdown } from "../ProjectDropdown";
 import { useManualLeadUploadStore } from "@/store/manualLeadUploadStore";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/app/api/errors";
+import { type ApiProject } from "@/app/api/api";
+import { unwrapList } from "@/app/api/unwrapList";
 
 // ── Excel bulk import helpers ─────────────────────────────────────────────────
 
@@ -135,7 +138,11 @@ export default function AddManualLeadPage() {
 
   const { data: projects = [] } = useQuery<{ id: string; projectName: string }[]>({
     queryKey: ["projects"],
-    queryFn: projectApi.getProjects,
+    queryFn: async () =>
+      unwrapList<ApiProject>(await projectApi.getProjects()).map((p) => ({
+        id: p.id,
+        projectName: p.projectName ?? p.project_name ?? "",
+      })),
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -175,10 +182,9 @@ export default function AddManualLeadPage() {
       setStatusTouched(false);
       router.push("/real-estate/lead-management");
     },
-    onError: (err: any) => {
-      const rawMessage = err?.response?.data?.message || err?.message || "Failed to add lead";
-      const message = Array.isArray(rawMessage) ? rawMessage.join(", ") : rawMessage;
-      if (typeof message === "string" && message.toLowerCase().includes("projectid")) {
+    onError: (err: unknown) => {
+      const message = getApiErrorMessage(err, "Failed to add lead");
+      if (message.toLowerCase().includes("projectid")) {
         setProjectError(true);
         projectFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         toast.error("Please select a valid project");
@@ -242,8 +248,9 @@ export default function AddManualLeadPage() {
       } else {
         toast.success(`${rows.length} rows ready to import`);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to parse file"); setUploadFileName("");
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Failed to parse file");
+      setUploadFileName("");
     } finally {
       setIsParsing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

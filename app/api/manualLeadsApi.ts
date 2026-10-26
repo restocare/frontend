@@ -106,7 +106,31 @@ export interface ManualLead {
 // instead of `phoneNumber`, and `summary` instead of `summaries`. Normalize
 // it here, at the single API boundary, so every consumer can rely on the
 // `ManualLead` shape below.
-function normalizeManualLead(raw: any): ManualLead {
+/** Lead as leads.service `mapToResponse` returns it (see normalizeManualLead). */
+interface RawManualLead {
+  id: string;
+  customerName?: string;
+  phoneNumber?: string;
+  customerPhone?: string;
+  projectId?: string;
+  projectName?: string;
+  budget?: string | null;
+  customerBudget?: string | null;
+  referenceType?: string | null;
+  type?: string | null;
+  referralName?: string | null;
+  agentName?: string | null;
+  status: string;
+  siteVisitDate?: string | null;
+  nextDate?: string | null;
+  summaries?: SummaryEntry[];
+  summary?: SummaryEntry[];
+  aiMode: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function normalizeManualLead(raw: RawManualLead): ManualLead {
   return {
     id: raw.id,
     customerName: raw.customerName ?? "",
@@ -144,7 +168,7 @@ export const manualLeadsApi = {
 
   getAll: async (): Promise<ManualLead[]> => {
     const response = await apiClient.get("/api/leads");
-    return (response.data as any[]).map(normalizeManualLead);
+    return (response.data as RawManualLead[]).map(normalizeManualLead);
   },
 
   getOne: async (id: string): Promise<ManualLead> => {

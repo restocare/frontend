@@ -10,6 +10,30 @@ import publicApiClient from "@/app/api/publicApiClient";
 type BlockType = "text" | "name" | "checkbox" | "radio" | "select" | "budget" | "phone" | "project";
 
 interface Option { id: number; value: string; }
+
+/** What a field holds while the visitor fills the form: text, a budget number, a checkbox group, or cleared. */
+type FormValue = string | number | string[] | null;
+
+const stringValue = (v: FormValue | undefined) => (typeof v === "string" ? v : "");
+
+/** One field of a form's stored schema, as built by the form designer. */
+interface FormSchemaItem {
+    Id?: string | number;
+    Type?: string;
+    Label?: string;
+    Placeholder?: string;
+    Required?: boolean;
+    Options?: string[];
+    "Slider Settings"?: { Min?: number | string; Max?: number | string; Step?: number | string; Prefix?: string };
+    "Form ID"?: string;
+}
+
+interface MetaForm {
+    id: string;
+    title: string;
+    description: string;
+    schema: string | FormSchemaItem[];
+}
 interface Block {
     id: number; type: BlockType; label: string; placeholder: string;
     options: Option[]; created: boolean; required: boolean;
@@ -105,7 +129,7 @@ function FormPreview({ slug }: { slug: string }) {
     const [description, setDescription] = useState("");
     const { theme: resolvedTheme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
-    const [formData, setFormData] = useState<Record<number, any>>({});
+    const [formData, setFormData] = useState<Record<number, FormValue>>({});
     const [submitted, setSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -128,15 +152,15 @@ function FormPreview({ slug }: { slug: string }) {
     useEffect(() => {
         if (!slug) return;
 
-        const applyForm = (form: any) => {
+        const applyForm = (form: MetaForm) => {
             setTitle(form.title);
             setDescription(form.description);
-            const schema: any[] = typeof form.schema === "string"
-                ? JSON.parse(form.schema)
+            const schema: FormSchemaItem[] = typeof form.schema === "string"
+                ? (JSON.parse(form.schema) as FormSchemaItem[])
                 : Array.isArray(form.schema)
                     ? form.schema
                     : [];
-            setBlocks(schema.map((item: any, idx: number) => {
+            setBlocks(schema.map((item, idx) => {
                 const baseId = Number(item.Id) || Date.now() + idx;
                 let options: Option[] = [];
                 if (item.Type === "budget" && item["Slider Settings"]) {
@@ -145,14 +169,14 @@ function FormPreview({ slug }: { slug: string }) {
                         { id: baseId + 1, value: String(s.Min) },
                         { id: baseId + 2, value: String(s.Max) },
                         { id: baseId + 3, value: String(s.Step) },
-                        { id: baseId + 4, value: s.Prefix },
+                        { id: baseId + 4, value: s.Prefix ?? "" },
                     ];
                 } else if (item.Options) {
                     options = item.Options.map((opt: string, oIdx: number) => ({ id: baseId + 1 + oIdx, value: opt }));
                 } else {
                     options = [{ id: baseId + 1, value: "" }];
                 }
-                return { id: baseId, type: item.Type as BlockType, label: item.Label, placeholder: item.Placeholder || "", options, created: true, required: item.Required };
+                return { id: baseId, type: item.Type as BlockType, label: item.Label ?? "", placeholder: item.Placeholder || "", options, created: true, required: item.Required ?? false };
             }));
         };
 
@@ -174,8 +198,8 @@ function FormPreview({ slug }: { slug: string }) {
                 try {
                     const listRes = await publicApiClient.get(`/api/meta-forms`);
                     if (listRes.status === 200) {
-                        const allForms: any[] = listRes.data;
-                        const matched = allForms.find((f: any) => f.id === slug || (f.schema && f.schema.length > 0 && f.schema[0]["Form ID"] === slug));
+                        const allForms = listRes.data as MetaForm[];
+                        const matched = allForms.find((f) => f.id === slug || (Array.isArray(f.schema) && f.schema[0]?.["Form ID"] === slug));
                         if (matched) {
                             setFormId(matched.id);
                             applyForm(matched);
@@ -204,7 +228,7 @@ function FormPreview({ slug }: { slug: string }) {
         }).map(b => b.label || "Untitled");
         if (missing.length) { toast.error(`Required: ${missing.join(", ")}`); return; }
 
-        const responses: Record<string, any> = {};
+        const responses: Record<string, FormValue> = {};
         blocks.forEach(b => {
             const key = (b.label || `Field ${b.id}`).toLowerCase().trim();
             responses[key] = formData[b.id] ?? "";
@@ -435,7 +459,7 @@ function FormPreview({ slug }: { slug: string }) {
 
                                     {block.type === "select" && (
                                         <Select
-                                            value={formData[block.id] || ""}
+                                            value={stringValue(formData[block.id])}
                                             onValueChange={(val) => setFormData(prev => ({ ...prev, [block.id]: val }))}
                                         >
                                             <SelectTrigger
@@ -461,7 +485,8 @@ function FormPreview({ slug }: { slug: string }) {
                                     {block.type === "checkbox" && (
                                         <div className="flex flex-col gap-1.5">
                                             {block.options.map((opt) => {
-                                                const checked = (formData[block.id] || []).includes(opt.value);
+                                                const selected = formData[block.id];
+                                                const checked = Array.isArray(selected) && selected.includes(opt.value);
                                                 return (
                                                     <label key={opt.id} htmlFor={`cb-${opt.id}`}
                                                         className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer select-none transition-colors"
@@ -472,8 +497,9 @@ function FormPreview({ slug }: { slug: string }) {
                                                         </div>
                                                         <input type="checkbox" id={`cb-${opt.id}`} className="sr-only" checked={checked}
                                                             onChange={(e) => setFormData(prev => {
-                                                                const cur = prev[block.id] || [];
-                                                                return { ...prev, [block.id]: e.target.checked ? [...cur, opt.value] : cur.filter((v: string) => v !== opt.value) };
+                                                                const existing = prev[block.id];
+                                                                const cur = Array.isArray(existing) ? existing : [];
+                                                                return { ...prev, [block.id]: e.target.checked ? [...cur, opt.value] : cur.filter((v) => v !== opt.value) };
                                                             })} />
                                                         <span className="text-[13px]">{opt.value || "Option"}</span>
                                                     </label>
@@ -518,7 +544,7 @@ function FormPreview({ slug }: { slug: string }) {
 
                                     {block.type === "project" && (
                                         <Select
-                                            value={formData[block.id] || ""}
+                                            value={stringValue(formData[block.id])}
                                             onValueChange={(val) => setFormData(prev => ({ ...prev, [block.id]: val }))}
                                         >
                                             <SelectTrigger

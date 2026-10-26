@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { auraApi, queryKeys, type AuraCategory, type AuraScoreRule } from "@/src/api/api";
@@ -56,7 +56,9 @@ export default function AuraScoringPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {rules.map((rule) => (
           <RuleCard
-            key={rule.id}
+            // Keyed on the values too, so a refetch that changes them (another
+            // admin saved) remounts the card with fresh sliders.
+            key={`${rule.id}-${rule.pointsPerHour}-${rule.maxPoints}`}
             rule={rule}
             busy={saveMutation.isPending}
             onSave={(body) => saveMutation.mutate(body)}
@@ -85,14 +87,9 @@ function RuleCard({
   busy: boolean;
   onSave: (body: { category: AuraCategory; pointsPerHour: number; maxPoints: number }) => void;
 }) {
+  // Seeded once per mount; the parent keys this card on the rule's values.
   const [points, setPoints] = useState(rule.pointsPerHour);
   const [cap, setCap] = useState(rule.maxPoints);
-
-  // Keep the sliders in step with a refetch (another admin may have changed it).
-  useEffect(() => {
-    setPoints(rule.pointsPerHour);
-    setCap(rule.maxPoints);
-  }, [rule.pointsPerHour, rule.maxPoints]);
 
   const dirty = points !== rule.pointsPerHour || cap !== rule.maxPoints;
 

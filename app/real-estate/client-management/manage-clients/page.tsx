@@ -205,7 +205,7 @@ export default function ManageClientsPage() {
     try {
       setLoading(true);
       const rawData = await clientApi.getClients();
-      const normalizedData = (Array.isArray(rawData) ? rawData : []).map((c: any) => ({
+      const normalizedData = (Array.isArray(rawData) ? rawData : []).map((c) => ({
         id: c.id || c._id || "",
         client_name: c.clientName || c.client_name || c.name || "Unknown Client",
         company_name: c.companyName || c.company_name || c.name || "Unknown Company",

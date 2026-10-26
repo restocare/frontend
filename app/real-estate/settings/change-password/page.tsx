@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/app/api/errors";
 import { Eye, EyeOff } from "lucide-react";
 import { authApi } from "@/app/api/api";
 // import { useAuthStore } from "@/store/authStore";
@@ -42,9 +43,8 @@ export default function ChangePasswordPage() {
       setNewPassword("");
       setConfirmPassword("");
     },
-    onError: (err: any) => {
-      const message: string = err?.response?.data?.message ?? "Failed to change password. Please try again.";
-      toast.error(message);
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to change password. Please try again."));
     },
   });
 

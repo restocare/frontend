@@ -19,7 +19,9 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import axios from "axios";
 import { projectApi } from "@/app/api/api";
+import { getApiErrorMessage } from "@/app/api/errors";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -954,7 +956,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!project) return;
-    const p = project as any;
+    const p = project;
     const apiMap: Record<string, string | undefined> = {
       status:     p.projectStatus,
       possession: p.possessionDate,
@@ -1017,7 +1019,7 @@ export default function ProjectDetailPage() {
         featuredAmenities: [],
         isFeatured:       form.isFeatured,
         videoLinks:       form.videoLinks,
-      } as any);
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project", id] });
@@ -1089,7 +1091,7 @@ export default function ProjectDetailPage() {
     documentsMutation.isPending;
 
   const handleSave = async () => {
-    const tasks: Promise<any>[] = [saveMutation.mutateAsync()];
+    const tasks: Promise<unknown>[] = [saveMutation.mutateAsync()];
     if (form.images.length > 0) tasks.push(imagesMutation.mutateAsync());
     if (form.brochureFile) tasks.push(brochureMutation.mutateAsync());
     if (form.documents.some((d) => d.file)) tasks.push(documentsMutation.mutateAsync());
@@ -1127,17 +1129,16 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["project", id] });
       toast.success("Listing published successfully.");
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Failed to publish listing.";
-      console.error("[listing 400]", err?.response?.data);
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg);
+    onError: (err: unknown) => {
+      console.error("[listing 400]", axios.isAxiosError(err) ? err.response?.data : err);
+      toast.error(getApiErrorMessage(err, "Failed to publish listing."));
     },
   });
 
   const projectName =
     form.projectTitle ||
-    (project as any)?.projectName ||
-    (project as any)?.project_name ||
+    project?.projectName ||
+    project?.project_name ||
     "";
 
   const stepPanels = [

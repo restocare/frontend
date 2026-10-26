@@ -1,11 +1,12 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
+import type { UserRoleRef } from "@/app/api/api";
 
 interface User {
   id: string;
   email: string;
   tenantId: string | null;
-  roles: any[];
+  roles: UserRoleRef[];
   permissions: string[];
   ai_mode?: boolean;
 }

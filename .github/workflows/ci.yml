@@ -31,10 +31,8 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      # Non-blocking until the existing lint errors are cleared (WEB-02).
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Test
         run: npm test

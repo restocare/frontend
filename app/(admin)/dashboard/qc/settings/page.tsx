@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSyncedState } from "@/hooks/useSyncedState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { qcApi } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
@@ -17,17 +18,11 @@ const inputCls =
 export default function QcSettingsPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["qc-settings"], queryFn: qcApi.settings });
-  const [refundPolicy, setRefundPolicy] = useState("");
-  const [supportPhone, setSupportPhone] = useState("");
-  const [supportEmail, setSupportEmail] = useState("");
+  // Editable drafts, re-seeded whenever the query refetches.
+  const [refundPolicy, setRefundPolicy] = useSyncedState(data?.refundPolicy ?? "");
+  const [supportPhone, setSupportPhone] = useSyncedState(data?.supportPhone ?? "");
+  const [supportEmail, setSupportEmail] = useSyncedState(data?.supportEmail ?? "");
   const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!data) return;
-    setRefundPolicy(data.refundPolicy ?? "");
-    setSupportPhone(data.supportPhone ?? "");
-    setSupportEmail(data.supportEmail ?? "");
-  }, [data]);
 
   const save = useMutation({
     mutationFn: () =>

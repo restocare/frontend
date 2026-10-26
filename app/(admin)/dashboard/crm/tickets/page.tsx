@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
 import {
@@ -33,6 +33,7 @@ import {
 } from "@/src/components/crm/ui";
 import { PlusIcon, SearchIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
+import { openedWithNewParam } from "@/src/lib/deep-link";
 
 const PAGE_SIZE = 20;
 
@@ -94,7 +95,8 @@ export default function CrmTicketsPage() {
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("");
   const [page, setPage] = useState(1);
-  const [creating, setCreating] = useState(false);
+  // Deep link: /dashboard/crm/tickets?new=1 opens the raise-ticket form.
+  const [creating, setCreating] = useState(() => openedWithNewParam() && hasPermission("tickets.create"));
   const [openId, setOpenId] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
 
@@ -102,12 +104,6 @@ export default function CrmTicketsPage() {
   const canCreate = hasPermission("tickets.create");
   const canUpdate = hasPermission("tickets.update");
   const canDelete = hasPermission("tickets.delete");
-
-  // Deep link: /dashboard/crm/tickets?new=1 opens the raise-ticket form.
-  useEffect(() => {
-    const q = new URLSearchParams(window.location.search);
-    if (q.get("new") === "1" && hasPermission("tickets.create")) setCreating(true);
-  }, []);
 
   const params = {
     search: search || undefined,

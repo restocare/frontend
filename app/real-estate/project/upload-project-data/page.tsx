@@ -2,7 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { HardDriveUpload, FileSpreadsheet, CheckCircle2 } from "lucide-react";
-import { vectorDbApi, projectApi } from "@/app/api/api";
+import axios from "axios";
+import { vectorDbApi, projectApi, type ApiProject } from "@/app/api/api";
+import { unwrapList } from "@/app/api/unwrapList";
 import { useQuery } from "@tanstack/react-query";
 import {
     Search, X, Building2, Plus, Loader2,
@@ -94,9 +96,7 @@ export default function PropertiesData() {
     const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
         queryKey: ["projects"],
         queryFn: async () => {
-            const data = await projectApi.getProjects();
-            const list: any[] = Array.isArray(data) ? data : (data as any)?.data ?? [];
-            return list.map((p: any) => ({
+            return unwrapList<ApiProject>(await projectApi.getProjects()).map((p) => ({
                 ...p,
                 projectName: p.projectName ?? p.project_name ?? "",
             }));
@@ -187,8 +187,8 @@ export default function PropertiesData() {
                 if (cols.length === 0) throw new Error("No columns detected in the sheet.");
                 setExcelData(jsonData);
                 setFieldMap(autoMap(cols));
-            } catch (err: any) {
-                setUploadError(err.message || "Failed to parse the file.");
+            } catch (err) {
+                setUploadError(err instanceof Error && err.message ? err.message : "Failed to parse the file.");
                 setExcelData([]);
                 setFieldMap({});
             }
@@ -234,12 +234,14 @@ export default function PropertiesData() {
             setSubmitted(true);
             // Refresh the namespace list so the newly saved namespace appears
             refetchNamespaces();
-        } catch (err: any) {
-            console.error("Vector DB upload error:", err?.response?.data ?? err);
+        } catch (err) {
+            const response = axios.isAxiosError(err) ? err.response : undefined;
+            console.error("Vector DB upload error:", response?.data ?? err);
             let message = "Network error — could not reach the server. Please try again.";
-            if (err.response) {
-                const d = err.response.data;
-                message = (typeof d === "string" ? d : d?.message || d?.error || JSON.stringify(d)) || `Upload failed (${err.response.status})`;
+            if (response) {
+                const d: unknown = response.data;
+                const body = typeof d === "string" ? d : (d as { message?: string; error?: string } | null)?.message || (d as { error?: string } | null)?.error || JSON.stringify(d);
+                message = body || `Upload failed (${response.status})`;
             }
             setUploadError(message);
         } finally {

@@ -126,9 +126,51 @@ export const authApi = {
   },
 };
 
+/** Tenant (client) as the API returns it; older rows still use snake_case keys. */
+export interface ApiClientRecord {
+  id?: string;
+  _id?: string;
+  name?: string;
+  clientName?: string;
+  client_name?: string;
+  companyName?: string;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  company_size?: string;
+  monthlyBudget?: string;
+  monthly_budget?: string;
+  notes?: string;
+  additional_notes?: string;
+  createdAt?: string;
+  created_at?: string;
+  services?: unknown[];
+  servicesNeeded?: unknown[];
+  isBlocked?: boolean;
+  [key: string]: unknown;
+}
+
+/** Body of POST /api/tenants and PUT /api/tenants/:id. */
+export interface ClientPayload {
+  name: string;
+  clientName?: string;
+  companyName?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  monthlyBudget?: string;
+  notes?: string;
+  servicesNeeded?: string[];
+}
+
 export const clientApi = {
   createClient: async (
-    payload: any
+    payload: ClientPayload
   ) => {
     const response = await apiClient.post(
       "/api/tenants",
@@ -138,7 +180,7 @@ export const clientApi = {
     return response.data;
   },
 
-  getClients: async () => {
+  getClients: async (): Promise<ApiClientRecord[]> => {
     const response = await apiClient.get(
       "/api/tenants"
     );
@@ -158,7 +200,7 @@ export const clientApi = {
 
   updateClient: async (
     id: string,
-    payload: any
+    payload: ClientPayload
   ) => {
     const response = await apiClient.put(
       `/api/tenants/${id}`,
@@ -201,24 +243,66 @@ export const accountApi = {
   },
 };
 
+export interface ApiRole {
+  id: string;
+  name: string;
+  description?: string;
+  isSystem?: boolean;
+  tenantId?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * One entry of a user's `roles`. Login returns bare names, getMe returns
+ * role objects, and the user list returns join rows wrapping the role.
+ */
+export type UserRoleRef = string | (Partial<ApiRole> & { role?: Partial<ApiRole> });
+
+export interface ApiUser {
+  id: string;
+  name?: string;
+  email: string;
+  phoneNumber?: string;
+  phone?: string;
+  status?: string;
+  isPasswordSet?: boolean;
+  tenantId?: string | null;
+  roles?: UserRoleRef[];
+  [key: string]: unknown;
+}
+
+/** Body of POST /api/users. */
+export interface CreateUserPayload {
+  name: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+  confirmPassword: string;
+  tenantId?: string | null;
+  roleId: string;
+}
+
+/** Body of PATCH /api/users/:id. */
+export type UpdateUserPayload = Partial<Pick<ApiUser, "name" | "email" | "phoneNumber">>;
+
 export const userApi = {
-  createUser: async (payload: any) => {
+  createUser: async (payload: CreateUserPayload) => {
     const response = await apiClient.post("/api/users", payload);
     return response.data;
   },
 
-  getUsers: async (tenantId?: string | null) => {
+  getUsers: async (tenantId?: string | null): Promise<ApiUser[]> => {
     const url = tenantId ? `/api/users?tenantId=${tenantId}` : "/api/users";
     const response = await apiClient.get(url);
     return response.data;
   },
 
-  getRoles: async () => {
+  getRoles: async (): Promise<ApiRole[]> => {
     const response = await apiClient.get("/api/roles");
     return response.data;
   },
 
-  updateUser: async (id: string, payload: any) => {
+  updateUser: async (id: string, payload: UpdateUserPayload) => {
     const response = await apiClient.patch(`/api/users/${id}`, payload);
     return response.data;
   },
@@ -416,23 +500,79 @@ export const auditLogsApi = {
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
+/**
+ * Project as the API returns it. Newer rows are camelCase; older ones still
+ * snake_case, so readers check both (see normalizeProject).
+ */
+export interface ApiProject {
+  id: string;
+  tenantId?: string;
+  projectName?: string;
+  project_name?: string;
+  description?: string;
+  address?: string;
+  landmark?: string;
+  pincode?: string;
+  city?: string;
+  state?: string;
+  builders?: Array<string | { name?: string }>;
+  builderName?: string;
+  builder_name?: string;
+  circleRate?: number;
+  slug?: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  projectStatus?: string;
+  project_status?: string;
+  projectSubType?: string;
+  project_sub_type?: string;
+  projectLandArea?: string;
+  project_land_area?: string;
+  projectLandUnit?: string;
+  startDate?: string;
+  start_date?: string;
+  endDate?: string;
+  end_date?: string;
+  possessionDate?: string;
+  possession_date?: string;
+  facings?: string[];
+  facing?: string[];
+  basicAmenities?: string[];
+  basic_amenities?: string[];
+  featuredAmenities?: string[];
+  featured_amenities?: string[];
+  isFeatured?: boolean;
+  imageUrls?: string[];
+  image_urls?: string[];
+  videoLinks?: string[];
+  video_links?: string[];
+  brochureUrl?: string;
+  brochure_url?: string;
+  documents?: Array<{ id: string; name: string; url: string; fileName: string }>;
+  [key: string]: unknown;
+}
+
+/** Fields accepted by POST /api/projects and PATCH /api/projects/:id. */
+export type ProjectPayload = Partial<ApiProject>;
+
 export const projectApi = {
-  getProjects: async () => {
+  getProjects: async (): Promise<ApiProject[] | { data: ApiProject[] }> => {
     const response = await apiClient.get("/api/projects");
     return response.data;
   },
 
-  getProject: async (id: string) => {
+  getProject: async (id: string): Promise<ApiProject> => {
     const response = await apiClient.get(`/api/projects/${id}`);
     return response.data;
   },
 
-  createProject: async (payload: any) => {
+  createProject: async (payload: ProjectPayload) => {
     const response = await apiClient.post("/api/projects", payload);
     return response.data;
   },
 
-  updateProject: async (id: string, payload: any) => {
+  updateProject: async (id: string, payload: ProjectPayload) => {
     const response = await apiClient.patch(`/api/projects/${id}`, payload);
     return response.data;
   },

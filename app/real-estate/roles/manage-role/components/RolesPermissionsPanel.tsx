@@ -3,6 +3,7 @@
 import { memo, useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/app/api/errors'
 import { rolesApi, permissionsApi } from '@/app/api/api'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { Role, GroupedPermissions } from '@/types/rbac'
@@ -392,8 +393,8 @@ const RolesPermissionsPanel = memo(function RolesPermissionsPanel() {
       qc.invalidateQueries({ queryKey: ['roles'] })
       toast.success('Permissions saved')
     },
-    onError: (e: any) =>
-      toast.error(e?.response?.data?.message || 'Failed to save permissions'),
+    onError: (e: unknown) =>
+      toast.error(getApiErrorMessage(e, 'Failed to save permissions')),
   })
 
   const createMutation = useMutation({
@@ -411,8 +412,8 @@ const RolesPermissionsPanel = memo(function RolesPermissionsPanel() {
       setShowNewRole(false)
       toast.success(`Role "${created.name}" created`)
     },
-    onError: (e: any) =>
-      toast.error(e?.response?.data?.message || e?.message || 'Failed to create role'),
+    onError: (e: unknown) =>
+      toast.error(getApiErrorMessage(e, 'Failed to create role')),
   })
 
   const deleteMutation = useMutation({
@@ -422,8 +423,8 @@ const RolesPermissionsPanel = memo(function RolesPermissionsPanel() {
       if (effectiveRoleId === id) setActiveRoleId(null)
       toast.success('Role deleted')
     },
-    onError: (e: any) =>
-      toast.error(e?.response?.data?.message || 'Failed to delete role'),
+    onError: (e: unknown) =>
+      toast.error(getApiErrorMessage(e, 'Failed to delete role')),
   })
 
   const handleDelete = useCallback(() => {
@@ -443,8 +444,8 @@ const RolesPermissionsPanel = memo(function RolesPermissionsPanel() {
       qc.invalidateQueries({ queryKey: ['roles'] })
       toast.success('Role permissions restored to defaults')
     },
-    onError: (e: any) =>
-      toast.error(e?.response?.data?.message || 'Failed to restore defaults'),
+    onError: (e: unknown) =>
+      toast.error(getApiErrorMessage(e, 'Failed to restore defaults')),
   })
 
   const handleRestore = useCallback(() => {

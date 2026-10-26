@@ -43,11 +43,14 @@ export interface CallRecord {
     createdAt: string;
 }
 
+/** A submitted field value: text, number, choice, a checkbox group, or empty. */
+export type ResponseValue = string | number | boolean | string[] | null;
+
 export interface Submission {
     id?: string;
     submittedAt?: string;
     createdAt?: string;
-    responses: Record<string, any>;
+    responses: Record<string, ResponseValue>;
     callSummary?: string | null;
     callMade?: boolean;
     calls?: CallRecord[];

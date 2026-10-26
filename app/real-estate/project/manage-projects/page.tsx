@@ -22,36 +22,11 @@ import {
 } from "lucide-react";
 import { projectApi } from "@/app/api/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type ApiProject } from "@/app/api/api";
+import { unwrapList } from "@/app/api/unwrapList";
+import { normalizeProject, type Project } from "../lib/normalize-project";
 
-interface Project {
-  id: string;
-  tenantId: string;
-  projectName: string;
-  description: string;
-  address: string;
-  landmark: string;
-  city: string;
-  state: string;
-  builders: string[];
-  circleRate?: number;
-  slug?: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  // detail fields for progress
-  projectSubType?: string;
-  projectLandArea?: string;
-  startDate?: string;
-  endDate?: string;
-  possessionDate?: string;
-  projectStatus?: string;
-  facings?: string[];
-  basicAmenities?: string[];
-  featuredAmenities?: string[];
-  imageUrls?: string[];
-  videoLinks?: string[];
-  brochureUrl?: string;
-}
+// `Project` and the API-to-page mapping live in ./lib/normalize-project.
 
 // Mirrors the 6-step form completion logic used on the project edit page
 // (Heading, Images, Videos, Project Details, Basic/Amenities, Brochure) so
@@ -116,31 +91,7 @@ export default function ManageProjectsPage() {
   const { data: projects = [], isLoading, isError } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const data = await projectApi.getProjects();
-      const list: any[] = Array.isArray(data) ? data : (data as any)?.data ?? [];
-      return list.map((p: any): Project => ({
-        ...p,
-        projectName: p.projectName ?? p.project_name ?? "",
-        builders: Array.isArray(p.builders)
-          ? p.builders.map((b: any) => (typeof b === "string" ? b : b?.name ?? ""))
-          : typeof p.builderName === "string" && p.builderName
-          ? p.builderName.split(",").map((s: string) => s.trim())
-          : typeof p.builder_name === "string" && p.builder_name
-          ? p.builder_name.split(",").map((s: string) => s.trim())
-          : [],
-        projectSubType: p.projectSubType ?? p.project_sub_type,
-        projectLandArea: p.projectLandArea ?? p.project_land_area,
-        startDate: p.startDate ?? p.start_date,
-        endDate: p.endDate ?? p.end_date,
-        possessionDate: p.possessionDate ?? p.possession_date,
-        projectStatus: p.projectStatus ?? p.project_status,
-        facings: p.facings ?? p.facing ?? [],
-        basicAmenities: p.basicAmenities ?? p.basic_amenities ?? [],
-        featuredAmenities: p.featuredAmenities ?? p.featured_amenities ?? [],
-        imageUrls: p.imageUrls ?? p.image_urls ?? [],
-        videoLinks: p.videoLinks ?? p.video_links ?? [],
-        brochureUrl: p.brochureUrl ?? p.brochure_url,
-      }));
+      return unwrapList<ApiProject>(await projectApi.getProjects()).map(normalizeProject);
     },
   });
 

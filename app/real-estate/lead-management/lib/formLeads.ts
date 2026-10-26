@@ -1,4 +1,5 @@
 import apiClient from "@/app/api/apiClient";
+import { unwrapList } from "@/app/api/unwrapList";
 import type { Lead, LeadStatus, LeadType, Priority, CallStatus, CallAttempt, Meeting, LeadNote } from "../types";
 
 // ─── API shapes (matching existing codebase) ──────────────────────────────────
@@ -194,7 +195,7 @@ function mapToLead(
 async function fetchProjectNames(): Promise<Map<string, string>> {
   try {
     const res = await apiClient.get<unknown>("/api/projects");
-    const list: ApiProject[] = Array.isArray(res.data) ? res.data : (res.data as any)?.data ?? [];
+    const list = unwrapList<ApiProject>(res.data);
     const names = new Map<string, string>();
     for (const p of list) {
       const name = p.projectName ?? p.project_name;

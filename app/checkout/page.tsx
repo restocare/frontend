@@ -218,13 +218,16 @@ export default function CheckoutPage() {
   const [restaurantName, setRestaurantName] = useState("");
   const [gstNumber, setGstNumber] = useState("");
 
-  // Prefill from the logged-in customer's profile once it hydrates.
-  useEffect(() => {
-    if (!user) return;
+  // Prefill from the logged-in customer's profile once it hydrates. Adjusted
+  // during render (React's "store the previous prop" pattern) rather than in
+  // an effect, so the first paint already shows the values.
+  const [prefilledFrom, setPrefilledFrom] = useState<typeof user | null>(null);
+  if (user && user !== prefilledFrom) {
+    setPrefilledFrom(user);
     setOwnerName((v) => v || String(user.name ?? ""));
     setRestaurantName((v) => v || String(user.restaurantName ?? ""));
     setGstNumber((v) => v || String(user.gstNumber ?? ""));
-  }, [user]);
+  }
 
   const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
@@ -466,14 +469,17 @@ export default function CheckoutPage() {
 
   // Auto-detect the current location to prefill the delivery address when none
   // is selected yet — runs once when the cart has items and no address is set.
-  const [autoLocated, setAutoLocated] = useState(false);
+  const autoLocated = useRef(false);
   useEffect(() => {
-    if (autoLocated) return;
+    if (autoLocated.current) return;
     if (cartItems.length === 0) return;
     if (selectedAddressId || address) return; // already have an address
-    setAutoLocated(true);
+    autoLocated.current = true;
+    // Starts geolocation (an external system); its loading flag has to flip
+    // synchronously so the address box shows "Locating…" before the callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     locateMe();
-  }, [autoLocated, cartItems.length, selectedAddressId, address]);
+  }, [cartItems.length, selectedAddressId, address]);
 
   const buildPayloads = (mode: PaymentMode): CreateBookingPayload[] => {
     const lat = Number(latitude);

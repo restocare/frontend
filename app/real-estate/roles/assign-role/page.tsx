@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/app/api/errors'
 import { usersApi, rolesApi } from '@/app/api/api'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { ManagedUser, Role } from '@/types/rbac'
@@ -98,8 +99,8 @@ export default function AssignRolePage() {
       setSelectedUser('')
       setSelectedRole('')
     },
-    onError: (e: any) =>
-      toast.error(e?.response?.data?.message || 'Failed to assign role'),
+    onError: (e: unknown) =>
+      toast.error(getApiErrorMessage(e, 'Failed to assign role')),
   })
 
   const handleAssign = (e: React.FormEvent) => {

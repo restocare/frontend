@@ -36,6 +36,7 @@ import {
   type TemplateChoice,
 } from "@/src/components/crm/template-composer";
 import { hasPermission } from "@/src/lib/auth";
+import { openedWithNewParam } from "@/src/lib/deep-link";
 
 const PAGE_SIZE = 20;
 
@@ -98,7 +99,8 @@ export default function CrmCampaignsPage() {
   const [channel, setChannel] = useState("ALL");
   const [status, setStatus] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [adding, setAdding] = useState(false);
+  // Deep link: /dashboard/crm/campaigns?new=1 opens the create modal.
+  const [adding, setAdding] = useState(openedWithNewParam);
   const [editing, setEditing] = useState<CampaignRow | null>(null);
   const [confirmSend, setConfirmSend] = useState<CampaignRow | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CampaignRow | null>(null);
@@ -108,12 +110,6 @@ export default function CrmCampaignsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const canManage = hasPermission("campaigns.manage");
-
-  // Deep link: /dashboard/crm/campaigns?new=1 opens the create modal.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "1")
-      setAdding(true);
-  }, []);
 
   const params = {
     channel: channel === "ALL" ? undefined : channel,

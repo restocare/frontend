@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   keepPreviousData,
@@ -37,6 +37,7 @@ import {
 } from "@/src/components/crm/ui";
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
+import { openedWithNewParam } from "@/src/lib/deep-link";
 
 const PAGE_SIZE = 20;
 
@@ -107,7 +108,8 @@ export default function SalesLeadsPage() {
   const [stage, setStage] = useState<SalesLeadStage | "">("");
   const [source, setSource] = useState<SalesLeadSource | "">("");
   const [page, setPage] = useState(1);
-  const [adding, setAdding] = useState(false);
+  // `?new=1` deep-link opens the create modal on mount.
+  const [adding, setAdding] = useState(openedWithNewParam);
   const [editing, setEditing] = useState<SalesLeadRow | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [notice, setNotice] = useState<ReactNode>(null);
@@ -116,11 +118,6 @@ export default function SalesLeadsPage() {
   const canCreate = hasPermission("sales-leads.create");
   const canUpdate = hasPermission("sales-leads.update");
   const canDelete = hasPermission("sales-leads.delete");
-
-  // `?new=1` deep-link opens the create modal on mount.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "1") setAdding(true);
-  }, []);
 
   const params = {
     search: search || undefined,
