@@ -401,12 +401,16 @@ export function CategoryCheckout() {
         }
         return list;
       } catch (e) {
-        if (process.env.NODE_ENV !== "production") console.warn("[checkout] GET /v1/coupons failed:", e);
+        // 401 = session expired; apiClient is already redirecting to login.
+        const sessionExpired = e instanceof ApiError && e.status === 401;
+        if (!sessionExpired && process.env.NODE_ENV !== "production") {
+          console.warn("[checkout] GET /v1/coupons failed:", e);
+        }
         throw e;
       }
     },
     enabled: !!user?.id,
-    retry: 2,
+    retry: (count, e) => count < 2 && !(e instanceof ApiError && e.status === 401),
     staleTime: 30_000,
   });
   const coupons = useMemo(() => couponsQuery.data ?? [], [couponsQuery.data]);

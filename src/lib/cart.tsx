@@ -5,6 +5,7 @@ import {
   useContext,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
 import { trackEvent } from "@/lib/meta";
 
 const SESSION_KEY = "rc_cart_session";
+const noopSubscribe = () => () => {};
 
 /** A service the user is trying to add — carries its variants so the cart
  *  layer can decide whether to prompt for a variant first. */
@@ -92,6 +94,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [variantTarget, setVariantTarget] = useState<AddCandidate | null>(null);
   const [miniOpen, setMiniOpen] = useState(false);
 
+  // false on the server and during hydration, true afterwards. The session id
+  // is browser-only, so the server renders "loading" and the client's first
+  // paint must match it instead of jumping straight to "empty cart".
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
+
   const { data: cart, isLoading } = useQuery({
     queryKey: queryKeys.cart(sessionId),
     queryFn: () => cartApi.get(sessionId),
@@ -151,7 +158,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       sessionId,
       cart,
       count,
-      isLoading,
+      isLoading: !hydrated || isLoading,
       isMutating: addMutation.isPending,
       variantTarget,
       miniOpen,
@@ -183,6 +190,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [
     sessionId,
     cart,
+    hydrated,
     isLoading,
     variantTarget,
     miniOpen,

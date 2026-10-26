@@ -26,9 +26,11 @@ const coupon = { couponId: 42, code: "SAVE20", discountPercent: 20, isApplied: t
 class ApiError extends Error {
   constructor(message, status) { super(message); this.status = status; }
 }
+// couponsApi lives in the bookings domain module (api.ts is only a barrel).
 function api(client) {
-  return load("src/api/api.ts", {
+  return load("src/api/bookings.ts", {
     "./apiClient": { apiClient: client, ApiError, API_BASE_URL: "https://example.invalid/api" },
+    "./_shared": load("src/api/_shared.ts"),
     "@/src/lib/coupons": parsers,
   }).couponsApi;
 }
