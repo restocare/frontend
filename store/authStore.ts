@@ -51,13 +51,14 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      // Persist the session so a page reload keeps the user logged in.
+      // Persist the user so a page reload keeps the profile, but never the
+      // token: rc.accessToken (src/api/apiClient.ts) is its only stored copy,
+      // and the shell re-seeds this store from it on load.
       name: "tsk-auth",
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : noopStorage,
       ),
       partialize: (state) => ({
-        accessToken: state.accessToken,
         user: state.user,
       }),
     },

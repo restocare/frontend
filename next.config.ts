@@ -9,6 +9,21 @@ const nextConfig: NextConfig = {
   async redirects() {
     return REDIRECT_RULES;
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // Only our own pages may frame the site (clickjacking).
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // Never guess a response's type from its content.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Full URL only to our own origin; other sites get the origin alone.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
