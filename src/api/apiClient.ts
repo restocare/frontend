@@ -95,9 +95,10 @@ let refreshPromise: Promise<string | null> | null = null;
 
 /**
  * Exchange the stored refresh token for a fresh access token.
- * Single-flight: concurrent 401s share one refresh request.
+ * Single-flight: concurrent 401s share one refresh request, across both this
+ * client and the axios client in app/api/apiClient.ts (which imports this).
  */
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
   const refreshToken = getRefreshToken();
@@ -148,7 +149,7 @@ let loggingOut = false;
  * requests fail together. Storefront customers go to their own login (and
  * come back here afterwards); they must never land on the admin login.
  */
-function forceLogout(): void {
+export function forceLogout(): void {
   clearAuth();
   if (typeof window === "undefined" || loggingOut) return;
   const path = window.location.pathname;

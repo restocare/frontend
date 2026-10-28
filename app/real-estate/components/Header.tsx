@@ -92,7 +92,6 @@ export default function Header({
       // Also clear the panel session (rc.* keys) — the source of truth. Without
       // it, /login still sees a token via getToken() and bounces back in.
       clearSession();
-      document.cookie = "accessToken=; path=/; max-age=0; SameSite=Lax";
       window.location.href = ADMIN_LOGIN_PATH;
     },
   });

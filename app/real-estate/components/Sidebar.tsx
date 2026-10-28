@@ -272,7 +272,6 @@ export default function Sidebar({
       // the zustand store is only a mirror. Without clearing it, /login still
       // sees a valid token via getToken() and bounces straight back in.
       clearSession();
-      document.cookie = "accessToken=; path=/; max-age=0; SameSite=Lax";
       window.location.href = ADMIN_LOGIN_PATH;
     },
   });

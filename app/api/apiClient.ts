@@ -1,26 +1,19 @@
-import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 import axios from "axios";
+import {
+  API_BASE_URL,
+  forceLogout,
+  getToken,
+  refreshAccessToken,
+} from "@/src/api/apiClient";
 import { useAuthStore } from "@/store/authStore";
 
 // Ported from the ai-sales-agent reference frontend, bridged to this app:
-// - The backend host is derived from the panel's NEXT_PUBLIC_API_BASE_URL
-//   (which includes the "/api" prefix) — ported endpoint paths carry their own
-//   "/api/..." prefix, so we strip it from the base.
-// - Auth is the PANEL session (rc.* localStorage keys written at /login), not
-//   the reference app's own login flow. The zustand store is a mirror seeded
-//   from those keys (see store/authStore.ts).
-const PANEL_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
-const HOST_BASE = PANEL_BASE.replace(/\/api\/?$/, "");
-
-const RC_ACCESS_TOKEN = "rc.accessToken";
-const RC_REFRESH_TOKEN = "rc.refreshToken";
-const RC_SESSION_ID = "rc.sessionId";
-
-function readPanelToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(RC_ACCESS_TOKEN);
-}
+// - The backend host is the panel's API base without its "/api" suffix —
+//   ported endpoint paths carry their own "/api/..." prefix.
+// - Auth is the PANEL session. Token storage and the silent refresh live in
+//   src/api/apiClient.ts (the single owner of the rc.* keys); the zustand
+//   store is only an in-memory mirror of it (see store/authStore.ts).
+const HOST_BASE = API_BASE_URL.replace(/\/api\/?$/, "");
 
 const apiClient = axios.create({
   baseURL: HOST_BASE,
@@ -33,9 +26,9 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      // Prefer the live panel token (it gets rotated by silent refresh);
-      // fall back to the zustand mirror.
-      const token = readPanelToken() ?? useAuthStore.getState().accessToken;
+      // The stored panel token is the live one (silent refresh rotates it);
+      // the zustand mirror only backs it up within the same page.
+      const token = getToken() ?? useAuthStore.getState().accessToken;
       const { user } = useAuthStore.getState();
 
       if (token) {
@@ -76,48 +69,9 @@ apiClient.interceptors.request.use(
 );
 
 /* ---------------------- silent panel-token refresh ----------------------- */
-// Mirrors src/api/apiClient.ts: exchange the panel refresh token once
-// (single-flight) and replay the failed request. Without this, the ported
-// section would bounce to /login every time the 15-minute access token lapses.
-
-let refreshPromise: Promise<string | null> | null = null;
-
-async function refreshPanelToken(): Promise<string | null> {
-  if (refreshPromise) return refreshPromise;
-
-  const refreshToken =
-    typeof window !== "undefined" ? window.localStorage.getItem(RC_REFRESH_TOKEN) : null;
-  const sessionId =
-    typeof window !== "undefined" ? window.localStorage.getItem(RC_SESSION_ID) : null;
-  if (!refreshToken || !sessionId) return null;
-
-  refreshPromise = (async () => {
-    try {
-      const res = await fetch(`${PANEL_BASE}/v1/auth/refresh-token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ refreshToken, sessionId }),
-      });
-      if (!res.ok) return null;
-      const data = (await res.json()) as { accessToken?: string };
-      if (data?.accessToken) {
-        window.localStorage.setItem(RC_ACCESS_TOKEN, data.accessToken);
-        const { user, setAuth } = useAuthStore.getState();
-        if (user) setAuth(data.accessToken, user);
-        return data.accessToken;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  })();
-
-  try {
-    return await refreshPromise;
-  } finally {
-    refreshPromise = null;
-  }
-}
+// Same single-flight refresh as the fetch client, then replay the failed
+// request once. Without this, the ported section would bounce to /login every
+// time the 15-minute access token lapses.
 
 // Response Interceptor
 apiClient.interceptors.response.use(
@@ -126,23 +80,19 @@ apiClient.interceptors.response.use(
     const original = error.config ?? {};
 
     if (error.response?.status === 401 && !original.__isRetry) {
-      const newToken = await refreshPanelToken();
+      const newToken = await refreshAccessToken();
       if (newToken) {
+        const { user, setAuth } = useAuthStore.getState();
+        if (user) setAuth(newToken, user);
         original.__isRetry = true;
         original.headers = { ...original.headers, Authorization: `Bearer ${newToken}` };
         return apiClient(original);
       }
 
-      const onLoginPage =
-        typeof window !== "undefined" &&
-        window.location.pathname.startsWith(ADMIN_LOGIN_PATH);
-
-      if (!onLoginPage) {
-        useAuthStore.getState().clearAuth();
-        if (typeof window !== "undefined") {
-          window.location.href = ADMIN_LOGIN_PATH;
-        }
-      }
+      // Refresh failed: wipe the mirror and the stored session (forceLogout
+      // clears the rc.* keys too, so /login cannot bounce straight back in).
+      useAuthStore.getState().clearAuth();
+      forceLogout();
     }
 
     return Promise.reject(error);
