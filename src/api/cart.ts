@@ -78,18 +78,19 @@ export const cartApi = {
   add: (body: AddToCartBody) =>
     apiClient.post<unknown>("/v1/manage-cart/add", body),
 
-  /** PATCH /v1/manage-cart/update?cartId — change an item's quantity. */
+  /** PATCH /v1/manage-cart/update?cartId — change an item's quantity.
+   *  NOT skipAuth: like get/add, a logged-in user edits their own cart (resolved
+   *  from the token); guests have no token and keep using the session cart. */
   updateQuantity: (cartId: number, body: UpdateCartBody) =>
     apiClient.patch<unknown>(
       `/v1/manage-cart/update${toQueryString({ cartId })}`,
       body,
-      { skipAuth: true },
     ),
 
-  /** DELETE /v1/manage-cart/delete/:cartItemId — remove one line item. */
+  /** DELETE /v1/manage-cart/delete/:cartItemId — remove one line item.
+   *  NOT skipAuth, for the same reason as updateQuantity. */
   deleteItem: (cartItemId: number) =>
     apiClient.delete<{ message: string }>(
       `/v1/manage-cart/delete/${cartItemId}`,
-      { skipAuth: true },
     ),
 };
