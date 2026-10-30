@@ -71,7 +71,14 @@ export function NewBookingAlarm() {
     if (!token || !user || user.role === "USER" || user.role === "SERVICE_PROFESSIONAL") return;
 
     const origin = new URL(API_BASE_URL, window.location.origin).origin;
-    const socket = io(origin, { transports: ["websocket", "polling"], auth: { token } });
+    // `auth` is a function so every (re)connect sends the token that is stored NOW.
+    // The access token lasts 15 minutes and the API client swaps it in storage when
+    // it refreshes; the backend only lets a valid token into the admin room, so a
+    // token captured once at mount would stop the bell after the first reconnect.
+    const socket = io(origin, {
+      transports: ["websocket", "polling"],
+      auth: (cb) => cb({ token: getToken() }),
+    });
     socketRef.current = socket;
 
     // The room is joined on every (re)connect, not just the first: after a
