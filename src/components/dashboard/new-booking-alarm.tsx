@@ -4,12 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
+import { toast } from "sonner";
 import { API_BASE_URL, getToken } from "@/src/api/apiClient";
 import { crmQueryKeys } from "@/src/api/api";
 import { getStoredUser } from "@/src/lib/auth";
 
 /**
- * Rings the panel when a booking arrives.
+ * Rings the panel when a booking arrives. The same socket also carries new CRM
+ * sales leads (e.g. from a Meta Lead Ad), which get a corner toast, not the
+ * full-screen popup: nobody has to act on a lead within the minute.
  *
  * The bell polls once a minute, which is fine for a feed but far too slow for a
  * booking somebody has to allocate. This is the instant path: the backend also
@@ -95,12 +98,41 @@ export function NewBookingAlarm() {
       qc.invalidateQueries({ queryKey: ["admin-bookings"] });
     });
 
+    socket.on(
+      "admin_sales_lead",
+      (payload: {
+        type?: string;
+        leadId: number;
+        restaurantName: string;
+        contactName?: string | null;
+        source?: string;
+      }) => {
+        if (payload?.type !== "NEW_SALES_LEAD") return;
+        playChime();
+        toast.success(
+          `New ${payload.source === "META" ? "Meta " : ""}lead: ${payload.restaurantName}`,
+          {
+            description: payload.contactName ?? undefined,
+            duration: 15000,
+            action: {
+              label: "View",
+              onClick: () => router.push("/dashboard/crm/sales-leads"),
+            },
+          },
+        );
+        // Same keys the Sales Leads page reads, so an open page updates itself.
+        qc.invalidateQueries({ queryKey: ["crm", "sales-leads"] });
+        qc.invalidateQueries({ queryKey: crmQueryKeys.salesPipeline });
+        qc.invalidateQueries({ queryKey: crmQueryKeys.notifications });
+      },
+    );
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [qc]);
+  }, [qc, router]);
 
   // Escape closes it, like every other dialog in the panel.
   useEffect(() => {

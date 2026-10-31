@@ -58,6 +58,7 @@ const SOURCES: SalesLeadSource[] = [
   "REFERRAL",
   "COLD_CALLING",
   "GOOGLE_ADS",
+  "META",
   "OTHER",
 ];
 
