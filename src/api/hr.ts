@@ -77,6 +77,8 @@ export interface AttendanceRow {
   checkOutDistanceM: number | null;
   workedMinutes: number | null;
   status: "PRESENT" | "LATE" | "HALF_DAY";
+  /** Why the day is marked as it is, then one "Corrected by …" line per HR fix. */
+  policyNote?: string | null;
   employee?: {
     employeeId: number;
     name: string;
@@ -227,6 +229,15 @@ export const hrApi = {
     employeeId?: number;
   }) =>
     apiClient.get<AttendanceRow[]>(`/v1/hr/attendance${toQueryString(params)}`),
+  /** HR fixes a missed punch; times are IST "HH:mm". Creates the day if it had no check-in. */
+  correctAttendance: (body: {
+    employeeId: number;
+    date: string;
+    checkIn?: string;
+    checkOut?: string;
+    mode?: string;
+    reason: string;
+  }) => apiClient.post<AttendanceRow>("/v1/hr/attendance/correct", body),
 
   leaveTypes: () => apiClient.get<LeaveTypeRow[]>("/v1/hr/leave-types"),
   createLeaveType: (body: {

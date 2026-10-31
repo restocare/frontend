@@ -10,12 +10,17 @@
  *
  * Days without a check-in: Sunday = week off, a company holiday = holiday,
  * a past working day = absent, today = not marked yet, future = blank.
+ *
+ * With attendance.update, HR can fix any day from the month view: add a missed
+ * check-in (or a whole day), or a forgotten check-out (CorrectAttendanceModal).
  */
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { crmQueryKeys, essApi, hrApi, type AttendanceRow, type HolidayRow } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
+import { hasPermission } from "@/src/lib/auth";
+import { WORK_MODES } from "@/src/components/crm/portal";
 import { Badge, Btn, EmptyRow, Field, Modal, Notice, TableShell, fmtTime, inputCls } from "@/src/components/crm/ui";
 
 /* --------------------------------- dates -------------------------------- */
@@ -27,6 +32,10 @@ export const istToday = () => new Date().toLocaleDateString("en-CA", { timeZone:
 
 /** The IST calendar day of an API timestamp or date. */
 const istDay = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: IST });
+
+/** "09:47" in IST, for a time input. */
+const istClock = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleTimeString("en-GB", { timeZone: IST, hour12: false, hour: "2-digit", minute: "2-digit" }) : "";
 
 const utc = (d: string) => new Date(`${d}T00:00:00Z`);
 
@@ -257,6 +266,9 @@ export function EmployeeAttendanceModal({ person, onClose }: { person: ExportPer
   );
   const t = totals(days);
   const [busy, setBusy] = useState(false);
+  const canFix = hasPermission("attendance.update");
+  const [fixing, setFixing] = useState<DayRow | null>(null);
+  const cols = canFix ? 7 : 6;
 
   const exportMonth = async () => {
     setBusy(true);
@@ -276,84 +288,215 @@ export function EmployeeAttendanceModal({ person, onClose }: { person: ExportPer
   ];
 
   return (
-    <Modal title={person.name} onClose={onClose} wide>
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {person.employeeCode}
-            {person.subtitle ? ` · ${person.subtitle}` : ""}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 [&_button]:whitespace-nowrap">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                aria-label="Previous month"
-                onClick={() => setMonth((m) => shiftMonth(m, -1))}
-                className="rounded-lg border border-border px-2.5 py-2 text-sm text-foreground hover:bg-accent"
-              >
-                ‹
-              </button>
-              <select
-                aria-label="Month"
-                className="w-32 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-              >
-                {(months.includes(month) ? months : [month, ...months]).map((m) => (
-                  <option key={m} value={m}>
-                    {monthLabel(m)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                aria-label="Next month"
-                disabled={month >= today.slice(0, 7)}
-                onClick={() => setMonth((m) => shiftMonth(m, 1))}
-                className="rounded-lg border border-border px-2.5 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-40"
-              >
-                ›
-              </button>
+    <>
+      <Modal title={person.name} onClose={onClose} wide>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {person.employeeCode}
+              {person.subtitle ? ` · ${person.subtitle}` : ""}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 [&_button]:whitespace-nowrap">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label="Previous month"
+                  onClick={() => setMonth((m) => shiftMonth(m, -1))}
+                  className="rounded-lg border border-border px-2.5 py-2 text-sm text-foreground hover:bg-accent"
+                >
+                  ‹
+                </button>
+                <select
+                  aria-label="Month"
+                  className="w-32 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                >
+                  {(months.includes(month) ? months : [month, ...months]).map((m) => (
+                    <option key={m} value={m}>
+                      {monthLabel(m)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  aria-label="Next month"
+                  disabled={month >= today.slice(0, 7)}
+                  onClick={() => setMonth((m) => shiftMonth(m, 1))}
+                  className="rounded-lg border border-border px-2.5 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+              <Btn small tone="ghost" busy={busy} disabled={isLoading} onClick={exportMonth}>
+                Export Excel
+              </Btn>
             </div>
-            <Btn small tone="ghost" busy={busy} disabled={isLoading} onClick={exportMonth}>
-              Export Excel
-            </Btn>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {tiles.map(([label, value, tone]) => (
+              <div key={label} className="rounded-xl border border-border px-3 py-2.5">
+                <div className="text-xs text-muted-foreground">{label}</div>
+                <div className={`mt-0.5 text-lg font-semibold ${tone}`}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {error ? <Notice kind="error">{error instanceof ApiError ? error.message : "Could not load attendance."}</Notice> : null}
+
+          <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-border">
+            <TableShell head={["Date", "Day", "In time", "Out time", "Total time", "Status", ...(canFix ? [""] : [])]}>
+              {isLoading && <EmptyRow cols={cols} label="Loading…" />}
+              {!isLoading &&
+                days
+                  .filter((d) => d.kind !== "FUTURE")
+                  .reverse()
+                  .map((d) => (
+                    <tr key={d.date} className={d.kind === "WEEK_OFF" || d.kind === "HOLIDAY" ? "bg-accent/30" : ""}>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-foreground">{dateText(d.date)}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{dayName(d.date)}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{d.record ? fmtTime(d.record.checkInAt) : "—"}</td>
+                      <td className={`whitespace-nowrap px-3 py-2.5 ${d.record && !d.record.checkOutAt ? "text-warning" : "text-muted-foreground"}`}>
+                        {d.record?.checkOutAt ? fmtTime(d.record.checkOutAt) : d.record ? "No check-out" : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{d.record ? fmtWorked(d.record.workedMinutes) : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5">
+                        <Badge tone={KIND_TONE[d.kind]}>{d.label}</Badge>
+                        {d.record?.policyNote?.includes("Corrected by ") && (
+                          <div className="mt-1 text-[11px] text-muted-foreground" title={d.record.policyNote}>
+                            Edited by HR
+                          </div>
+                        )}
+                      </td>
+                      {canFix && (
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          {d.kind !== "BEFORE_JOIN" && (
+                            <Btn small tone="ghost" onClick={() => setFixing(d)}>
+                              {d.record ? "Edit" : "Add"}
+                            </Btn>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+            </TableShell>
           </div>
         </div>
+      </Modal>
+      {fixing && (
+        <CorrectAttendanceModal
+          employeeId={person.employeeId}
+          name={person.name}
+          date={fixing.date}
+          record={fixing.record}
+          onClose={() => setFixing(null)}
+        />
+      )}
+    </>
+  );
+}
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {tiles.map(([label, value, tone]) => (
-            <div key={label} className="rounded-xl border border-border px-3 py-2.5">
-              <div className="text-xs text-muted-foreground">{label}</div>
-              <div className={`mt-0.5 text-lg font-semibold ${tone}`}>{value}</div>
-            </div>
-          ))}
+/* --------------------------- fix a missed punch -------------------------- */
+
+/**
+ * HR enters the real in / out time for one day. Rendered beside (not inside)
+ * the month modal: that modal's blurred overlay would trap a nested fixed one.
+ */
+export function CorrectAttendanceModal({
+  employeeId,
+  name,
+  date,
+  record,
+  onClose,
+}: {
+  employeeId: number;
+  name: string;
+  date: string;
+  record: AttendanceRow | null;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [checkIn, setCheckIn] = useState(istClock(record?.checkInAt));
+  const [checkOut, setCheckOut] = useState(istClock(record?.checkOutAt));
+  const [mode, setMode] = useState<string>(record?.workMode ?? "OFFICE");
+  const [reason, setReason] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: hrApi.correctAttendance,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hr", "attendance"] });
+      onClose();
+    },
+    onError: (e) => setMsg(e instanceof ApiError ? e.message : "Could not save the correction."),
+  });
+
+  const submit = () => {
+    // Only send what changed: a new check-in time re-applies the late rules.
+    const inChanged = checkIn !== istClock(record?.checkInAt);
+    const outChanged = checkOut !== istClock(record?.checkOutAt);
+    if (!checkIn) return setMsg("Enter the check-in time.");
+    if (record?.checkOutAt && !checkOut) return setMsg("A recorded check-out can be changed, not removed.");
+    if (checkOut && checkOut <= checkIn) return setMsg("Check-out must be after check-in.");
+    if (!inChanged && !outChanged && record) return setMsg("Nothing changed.");
+    if (reason.trim().length < 3) return setMsg("Add a short reason — the employee sees it.");
+    setMsg(null);
+    save.mutate({
+      employeeId,
+      date,
+      checkIn: inChanged || !record ? checkIn : undefined,
+      checkOut: outChanged && checkOut ? checkOut : undefined,
+      mode: record ? undefined : mode,
+      reason: reason.trim(),
+    });
+  };
+
+  return (
+    <Modal title={record ? "Fix attendance" : "Add attendance"} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          {name} · {dayName(date)}, {dateText(date)}
+          {record ? "" : " — no check-in on this day"}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Check-in">
+            <input type="time" className={inputCls} value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+          </Field>
+          <Field label="Check-out" hint={record && !record.checkOutAt ? "Missed check-out" : undefined}>
+            <input type="time" className={inputCls} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+          </Field>
         </div>
-
-        {error ? <Notice kind="error">{error instanceof ApiError ? error.message : "Could not load attendance."}</Notice> : null}
-
-        <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-border">
-          <TableShell head={["Date", "Day", "In time", "Out time", "Total time", "Status"]}>
-            {isLoading && <EmptyRow cols={6} label="Loading…" />}
-            {!isLoading &&
-              days
-                .filter((d) => d.kind !== "FUTURE")
-                .reverse()
-                .map((d) => (
-                  <tr key={d.date} className={d.kind === "WEEK_OFF" || d.kind === "HOLIDAY" ? "bg-accent/30" : ""}>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-foreground">{dateText(d.date)}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{dayName(d.date)}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{d.record ? fmtTime(d.record.checkInAt) : "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
-                      {d.record?.checkOutAt ? fmtTime(d.record.checkOutAt) : d.record ? "No check-out" : "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{d.record ? fmtWorked(d.record.workedMinutes) : "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5">
-                      <Badge tone={KIND_TONE[d.kind]}>{d.label}</Badge>
-                    </td>
-                  </tr>
-                ))}
-          </TableShell>
+        {!record && (
+          <Field label="Mode">
+            <select className={inputCls} value={mode} onChange={(e) => setMode(e.target.value)}>
+              {WORK_MODES.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <Field label="Reason" hint="Saved on the day and sent to the employee.">
+          <input
+            className={inputCls}
+            value={reason}
+            placeholder="Forgot to check out — confirmed with team lead"
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </Field>
+        <p className="text-xs text-muted-foreground">
+          Times are IST. A changed check-in is re-checked against the late-coming rules, so the status may change.
+        </p>
+        {msg ? <Notice kind="error">{msg}</Notice> : null}
+        <div className="flex justify-end gap-2">
+          <Btn tone="ghost" onClick={onClose}>
+            Cancel
+          </Btn>
+          <Btn busy={save.isPending} onClick={submit}>
+            Save
+          </Btn>
         </div>
       </div>
     </Modal>
