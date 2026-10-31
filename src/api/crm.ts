@@ -334,6 +334,7 @@ export type SalesLeadSource =
   | "REFERRAL"
   | "COLD_CALLING"
   | "GOOGLE_ADS"
+  | "META"
   | "OTHER";
 
 export interface SalesFollowUpRow {
