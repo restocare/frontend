@@ -208,15 +208,53 @@ function TeamAttendance() {
   });
   const [person, setPerson] = useState<(ExportPerson & { subtitle?: string }) | null>(null);
   const [exporting, setExporting] = useState(false);
+  // The table only lists people who checked in; this reaches everyone else,
+  // e.g. to add a day someone forgot to check in at all.
+  const staffParams = { status: "ACTIVE" };
+  const { data: staff } = useQuery({
+    queryKey: crmQueryKeys.employees(staffParams),
+    queryFn: () => hrApi.employees(staffParams),
+    retry: false,
+  });
 
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
           <h2 className="text-base font-semibold text-foreground">Team attendance</h2>
-          <p className="text-xs text-muted-foreground">Click a person to see their whole month.</p>
+          <p className="text-xs text-muted-foreground">
+            Click a person to see their whole month
+            {hasPermission("attendance.update") ? " and fix a missed check-in or check-out." : "."}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {!!staff?.length && (
+            <select
+              aria-label="Open an employee's month"
+              className={`${inputCls} w-auto`}
+              value=""
+              onChange={(e) => {
+                const emp = staff.find((s) => s.employeeId === Number(e.target.value));
+                if (!emp) return;
+                setPerson({
+                  employeeId: emp.employeeId,
+                  name: emp.name,
+                  employeeCode: emp.employeeCode,
+                  joinDate: emp.joinDate,
+                  subtitle: [...new Set([emp.designation, emp.department?.name].filter(Boolean))].join(" · "),
+                });
+              }}
+            >
+              <option value="">Any employee…</option>
+              {[...staff]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((s) => (
+                  <option key={s.employeeId} value={s.employeeId}>
+                    {s.name} · {s.employeeCode}
+                  </option>
+                ))}
+            </select>
+          )}
           <input
             type="date"
             aria-label="Date"

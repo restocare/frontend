@@ -473,6 +473,9 @@ const ACTION_META: Record<string, { icon: Icon; cls: string }> = {
 /* Where an action maps to a literal sidebar tab, label it as the user sees it
    rather than as the raw permission verb. */
 const ACTION_LABEL: Record<string, Record<string, string>> = {
+  attendance: {
+    update: "Fix missed check-in / check-out",
+  },
   ess: {
     view: "Show My Space",
     portal: "My Portal",
