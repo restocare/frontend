@@ -116,13 +116,13 @@ export function NewBookingAlarm() {
             duration: 15000,
             action: {
               label: "View",
-              onClick: () => router.push("/dashboard/crm/sales-leads"),
+              onClick: () => router.push("/dashboard/leads"),
             },
           },
         );
-        // Same keys the Sales Leads page reads, so an open page updates itself.
-        qc.invalidateQueries({ queryKey: ["crm", "sales-leads"] });
-        qc.invalidateQueries({ queryKey: crmQueryKeys.salesPipeline });
+        // Meta leads land on the CRM Leads sheet. Same keys that page reads, so
+        // an open page updates itself.
+        qc.invalidateQueries({ queryKey: ["marketing-leads", "list"] });
         qc.invalidateQueries({ queryKey: crmQueryKeys.notifications });
       },
     );
