@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   categoryTreeApi,
+  dispatchApi,
   flattenTags,
   queryKeys,
   skillTagApi,
@@ -43,6 +45,13 @@ export default function SkillTagsPage() {
   const [tab, setTab] = useState<Tab>("tags");
   const [tradeId, setTradeId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  // Tags change nothing until matching is switched on, and nothing on this
+  // page would otherwise say so — which reads as "the tags do not work".
+  const { data: allocation } = useQuery({
+    queryKey: queryKeys.allocationSettings,
+    queryFn: () => dispatchApi.getAllocationSettings(),
+  });
 
   // Tags hang off top-level categories only, so the picker lists just those.
   const { data: tree } = useQuery({
@@ -94,6 +103,32 @@ export default function SkillTagsPage() {
           </select>
         </label>
       </header>
+
+      {allocation && !allocation.tagMatchingEnabled && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <strong className="font-semibold">Skill matching is off.</strong> Nothing
+          on this page is affecting dispatch yet — every lead still goes to the
+          whole category, whatever is tagged here. Tag your services and
+          partners first, check Coverage, then switch it on under{" "}
+          <Link
+            href="/dashboard/dispatcher/allocation"
+            className="font-medium text-primary underline underline-offset-2"
+          >
+            Dispatcher → Auto Allocation
+          </Link>
+          .
+        </div>
+      )}
+
+      {allocation?.tagMatchingEnabled && !allocation.tagFallbackToCategory && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <strong className="font-semibold">
+            Skill matching is on, with no fallback.
+          </strong>{" "}
+          A lead that matches nobody is not broadcast at all — it waits for a
+          manual allocation. Watch the Coverage tab.
+        </div>
+      )}
 
       {notice && (
         <div

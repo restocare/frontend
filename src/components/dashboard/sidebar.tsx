@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { Fragment, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -48,6 +48,25 @@ import type { ComponentType, SVGProps } from "react";
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
+/**
+ * Which band of the sidebar an entry belongs to, ordered by how often ops
+ * reach for it rather than by how the system is built.
+ *
+ * "main" carries no heading: the four pages people open every day should not
+ * sit under a label, and a heading above the very first item reads as chrome.
+ */
+type Section = "main" | "operations" | "business" | "people" | "setup";
+
+const SECTION_ORDER: Section[] = ["main", "operations", "business", "people", "setup"];
+
+const SECTION_LABEL: Record<Section, string | null> = {
+  main: null,
+  operations: "Operations",
+  business: "Business",
+  people: "People",
+  setup: "Setup",
+};
+
 // `permission` gates visibility for STAFF users (admins hold "*"). Leaves
 // without a permission are visible to every panel session.
 type NavLeaf = {
@@ -55,6 +74,10 @@ type NavLeaf = {
   href: string;
   icon: IconType;
   permission?: string;
+  /** Top-level entries only; ignored on a child. Defaults to "setup". */
+  section?: Section;
+  /** Rank inside the section, lower first. Unset keeps the written order. */
+  order?: number;
   // A tool everyone gets regardless of role — chat is the only one today.
   // Without this, STAFF would be filtered out of it: their rule is "only
   // admin-panel entries the role explicitly grants".
@@ -66,6 +89,8 @@ type NavGroup = {
   label: string;
   icon: IconType;
   permission?: string;
+  section?: Section;
+  order?: number;
   children: NavLeaf[];
 };
 type NavEntry = NavLeaf | NavGroup;
@@ -74,40 +99,41 @@ const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
 
 // Sections of the classic admin panel — hidden entirely from STAFF logins.
 const ADMIN_NAV: NavEntry[] = [
-  { label: "Overview", href: "/dashboard", icon: GridIcon },
+  { label: "Overview", href: "/dashboard", icon: GridIcon, section: "main" },
   {
     label: "Analytics",
     href: "/dashboard/analytics",
     icon: ChartIcon,
     permission: "analytics.view",
-  },
-  {
-    label: "Categories",
-    href: "/dashboard/categories",
-    icon: StoreIcon,
-    permission: "categories.view",
-  },
-  {
-    label: "Skill Tags",
-    href: "/dashboard/skill-tags",
-    icon: TagIcon,
-    permission: "categories.view",
-  },
-  {
-    label: "Banner",
-    href: "/dashboard/banners",
-    icon: ImageIcon,
-    permission: "banners.view",
+    section: "main",
   },
   {
     label: "Bookings",
     href: "/dashboard/bookings",
     icon: BagIcon,
     permission: "bookings.view",
+    section: "main",
+  },
+  // The roster ops works from every day. The full partner list — including the
+  // pending review queue — stays under Dispatcher.
+  {
+    label: "Active Partners",
+    href: "/dashboard/active-partners",
+    icon: UsersIcon,
+    permission: "partners.view",
+    section: "main",
+  },
+  {
+    label: "Service Categories",
+    href: "/dashboard/categories",
+    icon: StoreIcon,
+    permission: "categories.view",
+    section: "main",
   },
   {
     label: "Tasks",
     icon: ClipboardIcon,
+    section: "operations",
     children: [
       {
         label: "All Tasks",
@@ -126,6 +152,7 @@ const ADMIN_NAV: NavEntry[] = [
   {
     label: "Quick Commerce",
     icon: StoreIcon,
+    section: "operations",
     children: [
       {
         label: "Vendors",
@@ -163,6 +190,9 @@ const ADMIN_NAV: NavEntry[] = [
   {
     label: "Dispatcher",
     icon: MapPinIcon,
+    section: "operations",
+    // Leads are the business — this heads its band.
+    order: 10,
     children: [
       {
         label: "Service Partners",
@@ -207,6 +237,14 @@ const ADMIN_NAV: NavEntry[] = [
         permission: "dispatcher.view",
       },
       {
+        // Next to Auto Allocation: the tags decide who a lead reaches, and the
+        // switch that makes them count lives on that page.
+        label: "Skill Tags",
+        href: "/dashboard/dispatcher/skill-tags",
+        icon: TagIcon,
+        permission: "categories.view",
+      },
+      {
         label: "Auto Allocation",
         href: "/dashboard/dispatcher/allocation",
         icon: RouteIcon,
@@ -243,10 +281,19 @@ const ADMIN_NAV: NavEntry[] = [
     href: "/dashboard/workspaces",
     icon: BuildingIcon,
     permission: "workspaces.view",
+    section: "business",
+  },
+  {
+    label: "Banner",
+    href: "/dashboard/banners",
+    icon: ImageIcon,
+    permission: "banners.view",
+    section: "setup",
   },
   {
     label: "Chat",
     icon: MailIcon,
+    section: "people",
     children: [
       // Messaging itself needs no permission — every panel login can chat.
       {
@@ -268,22 +315,26 @@ const ADMIN_NAV: NavEntry[] = [
     href: "/dashboard/contacts",
     icon: MailIcon,
     permission: "contact.view",
+    section: "business",
   },
   {
     label: "Vendors",
     href: "/dashboard/vendors",
     icon: CartIcon,
     permission: "vendors.view",
+    section: "business",
   },
   {
     label: "Payments",
     href: "/dashboard/payments",
     icon: WalletIcon,
     permission: "payments.view",
+    section: "operations",
   },
   {
     label: "Styling",
     icon: PaletteIcon,
+    section: "setup",
     children: [
       {
         label: "Web Styling",
@@ -302,6 +353,7 @@ const ADMIN_NAV: NavEntry[] = [
   {
     label: "Tools",
     icon: WrenchIcon,
+    section: "setup",
     children: [
       {
         label: "PDF Editor",
@@ -323,12 +375,14 @@ const ADMIN_NAV: NavEntry[] = [
     href: "/dashboard/tutor",
     icon: GraduationCapIcon,
     permission: "ai-tutor.view",
+    section: "setup",
   },
   // Aura — the AI life tracker's control room (its own React Native app).
   {
     label: "Aura",
     icon: AuraIcon,
     permission: "aura.view",
+    section: "setup",
     children: [
       {
         label: "Overview",
@@ -369,18 +423,22 @@ const ADMIN_NAV: NavEntry[] = [
     href: "/dashboard/configure",
     icon: WrenchIcon,
     permission: "configure.view",
+    section: "setup",
   },
   {
     label: "Settings",
     href: "/dashboard/settings",
     icon: SettingsIcon,
     permission: "settings.view",
+    section: "setup",
   },
 ];
 
 const CRM_NAV: NavGroup = {
   label: "CRM",
   icon: BriefcaseIcon,
+  section: "business",
+  order: 10,
   children: [
     {
       label: "CRM Overview",
@@ -488,6 +546,7 @@ const MY_SPACE_NAV: NavGroup = {
   icon: UsersIcon,
   // Parent switch — off hides the employee's whole self-service section.
   permission: "ess.view",
+  section: "people",
   children: [
     // One permission per tab (ess.<tab>) so a role can be given the whole
     // section or just part of it. "ess.view" is the parent switch — the super
@@ -564,6 +623,8 @@ const MY_SPACE_NAV: NavGroup = {
 const HR_NAV: NavGroup = {
   label: "HR Management",
   icon: UsersIcon,
+  section: "people",
+  order: 10,
   children: [
     {
       label: "Employees",
@@ -631,6 +692,7 @@ const HR_NAV: NavGroup = {
 const ACCESS_NAV: NavGroup = {
   label: "Roles & Permissions",
   icon: ShieldIcon,
+  section: "setup",
   children: [
     {
       label: "Roles & Permissions",
@@ -658,6 +720,7 @@ const ACCESS_NAV: NavGroup = {
 const REAL_ESTATE_NAV: NavGroup = {
   label: "SaaS",
   icon: BuildingIcon,
+  section: "business",
   children: [
     {
       label: "Dashboard",
@@ -721,13 +784,7 @@ function buildNav(): NavEntry[] {
     ).filter((entry) =>
       "children" in entry ? entry.children.length > 0 : staffAllowed(entry),
     );
-    const entries = [...adminEntries, ...groups];
-    // Settings always sits last, matching the admin layout.
-    const settingsIdx = entries.findIndex(
-      (e) => "href" in e && e.href === "/dashboard/settings",
-    );
-    if (settingsIdx !== -1) entries.push(...entries.splice(settingsIdx, 1));
-    return entries;
+    return bySection([...adminEntries, ...groups]);
   }
   // ADMIN accounts are permission-gated too. An admin inherits the system
   // "admin" RBAC role, so restricting that role has to actually hide what it no
@@ -741,7 +798,28 @@ function buildNav(): NavEntry[] {
   ).filter((entry) =>
     "children" in entry ? entry.children.length > 0 : allowed(entry),
   );
-  return [...adminNav.slice(0, 1), ...groups, ...adminNav.slice(1)];
+  return bySection([...adminNav, ...groups]);
+}
+
+/**
+ * Order the sidebar by section, keeping each entry's position within its own
+ * section. Settings is pinned last — it is where people look for it.
+ *
+ * This is also what `allowedLeaves` walks, so the first page a STAFF login
+ * lands on is the first one they can see on screen.
+ */
+function bySection(entries: NavEntry[]): NavEntry[] {
+  const ordered = SECTION_ORDER.flatMap((section) =>
+    entries
+      .filter((entry) => (entry.section ?? "setup") === section)
+      // Stable, so anything without a rank keeps the order it is written in.
+      .sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
+  );
+  const settings = ordered.findIndex(
+    (e) => !isGroup(e) && e.href === "/dashboard/settings",
+  );
+  if (settings !== -1) ordered.push(...ordered.splice(settings, 1));
+  return ordered;
 }
 
 /** Every page link the current session may open (permission-gated). */
@@ -848,25 +926,35 @@ export function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {nav.map((entry) =>
-            isGroup(entry) ? (
-              <NavGroupItem
-                key={entry.label}
-                group={entry}
-                pathname={pathname}
-                collapsed={collapsed}
-                onNavigate={onCloseMobile}
-              />
-            ) : (
-              <NavLeafLink
-                key={entry.href}
-                leaf={entry}
-                pathname={pathname}
-                collapsed={collapsed}
-                onNavigate={onCloseMobile}
-              />
-            ),
-          )}
+          {nav.map((entry, i) => {
+            const section = entry.section ?? "setup";
+            const previous = i > 0 ? (nav[i - 1].section ?? "setup") : null;
+            // A heading only where the band actually changes, so the first
+            // items stand on their own and no band is announced twice.
+            const heading =
+              section === previous ? null : SECTION_LABEL[section];
+
+            return (
+              <Fragment key={isGroup(entry) ? entry.label : entry.href}>
+                {heading && <SectionHeading label={heading} collapsed={collapsed} />}
+                {isGroup(entry) ? (
+                  <NavGroupItem
+                    group={entry}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                    onNavigate={onCloseMobile}
+                  />
+                ) : (
+                  <NavLeafLink
+                    leaf={entry}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                    onNavigate={onCloseMobile}
+                  />
+                )}
+              </Fragment>
+            );
+          })}
         </nav>
 
         {/* Footer / logout */}
@@ -902,18 +990,36 @@ function leafActive(href: string, pathname: string): boolean {
   return EXACT_HREFS.has(href) ? pathname === href : pathname.startsWith(href);
 }
 
+/**
+ * Names a band of the sidebar. In the collapsed rail there is no room for the
+ * word, so the rule carries the separation on its own.
+ */
+function SectionHeading({ label, collapsed }: { label: string; collapsed: boolean }) {
+  if (collapsed) {
+    return <div className="mx-auto my-3 h-px w-8 bg-border lg:w-6" aria-hidden />;
+  }
+  return (
+    <p className="px-3 pb-1 pt-5 text-[11px] font-medium text-muted-foreground">
+      {label}
+    </p>
+  );
+}
+
 function NavLeafLink({
   leaf,
   pathname,
   collapsed,
   onNavigate,
   nested,
+  hidden,
 }: {
   leaf: NavLeaf;
   pathname: string;
   collapsed: boolean;
   onNavigate: () => void;
   nested?: boolean;
+  /** Clipped inside a closed group — keep it out of the tab order too. */
+  hidden?: boolean;
 }) {
   const active = leafActive(leaf.href, pathname);
   const Icon = leaf.icon;
@@ -922,6 +1028,8 @@ function NavLeafLink({
       href={leaf.href}
       onClick={onNavigate}
       title={collapsed ? leaf.label : undefined}
+      tabIndex={hidden ? -1 : undefined}
+      aria-hidden={hidden || undefined}
       className={[
         "group flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors",
         nested && !collapsed ? "px-3 pl-11" : "px-3",
@@ -960,39 +1068,55 @@ function NavGroupItem({
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={collapsed ? group.label : undefined}
+        aria-expanded={expanded}
         className={[
-          "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+          "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
           childActive
             ? "bg-sidebar-accent text-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
           collapsed ? "lg:justify-center" : "",
         ].join(" ")}
       >
+        {/* Folded away with the current page inside it: the only way to tell. */}
+        {childActive && !expanded && (
+          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+        )}
         <Icon className="h-5 w-5 shrink-0" />
         {!collapsed && (
           <>
             <span className="flex-1 truncate text-left">{group.label}</span>
             <ChevronDownIcon
-              className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+              className={`h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
+                expanded ? "rotate-180" : ""
+              }`}
             />
           </>
         )}
       </button>
 
-      {expanded && (
-        <div className="mt-1 space-y-1">
-          {group.children.map((child) => (
-            <NavLeafLink
-              key={child.href}
-              leaf={child}
-              pathname={pathname}
-              collapsed={collapsed}
-              onNavigate={onNavigate}
-              nested
-            />
-          ))}
+      {/* 0fr → 1fr animates to the real content height, with no JS measuring
+          and nothing to re-measure when a permission change adds a child. */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="mt-1 space-y-1">
+            {group.children.map((child) => (
+              <NavLeafLink
+                key={child.href}
+                leaf={child}
+                pathname={pathname}
+                collapsed={collapsed}
+                onNavigate={onNavigate}
+                nested
+                hidden={!expanded}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
