@@ -80,19 +80,23 @@ function ringGuide(n: number): string {
 function Toggle({
   checked,
   onChange,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: () => void;
+  /** For a switch that only means anything while another one is on. */
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
         checked ? "bg-success" : "bg-muted"
-      }`}
+      } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
     >
       <span
         className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
@@ -119,6 +123,8 @@ type FormState = Pick<
   | "dutySessionMaxHours"
   | "leadRingRepeatCount"
   | "leadRingRepeatSeconds"
+  | "tagMatchingEnabled"
+  | "tagFallbackToCategory"
 >;
 
 export default function AutoAllocationPage() {
@@ -153,6 +159,8 @@ export default function AutoAllocationPage() {
           dutySessionMaxHours: data.dutySessionMaxHours,
           leadRingRepeatCount: data.leadRingRepeatCount,
           leadRingRepeatSeconds: data.leadRingRepeatSeconds,
+          tagMatchingEnabled: data.tagMatchingEnabled,
+          tagFallbackToCategory: data.tagFallbackToCategory,
         }
       : null);
   const setForm = (next: FormState) => setEdits(next);
@@ -223,6 +231,13 @@ export default function AutoAllocationPage() {
         form.includeUnlocatedPartners
           ? "Partners with no saved location receive every lead as well, because their distance cannot be measured."
           : "Partners with no saved location receive nothing until a location is captured.",
+        form.tagMatchingEnabled
+          ? `Within that set, a service that names a skill reaches the partners who declared it, plus the generalists — anyone who declared no skill, or only the trade itself. A service that names NO skill reaches the generalists alone, so a specialist is never rung for unspecified work.${
+              form.tagFallbackToCategory
+                ? " If either case leaves nobody, the whole category is rung instead."
+                : " If either case leaves nobody, the booking waits for a manual allocation."
+            }`
+          : "Skills are ignored → a lead reaches everyone in the category, whatever they specialise in.",
         `A partner can enter the OTP and start the job only within ${form.startRadiusMeters} m of the customer.`,
         `A partner stays on duty until they switch off themselves. If their app is silent for ${form.presenceStaleMinutes} minutes, duty hours pause — and resume the moment the app is heard from again. One session is worth at most ${form.dutySessionMaxHours} hours.`,
         form.leadRingRepeatCount > 0
@@ -468,6 +483,64 @@ export default function AutoAllocationPage() {
               setForm({
                 ...form,
                 includeUnlocatedPartners: !form.includeUnlocatedPartners,
+              })
+            }
+          />
+        </div>
+
+        {/* Skill-tag matching */}
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Match leads on skill tags
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Off, a lead goes to everyone in the category — booking an Indian
+              curry chef alarms every chef. On, it goes to the partners who
+              declared that skill. A partner who has declared no skills keeps
+              receiving every lead in their category either way, but a partner
+              who has declared one is rung only for work that asks for it —
+              including services that name no skill at all. Tag your services
+              before switching this on. Check Skill
+              Tags → Coverage first: a tag with no partners online turns its
+              services into leads nobody can take.
+            </p>
+          </div>
+          <Toggle
+            checked={form.tagMatchingEnabled}
+            onChange={() =>
+              setForm({ ...form, tagMatchingEnabled: !form.tagMatchingEnabled })
+            }
+          />
+        </div>
+
+        {/* Fall back to the category when no skill matches */}
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
+          <div>
+            <p
+              className={`text-sm font-semibold ${
+                form.tagMatchingEnabled
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              Fall back to the whole category
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Only applies while skill matching is on. If every partner in range
+              has declared skills and none of them fits, the lead rings the whole
+              category rather than being dropped — a served customer beats a
+              perfect match. Turn off once coverage is good and you would rather
+              see the gap than hide it.
+            </p>
+          </div>
+          <Toggle
+            checked={form.tagFallbackToCategory}
+            disabled={!form.tagMatchingEnabled}
+            onChange={() =>
+              setForm({
+                ...form,
+                tagFallbackToCategory: !form.tagFallbackToCategory,
               })
             }
           />

@@ -146,6 +146,17 @@ export interface AllocationSettings {
   leadRingRepeatCount: number;
   /** Seconds between repeat rings. */
   leadRingRepeatSeconds: number;
+  /**
+   * Match leads on skill tags, not just the category. Off reproduces the
+   * behaviour before tags existed, so it is safe to leave off until services
+   * and partners actually carry tags (see Skill Tags → Coverage).
+   */
+  tagMatchingEnabled: boolean;
+  /**
+   * When tag matching leaves nobody, ring the whole category instead of
+   * dropping the lead. On by default — a served customer beats a perfect match.
+   */
+  tagFallbackToCategory: boolean;
   updatedAt: string;
 }
 

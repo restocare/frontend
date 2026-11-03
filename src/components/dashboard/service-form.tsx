@@ -6,6 +6,8 @@ import {
   categoryTreeApi,
   queryKeys,
   serviceApi,
+  skillTagApi,
+  tagIdsOf,
   type CatalogService,
   type ServiceInput,
   type ServiceVariantInput,
@@ -13,6 +15,7 @@ import {
 import { ApiError } from "@/src/api/apiClient";
 import { compressImage } from "@/src/lib/image";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
+import { SkillTagPicker } from "@/src/components/dashboard/skill-tag-picker";
 
 const VARIANTS_PLACEHOLDER = `[
   { "name": "north Indian chef", "price": 299, "durationMinutes": 60 },
@@ -128,6 +131,22 @@ export function ServiceForm({
   // instead of creating a second service.
   const [savedId, setSavedId] = useState<number | null>(service?.serviceId ?? null);
 
+  // Skills live in their own table, so they are written after the service is
+  // saved (a new service has no id to attach them to yet). Only sent when the
+  // picker was actually touched, so saving an unrelated field writes nothing.
+  const [tagIds, setTagIds] = useState<number[]>([]);
+  const [tagsTouched, setTagsTouched] = useState(false);
+
+  useQuery({
+    queryKey: queryKeys.skillTagsService(service?.serviceId ?? 0),
+    queryFn: async () => {
+      const links = await skillTagApi.serviceTags(service!.serviceId);
+      setTagIds(tagIdsOf(links));
+      return links;
+    },
+    enabled: service != null,
+  });
+
   const preview = useMemo(() => (image ? URL.createObjectURL(image) : null), [image]);
   useEffect(
     () => () => {
@@ -172,6 +191,20 @@ export function ServiceForm({
           const reason = err instanceof Error ? err.message : String(err);
           throw new Error(
             `The service was saved, but the image upload failed: ${reason} Save again to retry the image.`,
+          );
+        }
+      }
+
+      // Skills last: they are a separate table, and a failure here must read as
+      // "skills not saved", not as "the service was not saved".
+      if (tagsTouched) {
+        try {
+          await skillTagApi.setServiceTags(saved.serviceId, tagIds);
+          setTagsTouched(false);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `The service was saved, but its skills were not: ${reason} Save again to retry them.`,
           );
         }
       }
@@ -304,6 +337,23 @@ export function ServiceForm({
                   </option>
                 ))}
               </select>
+            </Field>
+
+            <Field
+              label="Skills needed"
+              hint="Which partners are alarmed for this service. Saved after the service itself."
+              full
+            >
+              <SkillTagPicker
+                includeMainTag={false}
+                categoryId={topId || null}
+                value={tagIds}
+                onChange={(next) => {
+                  setTagIds(next);
+                  setTagsTouched(true);
+                }}
+                emptyHint="No skill chosen — this service inherits its category's. If those are empty too, it reaches only the partners who declared no skill, not the specialists."
+              />
             </Field>
 
             <Field label="Subtitle" hint="Size or scope line under the name." full>

@@ -22,6 +22,7 @@ import {
 } from "@/src/components/dashboard/partner-status";
 import { ClockIcon, SpinnerIcon, StarIcon } from "@/src/components/icons";
 import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
+import { PartnerSkillsCard } from "@/src/components/dashboard/partner-skills-card";
 
 export default function PartnerDetailPage() {
   const params = useParams<{ id: string }>();
@@ -390,8 +391,13 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           </div>
         </form>
 
-        {/* Read-only info + danger zone */}
+        {/* Skills, read-only info + danger zone */}
         <div className="space-y-6">
+          <PartnerSkillsCard
+            professionalId={partner.professionalId}
+            categoryId={partner.categoryId ?? null}
+          />
+
           <div className="space-y-3 rounded-2xl border border-border bg-card p-5">
             <h2 className="text-base font-semibold text-foreground">Account</h2>
             <Info label="Email" value={partner.email ?? "—"} />
@@ -1197,7 +1203,7 @@ function Avatar({ partner }: { partner: PartnerDetail }) {
     .join("")
     .toUpperCase();
   return (
-    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-base font-semibold text-white">
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-600 text-base font-semibold text-white">
       {initials || "?"}
     </div>
   );

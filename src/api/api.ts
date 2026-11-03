@@ -23,6 +23,7 @@ export * from "./hr";
 export * from "./partners";
 export * from "./qc";
 export * from "./query-keys";
+export * from "./skill-tags";
 export * from "./tasks";
 export * from "./vendors";
 export * from "./workspaces";

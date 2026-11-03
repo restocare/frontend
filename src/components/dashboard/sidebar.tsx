@@ -88,6 +88,12 @@ const ADMIN_NAV: NavEntry[] = [
     permission: "categories.view",
   },
   {
+    label: "Skill Tags",
+    href: "/dashboard/skill-tags",
+    icon: TagIcon,
+    permission: "categories.view",
+  },
+  {
     label: "Banner",
     href: "/dashboard/banners",
     icon: ImageIcon,
