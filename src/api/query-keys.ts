@@ -51,6 +51,17 @@ export const queryKeys = {
   categories: ["categories"] as const,
   services: (params: ServiceListParams) => ["services", params] as const,
   categoryTree: ["categoryTree"] as const,
+  /** Skill tags. Scoped by trade, because the manager shows one trade at a time. */
+  skillTags: (categoryId?: number, includeInactive?: boolean) =>
+    ["skill-tags", categoryId ?? "all", includeInactive ? "with-inactive" : "active"] as const,
+  skillTagsService: (serviceId: number) => ["skill-tags", "service", serviceId] as const,
+  skillTagsCategory: (categoryId: number) => ["skill-tags", "category", categoryId] as const,
+  skillTagsPartner: (professionalId: number) =>
+    ["skill-tags", "partner", professionalId] as const,
+  skillTagCoverage: (categoryId?: number, city?: string) =>
+    ["skill-tags", "coverage", categoryId ?? "all", city ?? "all"] as const,
+  skillTagsUntagged: (categoryId?: number) =>
+    ["skill-tags", "untagged", categoryId ?? "all"] as const,
   /** Location-scoped tree: a Delhi answer must never be reused in Mumbai. */
   categoryTreeAt: (coords?: { lat: number; lng: number } | null) =>
     [

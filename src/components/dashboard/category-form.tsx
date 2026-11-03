@@ -7,11 +7,14 @@ import {
   categoryTreeApi,
   queryKeys,
   serviceApi,
+  skillTagApi,
+  tagIdsOf,
   type CategoryTreeNode,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { compressImage } from "@/src/lib/image";
 import { CloseIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@/src/components/icons";
+import { SkillTagPicker } from "@/src/components/dashboard/skill-tag-picker";
 
 interface CategoryFormProps {
   category: CategoryTreeNode | null; // null => create
@@ -41,6 +44,27 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
   // create the category a second time.
   const [createdId, setCreatedId] = useState<number | null>(null);
   const [savedServices, setSavedServices] = useState(0);
+
+  // Skills are their own table and are written after the category exists. Only
+  // sent when the picker was touched, so saving a name writes nothing extra.
+  const [tagIds, setTagIds] = useState<number[]>([]);
+  const [tagsTouched, setTagsTouched] = useState(false);
+
+  useQuery({
+    queryKey: queryKeys.skillTagsCategory(category?.categoryId ?? 0),
+    queryFn: async () => {
+      const links = await skillTagApi.categoryTags(category!.categoryId);
+      setTagIds(tagIdsOf(links));
+      return links;
+    },
+    enabled: category != null,
+  });
+
+  // Skills belong to a trade: a sub-category borrows its parent's list, a
+  // top-level category is its own trade. A brand-new top-level category has no
+  // id yet, so it has nothing to pick from until it is saved once.
+  const tagSourceId =
+    parentId === "" ? (category?.categoryId ?? createdId ?? null) : Number(parentId);
 
   // Parent dropdown: existing top-level categories (can't be the category itself).
   const { data: tree } = useQuery({
@@ -74,13 +98,30 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
         video,
       };
 
+      // Skills last, so a failure here reads as "skills not saved" rather than
+      // "the category was not saved".
+      const saveTags = async (categoryId: number) => {
+        if (!tagsTouched) return;
+        try {
+          await skillTagApi.setCategoryTags(categoryId, tagIds);
+          setTagsTouched(false);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `Saved, but its skills were not: ${reason} Save again to retry them.`,
+          );
+        }
+      };
+
       if (category) {
         await categoryApi.update(category.categoryId, payload);
+        await saveTags(category.categoryId);
         return;
       }
 
       const newId = createdId ?? (await categoryApi.create(payload)).categoryId;
       setCreatedId(newId);
+      await saveTags(newId);
       // Attach any drafted services to the freshly created category, skipping
       // the ones a previous attempt already saved.
       const valid = services.filter((s) => s.name.trim() && s.price.trim());
@@ -180,6 +221,33 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field
+              label="Skills needed"
+              hint={
+                parentId === ""
+                  ? "The trade-wide default. Every service here with no skill of its own inherits these."
+                  : "Applies to every service in this sub-category that has no skill of its own."
+              }
+              full
+            >
+              {tagSourceId == null ? (
+                <p className="text-sm text-muted-foreground">
+                  Save the category first — skills are defined per trade, and
+                  this one does not exist yet.
+                </p>
+              ) : (
+                <SkillTagPicker
+                  includeMainTag={false}
+                  categoryId={tagSourceId}
+                  value={tagIds}
+                  onChange={(next) => {
+                    setTagIds(next);
+                    setTagsTouched(true);
+                  }}
+                  emptyHint="No skill chosen — these services reach only the partners who declared no skill, not the specialists."
+                />
+              )}
             </Field>
             <Field label="Description" full>
               <input
@@ -328,10 +396,12 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
 
 function Field({
   label,
+  hint,
   full,
   children,
 }: {
   label: string;
+  hint?: string;
   full?: boolean;
   children: React.ReactNode;
 }) {
@@ -339,6 +409,7 @@ function Field({
     <label className={`space-y-1.5 ${full ? "sm:col-span-2" : ""}`}>
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
       {children}
+      {hint ? <span className="block text-xs text-muted-foreground">{hint}</span> : null}
     </label>
   );
 }

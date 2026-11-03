@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   categoryApi,
   queryKeys,
+  skillTagApi,
+  tagIdsOf,
   type CategoryTreeGroup,
   type CategoryTreeNode,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { compressImage } from "@/src/lib/image";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
+import { SkillTagPicker } from "@/src/components/dashboard/skill-tag-picker";
 
 interface SubcategoryFormProps {
   /** The top-level category the sub-category sits in. */
@@ -42,6 +45,21 @@ export function SubcategoryForm({ parent, group, nextSortOrder, onClose, onSaved
   const [image, setImage] = useState<File | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  // Skills are their own table, written after the sub-category is saved — a new
+  // one has no id to attach them to yet. Only sent when the picker was touched.
+  const [tagIds, setTagIds] = useState<number[]>([]);
+  const [tagsTouched, setTagsTouched] = useState(false);
+
+  useQuery({
+    queryKey: queryKeys.skillTagsCategory(group?.groupId ?? 0),
+    queryFn: async () => {
+      const links = await skillTagApi.categoryTags(group!.groupId);
+      setTagIds(tagIdsOf(links));
+      return links;
+    },
+    enabled: group != null,
+  });
+
   // Preview URL for a newly picked file; revoked when it changes or closes.
   const preview = useMemo(() => (image ? URL.createObjectURL(image) : null), [image]);
   useEffect(() => () => {
@@ -64,12 +82,29 @@ export function SubcategoryForm({ parent, group, nextSortOrder, onClose, onSaved
         isPublished,
         image: icon,
       };
-      if (group) return categoryApi.update(group.groupId, body);
-      return categoryApi.create({ ...body, parentId: parent.categoryId });
+      const saved = group
+        ? await categoryApi.update(group.groupId, body)
+        : await categoryApi.create({ ...body, parentId: parent.categoryId });
+
+      // Skills last, so a failure here reads as "skills not saved" rather than
+      // "the sub-category was not saved".
+      if (tagsTouched) {
+        try {
+          await skillTagApi.setCategoryTags(saved.categoryId, tagIds);
+          setTagsTouched(false);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `Saved, but its skills were not: ${reason} Save again to retry them.`,
+          );
+        }
+      }
+      return saved;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["skill-tags"], exact: false });
       onSaved(isEdit ? `"${name.trim()}" saved` : `Sub-category "${name.trim()}" added`);
       onClose();
     },
@@ -172,6 +207,23 @@ export function SubcategoryForm({ parent, group, nextSortOrder, onClose, onSaved
                 className={inputClass}
               />
             </Field>
+            <Field
+              label="Skills needed"
+              hint={`Applies to every service in this sub-category that has no skill of its own — the quick way to cover a whole group of ${parent.name}.`}
+              full
+            >
+              <SkillTagPicker
+                includeMainTag={false}
+                categoryId={parent.categoryId}
+                value={tagIds}
+                onChange={(next) => {
+                  setTagIds(next);
+                  setTagsTouched(true);
+                }}
+                emptyHint="No skill chosen — services here fall back to the main category's skills."
+              />
+            </Field>
+
             <Field label="Description" full>
               <input
                 value={description}
