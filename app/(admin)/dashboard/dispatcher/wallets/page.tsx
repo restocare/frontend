@@ -5,6 +5,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { dispatcherApi, queryKeys, type WalletRow } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { SearchIcon, SpinnerIcon, WalletIcon } from "@/src/components/icons";
+import { rupeesOrOwes } from "@/src/lib/wallet-ledger";
 
 function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -141,7 +142,11 @@ export default function PartnerWalletsPage() {
                     <td className="px-5 py-3 text-muted-foreground">{w.mobile ?? "—"}</td>
                     <td className="px-5 py-3 text-muted-foreground">{w.city ?? "—"}</td>
                     <td className="px-5 py-3 text-muted-foreground">{w.transactionCount}</td>
-                    <td className="px-5 py-3 font-semibold text-foreground">{inr(w.balance)}</td>
+                    <td
+                      className={`px-5 py-3 font-semibold ${w.balance < 0 ? "text-danger" : "text-foreground"}`}
+                    >
+                      {rupeesOrOwes(w.balance, 0)}
+                    </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button

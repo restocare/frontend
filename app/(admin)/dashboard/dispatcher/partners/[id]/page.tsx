@@ -23,6 +23,7 @@ import {
 import { ClockIcon, SpinnerIcon, StarIcon } from "@/src/components/icons";
 import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
 import { PartnerSkillsCard } from "@/src/components/dashboard/partner-skills-card";
+import { classifyLedgerEntry, rupeesOrOwes } from "@/src/lib/wallet-ledger";
 
 export default function PartnerDetailPage() {
   const params = useParams<{ id: string }>();
@@ -958,6 +959,7 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
           label="Wallet balance"
           value={wallet.balance}
           hint={`₹${inr(wallet.totalCredited)} in · ₹${inr(wallet.totalDebited)} out`}
+          owes
         />
         <Money
           label="Platform charges"
@@ -1064,8 +1066,10 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
             <h2 className="text-base font-semibold text-foreground">
               Wallet ledger
             </h2>
-            <span className="text-xs text-muted-foreground">
-              Balance ₹{inr(wallet.balance)}
+            <span
+              className={`text-xs ${wallet.balance < 0 ? "font-medium text-danger" : "text-muted-foreground"}`}
+            >
+              Balance {rupeesOrOwes(wallet.balance)}
             </span>
           </div>
 
@@ -1084,9 +1088,19 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {wallet.transactions.map((t) => (
+                  {wallet.transactions.map((t) => {
+                    const kind = classifyLedgerEntry(t.description);
+                    return (
                     <tr key={t.walletTransactionId}>
                       <td className="py-2 pr-2 text-foreground">
+                        {kind.kind !== "other" && (
+                          <span
+                            title={kind.hint ?? undefined}
+                            className="mr-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+                          >
+                            {kind.label}
+                          </span>
+                        )}
                         {t.description ?? "—"}
                       </td>
                       <td className="py-2 pr-2 text-muted-foreground">
@@ -1100,7 +1114,8 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
                         {t.type === "CREDIT" ? "+" : "−"}₹{inr(t.amount)}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1136,11 +1151,14 @@ function Money({
   value,
   hint,
   accent,
+  owes,
 }: {
   label: string;
   value: number;
   hint?: string;
   accent?: boolean;
+  /** A negative value reads "Owes ₹X" in red (partner owes the platform). */
+  owes?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -1148,9 +1166,11 @@ function Money({
         {label}
       </p>
       <p
-        className={`mt-1 text-2xl font-semibold ${accent ? "text-primary" : "text-foreground"}`}
+        className={`mt-1 text-2xl font-semibold ${
+          owes && value < 0 ? "text-danger" : accent ? "text-primary" : "text-foreground"
+        }`}
       >
-        ₹{inr(value)}
+        {owes ? rupeesOrOwes(value) : `₹${inr(value)}`}
       </p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>

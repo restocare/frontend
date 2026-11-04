@@ -181,6 +181,13 @@ export interface BankPayoutMisRow {
   grossEarnings: number;
   commission: number;
   otherDeductions: number;
+  /**
+   * COD GST debited from the wallet, held for the government. Optional: only
+   * present once the backend itemises it (older API versions omit it).
+   */
+  gstRemitted?: number;
+  /** Pre-tax coupon discount the platform paid back on COD jobs. Optional, as above. */
+  couponReimbursement?: number;
   netPayable: number;
   walletBalance: number;
   payoutRequestId: string | null;
@@ -196,6 +203,8 @@ export interface BankPayoutMisResponse {
     earningsDeltaPct: number | null;
     totalCommission: number;
     commissionDeltaPct: number | null;
+    /** Optional: only present once the backend itemises GST. */
+    totalGst?: number;
     netPayable: number;
     paidAmount: number;
     paidDeltaPct: number | null;
