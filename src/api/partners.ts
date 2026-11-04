@@ -271,6 +271,12 @@ export interface PayoutRequestRow {
   adminNote: string | null;
   /** The partner's live wallet balance, for context while reviewing. */
   walletBalance: number;
+  /**
+   * Part of the balance kept back for the commission and GST that the partner's
+   * open COD jobs will take when they complete. Not payable. Optional: older
+   * API versions omit it.
+   */
+  heldForOpenJobs?: number;
   createdAt: string;
   processedAt: string | null;
 }
@@ -499,8 +505,8 @@ export const dispatcherApi = {
   payoutStatusCounts: () =>
     apiClient.get<PayoutStatusCounts>(`/v1/admin/payouts/status-counts`),
 
-  /** PATCH /v1/admin/payouts/:id/approve — approve a payout (debits the wallet). */
-  approvePayout: (payoutRequestId: number, note?: string) =>
+  /** PATCH /v1/admin/payouts/:id/approve — approve a payout (debits the wallet). `note` is the payment reference. */
+  approvePayout: (payoutRequestId: number, note: string) =>
     apiClient.patch<{ payoutRequestId: number; status: PayoutStatus }>(
       `/v1/admin/payouts/${payoutRequestId}/approve`,
       { note },

@@ -218,6 +218,14 @@ export default function PartnerPayoutsPage() {
                       className={`px-5 py-3 ${p.walletBalance < 0 ? "font-medium text-danger" : "text-muted-foreground"}`}
                     >
                       {rupeesOrOwes(p.walletBalance, 0)}
+                      {(p.heldForOpenJobs ?? 0) > 0 && (
+                        <span
+                          className="block text-xs font-normal text-warning"
+                          title="Commission and GST that this partner's open cash (COD) jobs will take when they complete. Not payable until then."
+                        >
+                          {inr(p.heldForOpenJobs ?? 0)} held for open cash jobs
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 max-w-[16rem]">
                       {p.status === "REJECTED" && p.adminNote ? (
@@ -297,12 +305,16 @@ function ResolvePayoutModal({
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const insufficient = isApprove && payout.walletBalance < payout.amount;
+  // What can actually be paid out: the balance less the commission and GST that
+  // the partner's open cash (COD) jobs will still take at completion.
+  const held = payout.heldForOpenJobs ?? 0;
+  const payable = payout.walletBalance - held;
+  const insufficient = isApprove && payable < payout.amount;
 
   const mutation = useMutation({
     mutationFn: () =>
       isApprove
-        ? dispatcherApi.approvePayout(payout.payoutRequestId, text.trim() || undefined)
+        ? dispatcherApi.approvePayout(payout.payoutRequestId, text.trim())
         : dispatcherApi.rejectPayout(payout.payoutRequestId, text.trim() || undefined),
     onSuccess: () =>
       onDone(
@@ -317,8 +329,12 @@ function ResolvePayoutModal({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    if (!isApprove && !text.trim()) {
-      setError("Please give the partner a reason for the rejection.");
+    if (!text.trim()) {
+      setError(
+        isApprove
+          ? "Enter the payment reference (e.g. the NEFT/UPI transaction ID) so the payout can be matched to the bank statement."
+          : "Please give the partner a reason for the rejection.",
+      );
       return;
     }
     mutation.mutate();
@@ -339,22 +355,25 @@ function ResolvePayoutModal({
 
         {isApprove && (
           <p className="mt-3 rounded-xl bg-accent px-4 py-3 text-sm text-muted-foreground">
-            Approving debits {inr(payout.amount)} from {payout.name}&apos;s wallet and records the
-            payout as paid. Transfer the funds through your bank/UPI, then confirm here.
+            Approving debits {inr(payout.amount)} from {payout.name}&apos;s wallet, records the
+            payout as paid and notifies the partner. Transfer the funds through your bank/UPI, then
+            confirm here with the payment reference.
           </p>
         )}
         {insufficient && (
           <p className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
-            The partner&apos;s wallet balance is lower than the requested amount, so this payout
-            can&apos;t be approved right now.
-            {payout.walletBalance < 0 && " A negative balance means the partner owes the platform (commission, GST or fees debited past what the wallet held)."}
+            {payout.walletBalance >= payout.amount && held > 0
+              ? `${inr(held)} of this partner's balance is held for the commission and GST on their open cash jobs, so only ${inr(Math.max(0, payable))} can be paid out now. Reject this request, or approve it after those jobs are completed.`
+              : "The partner's wallet balance is lower than the requested amount, so this payout can't be approved right now."}
+            {payout.walletBalance < 0 &&
+              " A negative balance means the partner owes the platform (commission, GST or fees debited past what the wallet held)."}
           </p>
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              {isApprove ? "Payment reference (optional)" : "Reason for rejection"}
+              {isApprove ? "Payment reference (required)" : "Reason for rejection"}
             </label>
             <textarea
               autoFocus
