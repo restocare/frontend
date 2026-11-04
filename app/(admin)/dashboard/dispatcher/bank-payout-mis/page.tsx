@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { dashboardApi, type BankPayoutMisParams, type BankPayoutMisRow } from "@/src/api/api";
 import { API_BASE_URL, getToken } from "@/src/api/apiClient";
 import { SearchIcon, SpinnerIcon } from "@/src/components/icons";
+import { rupeesOrOwes } from "@/src/lib/wallet-ledger";
 
 /*
  * Chart colors follow the dataviz rules used on the Partner MIS page: the
@@ -295,7 +296,21 @@ export default function BankPayoutMisPage() {
     ? [
         { label: "Total Partner Earnings", value: inr(k.totalEarnings), d: delta(k.earningsDeltaPct) },
         { label: "Total Commission", value: inr(k.totalCommission), d: delta(k.commissionDeltaPct) },
-        { label: "Net Payable", value: inr(k.netPayable), d: null },
+        k.totalGst != null
+          ? {
+              label: "GST on COD (held)",
+              value: inr(k.totalGst),
+              d: { text: "collected in cash, due to the government", cls: "text-muted-foreground" },
+            }
+          : null,
+        {
+          label: "Net Payable",
+          value: rupeesOrOwes(k.netPayable, 0),
+          d:
+            k.netPayable < 0
+              ? { text: "partners owe more than they earned", cls: "text-danger" }
+              : null,
+        },
         { label: "Paid Amount", value: inr(k.paidAmount), d: delta(k.paidDeltaPct) },
         {
           label: "Pending Payouts",
@@ -303,8 +318,12 @@ export default function BankPayoutMisPage() {
           d: { text: `${k.pendingCount} request(s) awaiting approval`, cls: "text-muted-foreground" },
         },
         { label: "Failed Payouts", value: inr(k.failedPayouts), d: delta(k.failedDeltaPct, true) },
-      ]
+      ].filter((c): c is NonNullable<typeof c> => c != null)
     : [];
+  // Older API versions don't itemise GST / coupon lines. Without them Net
+  // Payable ignores those wallet postings, so say so rather than show a
+  // confident but wrong figure.
+  const itemised = k?.totalGst != null;
 
   return (
     <div className="space-y-6">
@@ -392,7 +411,7 @@ export default function BankPayoutMisPage() {
       ) : data ? (
         <>
           {/* KPI tiles */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${kpiCards.length > 6 ? "xl:grid-cols-7" : "xl:grid-cols-6"}`}>
             {kpiCards.map((card) => (
               <div key={card.label} className="rounded-2xl border border-border bg-card p-4">
                 <p className="text-xs text-muted-foreground">{card.label}</p>
@@ -410,7 +429,10 @@ export default function BankPayoutMisPage() {
                   <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                     {[
                       "Partner ID", "Partner Name", "Account Holder", "Bank Name", "Account Number",
-                      "IFSC", "UPI ID", "Bank Verification", "Gross Earnings", "Commission",
+                      "IFSC", "UPI ID", "Bank Verification", "Gross Earnings",
+                      ...(itemised ? ["Coupon Reimbursement"] : []),
+                      "Commission",
+                      ...(itemised ? ["GST Remitted"] : []),
                       "Other Deductions", "Net Payable", "Wallet Balance", "Payout Request",
                       "Payout Status", "Payout Date / Txn",
                     ].map((h) => (
@@ -435,10 +457,26 @@ export default function BankPayoutMisPage() {
                         />
                       </td>
                       <td className="px-4 py-2.5 text-foreground">{inr2(p.grossEarnings)}</td>
+                      {itemised && (
+                        <td className="px-4 py-2.5 text-muted-foreground">{inr2(p.couponReimbursement ?? 0)}</td>
+                      )}
                       <td className="px-4 py-2.5 text-muted-foreground">{inr2(p.commission)}</td>
+                      {itemised && (
+                        <td className="px-4 py-2.5 text-muted-foreground">{inr2(p.gstRemitted ?? 0)}</td>
+                      )}
                       <td className="px-4 py-2.5 text-muted-foreground">{inr2(p.otherDeductions)}</td>
-                      <td className="px-4 py-2.5 font-medium text-foreground">{inr2(p.netPayable)}</td>
-                      <td className="px-4 py-2.5 text-foreground">{inr2(p.walletBalance)}</td>
+                      <td
+                        className={`px-4 py-2.5 font-medium ${p.netPayable < 0 ? "text-danger" : "text-foreground"}`}
+                        title={p.netPayable < 0 ? "Negative: the partner owes the platform, nothing to pay out" : undefined}
+                      >
+                        {rupeesOrOwes(p.netPayable)}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 ${p.walletBalance < 0 ? "font-medium text-danger" : "text-foreground"}`}
+                        title="Approvals are checked against this balance"
+                      >
+                        {rupeesOrOwes(p.walletBalance)}
+                      </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{p.payoutRequestId ?? "—"}</td>
                       <td className="px-4 py-2.5">
                         {p.payoutStatus ? (
@@ -458,7 +496,7 @@ export default function BankPayoutMisPage() {
                   ))}
                   {data.partners.length === 0 && (
                     <tr>
-                      <td colSpan={16} className="px-4 py-10 text-center text-muted-foreground">
+                      <td colSpan={itemised ? 18 : 16} className="px-4 py-10 text-center text-muted-foreground">
                         No partners match these filters.
                       </td>
                     </tr>
@@ -469,6 +507,26 @@ export default function BankPayoutMisPage() {
             <div className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
               {data.partners.length} partner(s) · money flow for {istDate(data.range.from)} –{" "}
               {istDate(data.range.to)} · account numbers masked to the last 4 digits
+            </div>
+            <div className="space-y-1 border-t border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+              {itemised ? (
+                <p>
+                  Net Payable = Gross Earnings + Coupon Reimbursement − Commission − GST Remitted − Other
+                  Deductions. <span className="font-medium text-foreground">Owes</span> means the partner
+                  owes the platform: nothing to pay out.
+                </p>
+              ) : (
+                <p className="text-warning">
+                  GST and coupon postings are not itemised by this API version, so Net Payable ignores
+                  them and can read too high for COD-heavy partners. Use Wallet Balance when approving
+                  withdrawals.
+                </p>
+              )}
+              <p>
+                GST on COD jobs is collected by the partner in cash and debited from their wallet; it is
+                held for remittance to the government, not partner earnings. Payouts are approved against
+                Wallet Balance.
+              </p>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import {
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { SearchIcon, SpinnerIcon, WalletIcon } from "@/src/components/icons";
+import { rupeesOrOwes } from "@/src/lib/wallet-ledger";
 
 function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -213,7 +214,11 @@ export default function PartnerPayoutsPage() {
                       </p>
                     </td>
                     <td className="px-5 py-3 font-semibold text-foreground">{inr(p.amount)}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{inr(p.walletBalance)}</td>
+                    <td
+                      className={`px-5 py-3 ${p.walletBalance < 0 ? "font-medium text-danger" : "text-muted-foreground"}`}
+                    >
+                      {rupeesOrOwes(p.walletBalance, 0)}
+                    </td>
                     <td className="px-5 py-3 max-w-[16rem]">
                       {p.status === "REJECTED" && p.adminNote ? (
                         <span className="text-danger">{p.adminNote}</span>
@@ -329,7 +334,7 @@ function ResolvePayoutModal({
         <p className="mt-0.5 text-sm text-muted-foreground">
           {payout.name} · requested{" "}
           <span className="font-medium text-foreground">{inr(payout.amount)}</span> · wallet{" "}
-          <span className="font-medium text-foreground">{inr(payout.walletBalance)}</span>
+          <span className="font-medium text-foreground">{rupeesOrOwes(payout.walletBalance, 0)}</span>
         </p>
 
         {isApprove && (
@@ -342,6 +347,7 @@ function ResolvePayoutModal({
           <p className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
             The partner&apos;s wallet balance is lower than the requested amount, so this payout
             can&apos;t be approved right now.
+            {payout.walletBalance < 0 && " A negative balance means the partner owes the platform (commission, GST or fees debited past what the wallet held)."}
           </p>
         )}
 
