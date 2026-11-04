@@ -48,6 +48,8 @@ export interface CrmPartnerRow {
   name: string | null;
   mobile: string | null;
   email: string | null;
+  /** The trade the partner registered under — what to show, not `service`. */
+  category: string | null;
   service: string | null;
   city: string | null;
   rating: number;
@@ -1216,6 +1218,7 @@ export interface WorkforceReport {
   topPerformers: {
     professionalId: number;
     name: string | null;
+    category: string | null;
     service: string | null;
     city: string | null;
     rating: number;

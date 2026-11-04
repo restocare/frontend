@@ -19,6 +19,14 @@ export interface PartnerRow {
   mobile: string | null;
   category: string | null;
   service: string | null;
+  /**
+   * The partner's declared specialisations — sub-skills only.
+   *
+   * Empty means they take every lead in their trade, either because they
+   * declared nothing or because they declared only the trade itself. Both are
+   * the same promise to dispatch, so both arrive here as an empty list.
+   */
+  skills?: string[];
   city: string | null;
   experience: number | null;
   description: string | null;

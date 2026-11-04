@@ -211,7 +211,7 @@ function WorkforceTab() {
         <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">
           Top performers
         </div>
-        <TableShell head={["#", "Name", "Service", "City", "Jobs", "Rating", "Training"]}>
+        <TableShell head={["#", "Name", "Trade", "City", "Jobs", "Rating", "Training"]}>
           {!data.topPerformers.length && (
             <EmptyRow cols={7} label="No active partners with completed jobs yet." />
           )}
@@ -219,7 +219,7 @@ function WorkforceTab() {
             <tr key={p.professionalId} className="text-foreground">
               <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
               <td className="px-4 py-3 font-medium">{p.name ?? "—"}</td>
-              <td className="px-4 py-3 text-muted-foreground">{p.service ?? "—"}</td>
+              <td className="px-4 py-3 text-muted-foreground">{p.category ?? p.service ?? "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">{p.city ?? "—"}</td>
               <td className="px-4 py-3">{p.totalJobs}</td>
               <td className="px-4 py-3">★ {p.rating.toFixed(1)}</td>

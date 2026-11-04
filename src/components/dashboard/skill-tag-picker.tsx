@@ -82,11 +82,32 @@ export function SkillTagPicker({
 
   const verified = new Set(verifiedTagIds ?? []);
 
+  /** Every main tag on offer, so a toggle can tell the two kinds apart. */
+  const mainTagIds = new Set(tree.map((t) => t.tagId));
+
+  /**
+   * A main tag and a specific skill cannot be held together.
+   *
+   * Dispatch reads a main tag as "everything in this trade", so a partner
+   * holding {Chef, Tandoor} is matched for every chef lead and the Tandoor
+   * choice counts for nothing. Picking either kind clears the other, which is
+   * also what the server does with whatever it is sent.
+   *
+   * Only partner pickers show main tags at all (`includeMainTag`), so job
+   * pickers keep the plain additive behaviour.
+   */
   const toggle = (tagId: number) => {
     if (disabled) return;
-    onChange(
-      value.includes(tagId) ? value.filter((id) => id !== tagId) : [...value, tagId],
-    );
+    if (value.includes(tagId)) {
+      onChange(value.filter((id) => id !== tagId));
+      return;
+    }
+    if (mainTagIds.has(tagId)) {
+      // "All of this trade" replaces whatever was picked under it.
+      onChange([tagId]);
+      return;
+    }
+    onChange([...value.filter((id) => !mainTagIds.has(id)), tagId]);
   };
 
   const Chip = ({ tag, main }: { tag: SkillTag; main?: boolean }) => {
