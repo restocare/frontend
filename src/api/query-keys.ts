@@ -42,6 +42,7 @@ export const queryKeys = {
   geofence: (id: number) => ["dispatcher", "geofence", id] as const,
   warehouses: (search: string) => ["dispatcher", "warehouses", search] as const,
   allocationSettings: ["dispatcher", "allocation"] as const,
+  paymentSettings: ["dispatcher", "payment-settings"] as const,
   pricingRules: ["dispatcher", "pricing-rules"] as const,
   customers: (search: string) => ["customers", search] as const,
   customer: (id: number) => ["customer", id] as const,
