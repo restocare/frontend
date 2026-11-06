@@ -251,6 +251,13 @@ const ADMIN_NAV: NavEntry[] = [
         permission: "dispatcher.view",
       },
       {
+        // Beside Auto Allocation: what a lead costs the partner and what they keep.
+        label: "Payment Settings",
+        href: "/dashboard/dispatcher/payment-settings",
+        icon: WalletIcon,
+        permission: "dispatcher.view",
+      },
+      {
         label: "Pricing Rules",
         href: "/dashboard/dispatcher/pricing",
         icon: TagIcon,

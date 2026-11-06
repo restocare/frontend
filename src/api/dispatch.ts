@@ -115,6 +115,26 @@ export interface WarehouseInput {
   isActive?: boolean;
 }
 
+/**
+ * The partner money rules (Dispatcher → Payment Settings). A booking copies the
+ * rates in force when it is created, so a change here applies to NEW bookings
+ * only — nothing already accepted is re-priced.
+ */
+export interface PaymentSettings {
+  settingId: number;
+  /** Flat ₹ debited from the partner's wallet when they accept a lead. */
+  leadFeeRupees: number;
+  /** Share of the pre-tax base the partner keeps, in percent. */
+  partnerSharePercent: number;
+  /** The company's cut: 100 − partnerSharePercent, computed by the server. */
+  commissionPercent: number;
+  updatedAt: string;
+}
+
+export type PaymentSettingsInput = Partial<
+  Pick<PaymentSettings, "leadFeeRupees" | "partnerSharePercent">
+>;
+
 /** How auto-allocation pushes leads to eligible partners. */
 export type AllocationMethod = "BROADCAST" | "NEAREST" | "ROUND_ROBIN";
 
@@ -318,6 +338,14 @@ export const dispatchApi = {
   updateAllocationSettings: (
     body: Partial<Omit<AllocationSettings, "settingId" | "updatedAt">>,
   ) => apiClient.put<AllocationSettings>(`/v1/admin/dispatch/allocation`, body),
+
+  /** GET /v1/admin/dispatch/payment-settings — the partner money rules singleton. */
+  getPaymentSettings: () =>
+    apiClient.get<PaymentSettings>(`/v1/admin/dispatch/payment-settings`),
+
+  /** PUT /v1/admin/dispatch/payment-settings — update the lead fee and partner share. */
+  updatePaymentSettings: (body: PaymentSettingsInput) =>
+    apiClient.put<PaymentSettings>(`/v1/admin/dispatch/payment-settings`, body),
 
   /** GET /v1/admin/dispatch/pricing-rules */
   listPricingRules: () =>

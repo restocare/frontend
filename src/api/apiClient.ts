@@ -12,10 +12,10 @@ import { ADMIN_LOGIN_PATH } from "@/src/lib/admin-routes";
 function resolveApiBaseUrl(): string {
   // Local development must always talk to the local backend, so it works even
   // if a production URL was baked into the build.
-  // if (typeof window !== "undefined") {
-  //   const host = window.location.hostname;
-  //   if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000/api";
-  // }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000/api";
+  }
 
   // The env-configured URL wins everywhere, localhost included, so `next dev`
   // talks to the live API by default. To develop against a local backend, set
