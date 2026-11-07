@@ -91,7 +91,7 @@ export default function CrmPartnersPage() {
       </div>
 
       <Card>
-        <TableShell head={["Partner", "Service", "Jobs / Rating", "Status", "Joined", "Actions"]}>
+        <TableShell head={["Partner", "Trade", "Jobs / Rating", "Status", "Joined", "Actions"]}>
           {isLoading && <EmptyRow cols={6} label="Loading…" />}
           {!isLoading && !data?.partners.length && <EmptyRow cols={6} label="No partners found" />}
           {data?.partners.map((p) => (
@@ -102,7 +102,7 @@ export default function CrmPartnersPage() {
                   {p.mobile ?? ""} {p.city ? `· ${p.city}` : ""}
                 </div>
               </td>
-              <td className="px-4 py-3 text-muted-foreground">{p.service ?? "—"}</td>
+              <td className="px-4 py-3 text-muted-foreground">{p.category ?? p.service ?? "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">
                 {p.totalJobs} jobs · ★ {p.rating?.toFixed(1)}
               </td>

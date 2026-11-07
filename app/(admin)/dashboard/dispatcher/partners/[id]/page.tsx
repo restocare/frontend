@@ -8,6 +8,7 @@ import {
   categoryTreeApi,
   dispatcherApi,
   queryKeys,
+  skillTagApi,
   type PartnerDetail,
   type PartnerDocumentField,
   type PartnerOnboardingStatus,
@@ -117,6 +118,24 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
     queryFn: () => categoryTreeApi.tree(),
   });
   const categoryOptions = tree ?? [];
+
+  // The declared skills, for the header. Same query key the skills card below
+  // uses, so this costs no extra request and the two can never disagree.
+  const { data: skillLinks } = useQuery({
+    queryKey: queryKeys.skillTagsPartner(partner.professionalId),
+    queryFn: () => skillTagApi.partnerTags(partner.professionalId),
+  });
+
+  /**
+   * What this partner is actually rung for.
+   *
+   * No skills, or only the trade's MAIN tag, both mean the same thing to
+   * dispatch — every lead of the trade — so both read as "All <trade>" rather
+   * than showing a tag name that looks like a specialisation.
+   */
+  const specialisations = (skillLinks ?? [])
+    .filter((link) => link.tag.parentTagId !== null)
+    .map((link) => link.tag.name);
 
   const invalidate = () => {
     queryClient.invalidateQueries({
@@ -230,9 +249,31 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
                 {partner.name}
               </h1>
               <PartnerStatusBadge status={partner.onboardingStatus} />
+
+              {/* What dispatch will actually ring them for. */}
+              {specialisations.length > 0 ? (
+                specialisations.map((skill) => (
+                  <span
+                    key={skill}
+                    className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                  >
+                    {skill}
+                  </span>
+                ))
+              ) : partner.category ? (
+                <span
+                  className="rounded-full border border-dashed border-border px-2.5 py-0.5 text-xs text-muted-foreground"
+                  title="No specific skill declared — takes every lead in this trade"
+                >
+                  All {partner.category}
+                </span>
+              ) : null}
             </div>
             <p className="text-sm text-muted-foreground">
-              {partner.service ?? partner.category ?? "Service partner"} ·
+              {/* The trade, not `service` — that column is only a representative
+                  FK placeholder, so it shows an arbitrary service of the
+                  category ("Kitchen Helper" for a Helpers & Waiter partner). */}
+              {partner.category ?? partner.service ?? "Service partner"} ·
               Joined{" "}
               {new Date(partner.joinedAt).toLocaleDateString("en-IN", {
                 day: "2-digit",
