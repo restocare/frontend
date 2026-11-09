@@ -466,19 +466,21 @@ export function CategoryCheckout() {
     }
   };
 
-  // Same rules as the other flows: a percentage comes off the first
-  // booking's pre-tax price; a flat-total coupon fixes that booking's price
-  // (GST included) and the server prices it.
+  // Same rules as the other flows and the server: the coupon works on the
+  // first booking's PRE-TAX price — a percentage off it, or a flat coupon
+  // fixing it — and GST (and the platform fee) stay on top of what is left.
   const couponBase = lines.length ? unitOf(lines[0]) : 0;
   const flatOf = (c: CustomerCoupon) => c.discountType === "FLAT_TOTAL" && c.flatTotal != null;
   const baseDiscountOf = (c: CustomerCoupon | null) =>
-    c && !flatOf(c) && c.discountPercent > 0 ? round2((couponBase * c.discountPercent) / 100) : 0;
-  const savingOf = (c: CustomerCoupon | null) =>
-    !c || !lines.length
+    !c
       ? 0
       : flatOf(c)
-        ? Math.max(0, round2(couponBase * (1 + rates.taxRateOnBase) - (c.flatTotal as number)))
-        : round2(baseDiscountOf(c) * (1 + rates.taxRateOnBase));
+        ? Math.max(0, round2(couponBase - (c.flatTotal as number)))
+        : c.discountPercent > 0
+          ? round2((couponBase * c.discountPercent) / 100)
+          : 0;
+  const savingOf = (c: CustomerCoupon | null) =>
+    !c || !lines.length ? 0 : round2(baseDiscountOf(c) * (1 + rates.taxRateOnBase));
   const isFlat = !!applied && flatOf(applied);
   const couponBaseDiscount = baseDiscountOf(applied);
   const couponSaving = savingOf(applied);
@@ -765,7 +767,7 @@ export function CategoryCheckout() {
                       [
                         done.mode === "COD" ? BoltIcon : WalletIcon,
                         "Payment",
-                        done.mode === "COD" ? `${formatInr(done.total)} · COD after the service` : `${formatInr(done.total)} · paid online`,
+                        done.mode === "COD" ? `${formatInr(done.total)} · pay on arrival` : `${formatInr(done.total)} · paid online`,
                       ],
                     ] as const
                   ).map(([Icon, label, value]) => (
@@ -1170,7 +1172,7 @@ export function CategoryCheckout() {
                   {(
                     [
                       { id: "RAZORPAY", Icon: WalletIcon, title: "Pay online", sub: "UPI, cards, netbanking" },
-                      { id: "COD", Icon: BoltIcon, title: "COD", sub: "Cash or UPI after the service" },
+                      { id: "COD", Icon: BoltIcon, title: "Pay on Arrival", sub: "Cash or UPI after the service" },
                     ] as const
                   ).map((m) => {
                     const on = payment === m.id;
@@ -1279,7 +1281,7 @@ export function CategoryCheckout() {
                 />
                 <dl className="m-0 space-y-1.5 border-t border-gray-100 px-4 py-3 text-[13px]">
                   <div className="flex justify-between">
-                    <dt className="text-gray-500">Item total</dt>
+                    <dt className="text-gray-500">Service charges</dt>
                     <dd className="m-0 tabular-nums">{formatInr(subtotal)}</dd>
                   </div>
                   {platformFee > 0 ? (
@@ -1455,7 +1457,7 @@ function parseCoupons(coupons: CustomerCoupon[]): CustomerCoupon[] {
 /** "20% off one booking" or "₹199 for one booking". */
 function couponTerms(c: CustomerCoupon): string {
   return c.discountType === "FLAT_TOTAL" && c.flatTotal != null
-    ? `${formatInr(c.flatTotal)} for one booking`
+    ? `${formatInr(c.flatTotal)} + GST for one booking`
     : c.discountPercent
       ? `${c.discountPercent}% off one booking`
       : (c.description ?? "");

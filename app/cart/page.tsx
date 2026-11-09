@@ -123,7 +123,7 @@ export default function CartPage() {
                 Price details
               </h2>
               <dl className="mt-4 space-y-2.5 text-sm">
-                <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
+                <Row label="Service charges" value={inr(summary.itemTotal ?? 0)} />
                 <Row label="Taxes (18%)" value={inr(summary.tax ?? 0)} />
               </dl>
               <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">

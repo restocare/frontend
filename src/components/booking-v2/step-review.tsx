@@ -284,7 +284,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
 
   const payments: { id: PaymentMode; name: string; note: string }[] = [
     { id: "RAZORPAY", name: "Pay online", note: "UPI, cards and netbanking" },
-    { id: "COD", name: "COD", note: `Cash or UPI to the ${nounOne} after the service` },
+    { id: "COD", name: "Pay on Arrival", note: `Cash or UPI to the ${nounOne} after the service` },
   ];
 
   const unusedCoupons = coupons.filter((c) => !c.isUsed && c.couponId !== applied?.couponId);
@@ -465,7 +465,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
                 <span>
                   {applied.code} applied
                   {applied.discountType === "FLAT_TOTAL" && applied.flatTotal != null
-                    ? `, pay only ${formatInr(applied.flatTotal)}`
+                    ? `, ${formatInr(applied.flatTotal)} + GST for one booking`
                     : applied.discountPercent
                       ? `, ${applied.discountPercent}% off`
                       : ""}
@@ -523,7 +523,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
                         <span className="block text-sm font-semibold">{c.code}</span>
                         <span className="block text-xs text-gray-500">
                           {c.discountType === "FLAT_TOTAL" && c.flatTotal != null
-                            ? `Pay only ${formatInr(c.flatTotal)} for this booking`
+                            ? `${formatInr(c.flatTotal)} + GST for this booking`
                             : c.description || `${c.discountPercent}% off your booking`}
                           {c.prepaidOnly ? " (online payment only)" : ""}
                         </span>

@@ -106,7 +106,7 @@ export default function ProductCartPage() {
             {/* Summary */}
             <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Subtotal</span>
+                <span className="text-gray-500">Service charges</span>
                 <span className="font-semibold text-gray-900">{formatInr(subtotal)}</span>
               </div>
               <div className="mt-1.5 flex items-center justify-between text-sm">

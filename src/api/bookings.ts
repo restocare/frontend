@@ -28,9 +28,9 @@ export interface CustomerCoupon {
   expiresAt: string;
   /** Refused on cash on delivery — the customer must pay online to use it. */
   prepaidOnly?: boolean;
-  /** FLAT_TOTAL fixes the whole bill; a percentage cannot express that. */
+  /** FLAT_TOTAL fixes one booking's pre-tax price; a percentage cannot express that. */
   discountType?: "PERCENT" | "FLAT_TOTAL";
-  /** For FLAT_TOTAL: the total the customer pays, GST included. */
+  /** For FLAT_TOTAL: the service's fixed pre-tax price; GST and the platform fee are added on top. */
   flatTotal?: number | null;
 }
 

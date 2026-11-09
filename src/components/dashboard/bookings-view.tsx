@@ -32,6 +32,8 @@ import {
 } from "@/src/api/api";
 import { ApiError, API_BASE_URL, getToken } from "@/src/api/apiClient";
 import { hasPermission } from "@/src/lib/auth";
+import { gstLabel, gstOnFee, platformFeeFor, round2, taxOnBase } from "@/src/lib/booking-v2/pricing";
+import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import {
   fetchPlaceSuggestions,
   type PlaceSuggestion,
@@ -1405,9 +1407,6 @@ export function BookingsView() {
 
 /* --------------------------- Manual booking ------------------------------ */
 
-/** Must match the backend's GST_RATE — used only to preview the total. */
-const GST_RATE = 0.18;
-
 /** One labelled field, so the form's rows line up without repeating classes. */
 function Field({
   label,
@@ -1676,10 +1675,14 @@ function NewBookingModal({
     if (v?.price != null) setBaseAmount(String(v.price));
   };
 
+  // Previewed the way the server prices one booking: GST under the live model
+  // (whole base, or the commission only) plus the platform fee and GST on it.
+  const rates = usePricingRates();
   const base = Number(baseAmount);
   const validAmount = Number.isFinite(base) && base > 0;
-  const tax = validAmount ? Math.round(base * GST_RATE * 100) / 100 : 0;
-  const total = validAmount ? Math.round((base + tax) * 100) / 100 : 0;
+  const platformFee = validAmount ? platformFeeFor(rates, 1) : 0;
+  const tax = validAmount ? round2(taxOnBase(base, rates) + gstOnFee(platformFee, rates)) : 0;
+  const total = validAmount ? round2(base + platformFee + tax) : 0;
 
   const digits = mobile.replace(/\D/g, "");
   const customerOk =
@@ -1947,8 +1950,8 @@ function NewBookingModal({
                 required
                 hint={
                   validAmount
-                    ? `+ ₹${tax.toLocaleString("en-IN")} GST = ₹${total.toLocaleString("en-IN")} payable`
-                    : "18% GST is added on top."
+                    ? `+ ${platformFee > 0 ? `₹${platformFee.toLocaleString("en-IN")} platform fee + ` : ""}₹${tax.toLocaleString("en-IN")} ${gstLabel(rates)} = ₹${total.toLocaleString("en-IN")} payable`
+                    : `${gstLabel(rates)}${rates.platformFeeRupees > 0 ? " and the platform fee are" : " is"} added on top.`
                 }
               >
                 <input

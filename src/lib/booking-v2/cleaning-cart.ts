@@ -340,10 +340,9 @@ export function computeCartBill(
   let couponSaving = 0;
   if (coupon && lines.length) {
     if (isFlat) {
-      couponSaving = Math.max(
-        0,
-        round2(base * (1 + rates.taxRateOnBase) - (coupon.flatTotal as number)),
-      );
+      // The coupon fixes that line's pre-tax price; GST and the fee stay on top.
+      couponBaseDiscount = Math.max(0, round2(base - (coupon.flatTotal as number)));
+      couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
     } else if (coupon.discountPercent > 0) {
       couponBaseDiscount = round2((base * coupon.discountPercent) / 100);
       couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));

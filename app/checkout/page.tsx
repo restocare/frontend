@@ -44,7 +44,7 @@ function inr(n: number): string {
 }
 
 const PAYMENT_LABELS = {
-  COD: "Cash on Delivery (COD)",
+  COD: "Pay on Arrival",
   RAZORPAY: "Razorpay (Online)",
 } as const;
 type PaymentMode = keyof typeof PAYMENT_LABELS;
@@ -285,23 +285,27 @@ export default function CheckoutPage() {
   const rates = usePricingRates();
   const cartGrandTotal =
     (summary.itemTotal ?? 0) + (summary.platformFee ?? 0) + (summary.tax ?? 0);
+  // The coupon works on the target item's PRE-TAX price: a percentage off it,
+  // or a flat coupon fixing it. GST and the platform fee stay on top.
+  const couponTargetBase = couponTarget
+    ? couponTarget.total || couponTarget.price
+    : 0;
   const couponBaseDiscount =
-    appliedCoupon && couponTarget && !isFlatCoupon
-      ? Math.round(
-          (couponTarget.total || couponTarget.price) *
-            (appliedCoupon.discountPercent / 100) *
-            100,
-        ) / 100
+    appliedCoupon && couponTarget
+      ? isFlatCoupon
+        ? Math.max(
+            0,
+            Math.round(
+              (couponTargetBase - (appliedCoupon.flatTotal as number)) * 100,
+            ) / 100,
+          )
+        : Math.round(
+            couponTargetBase * (appliedCoupon.discountPercent / 100) * 100,
+          ) / 100
       : 0;
   // What the customer saves is GST-inclusive — the same maths the app shows.
-  const couponSaving = isFlatCoupon
-    ? Math.max(
-        0,
-        Math.round(
-          (cartGrandTotal - (appliedCoupon!.flatTotal as number)) * 100,
-        ) / 100,
-      )
-    : Math.round(couponBaseDiscount * (1 + rates.taxRateOnBase) * 100) / 100;
+  const couponSaving =
+    Math.round(couponBaseDiscount * (1 + rates.taxRateOnBase) * 100) / 100;
   const grandTotal = Math.max(
     0,
     Math.round((cartGrandTotal - couponSaving) * 100) / 100,
@@ -871,7 +875,7 @@ export default function CheckoutPage() {
                     <p className="text-sm font-semibold text-green-700">
                       {appliedCoupon.code} ·{" "}
                       {isFlatCoupon
-                        ? `pay only ₹${appliedCoupon.flatTotal}`
+                        ? `₹${appliedCoupon.flatTotal} + GST for one booking`
                         : `${appliedCoupon.discountPercent}% off`}
                     </p>
                     <p className="text-xs text-green-600">
@@ -926,7 +930,7 @@ export default function CheckoutPage() {
                               <span className="block text-xs text-gray-500">
                                 {c.discountType === "FLAT_TOTAL" &&
                                 c.flatTotal != null
-                                  ? `Pay only ₹${c.flatTotal} for this booking`
+                                  ? `₹${c.flatTotal} + GST for this booking`
                                   : c.description ||
                                     `${c.discountPercent}% off your booking`}
                               </span>
@@ -956,7 +960,7 @@ export default function CheckoutPage() {
                 Bill summary
               </h2>
               <dl className="mt-4 space-y-2.5 text-sm">
-                <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
+                <Row label="Service charges" value={inr(summary.itemTotal ?? 0)} />
                 {(summary.platformFee ?? 0) > 0 ? (
                   <Row
                     label="Platform fee"

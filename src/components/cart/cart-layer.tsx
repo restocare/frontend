@@ -259,7 +259,7 @@ function MiniCart() {
             {items.length > 0 && (
               <div className="border-t border-gray-100 px-5 py-4">
                 <div className="mb-3 flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-gray-500">Service charges</span>
                   <span className="font-semibold text-gray-900">
                     {inr(cart?.priceSummary?.itemTotal ?? 0)}
                   </span>

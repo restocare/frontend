@@ -259,7 +259,7 @@ export function hourlyFaqs(noun: string, minHours: number): Faq[] {
     },
     {
       q: "How do I pay?",
-      a: `Online by UPI, card or net banking, or COD — cash or UPI to the ${noun} after the service.`,
+      a: `Online by UPI, card or net banking, or pay on arrival — cash or UPI to the ${noun} after the service.`,
     },
     VERIFIED_FAQ,
     CANCEL_FAQ,

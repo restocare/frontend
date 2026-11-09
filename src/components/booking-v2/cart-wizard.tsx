@@ -317,7 +317,7 @@ function CartSidebar({
         </dl>
       ) : null}
       <dl className="m-0 mt-4 grid gap-2 border-t border-gray-100 pt-4">
-        <BillRow label="Item total" value={formatInr(bill.subtotal)} />
+        <BillRow label="Service charges" value={formatInr(bill.subtotal)} />
         {coupon && bill.couponSaving > 0 ? (
           <BillRow label={`Coupon ${coupon.code}`} value={`−${formatInr(bill.couponSaving)}`} tone="discount" />
         ) : null}
@@ -621,15 +621,18 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
       const bookedKeys = new Set<string>();
       // What the bookings that went through cost, GST included (the coupon's
       // saving sits on its own line). The platform fee is reported once, with
-      // the first line, as the bill shows it.
+      // the first line that goes through, as the bill shows it.
       let bookedTotal = 0;
-      const feeWithTax = round2(bill.platformFee * (1 + rates.gstPercent / 100));
-      const lineTotal = (i: number) =>
-        round2(
+      let feeLeft = round2(bill.platformFee * (1 + rates.gstPercent / 100));
+      const lineTotal = (i: number) => {
+        const t = round2(
           bill.lineBases[i] * (1 + rates.taxRateOnBase) +
-            (i === 0 ? feeWithTax : 0) -
+            feeLeft -
             (i === bill.couponLine ? bill.couponSaving : 0),
         );
+        feeLeft = 0;
+        return t;
+      };
       for (let i = 0; i < payloads.length; i++) {
         try {
           const result = await bookingApi.create(payloads[i]);
@@ -704,7 +707,7 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
     : "";
   const payments: { id: PaymentMode; name: string; note: string }[] = [
     { id: "RAZORPAY", name: "Pay online", note: "UPI, cards and netbanking" },
-    { id: "COD", name: "Pay after the job", note: "Cash or UPI to the crew" },
+    { id: "COD", name: "Pay on Arrival", note: "Cash or UPI to the crew" },
   ];
   const unusedCoupons = coupons.filter((c) => !c.isUsed && c.couponId !== applied?.couponId);
 
@@ -813,7 +816,7 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
                 <span>
                   {applied.code} applied
                   {applied.discountType === "FLAT_TOTAL" && applied.flatTotal != null
-                    ? `, ${formatInr(applied.flatTotal)} for one item`
+                    ? `, ${formatInr(applied.flatTotal)} + GST for one item`
                     : applied.discountPercent
                       ? `, ${applied.discountPercent}% off one item`
                       : ""}

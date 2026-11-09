@@ -118,7 +118,9 @@ export function computeBill(
   let couponBaseDiscount = 0;
   let couponSaving = 0;
   if (coupon && isFlat) {
-    couponSaving = Math.max(0, round2(gross - (coupon.flatTotal as number)));
+    // The coupon fixes ONE booking's pre-tax price; GST (and the fee) stay on top.
+    couponBaseDiscount = Math.max(0, round2(perBookingBase - (coupon.flatTotal as number)));
+    couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
   } else if (coupon && coupon.discountPercent > 0) {
     couponBaseDiscount = round2(
       (perBookingBase * coupon.discountPercent) / 100,

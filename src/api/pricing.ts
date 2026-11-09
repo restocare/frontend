@@ -57,8 +57,13 @@ export const pricingApi = {
     const res = await apiClient.get<PricingRatesResponse>("/v1/pricing/rates", {
       skipAuth: true,
     });
-    if (!isPricingRates(res?.data))
+    if (!isPricingRates(res?.data)) {
+      console.warn(
+        "GET /v1/pricing/rates: unexpected payload, pricing with the legacy rates",
+        res,
+      );
       throw new Error("Pricing rates: unexpected response");
+    }
     return res.data;
   },
 };

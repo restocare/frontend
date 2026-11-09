@@ -99,7 +99,7 @@ function validateTiers(tiers: TierDraft[]): string | null {
 /** "20% off up to ₹300" / "₹1 total" — the offer in the admin's words. */
 function offerLabel(c: CampaignCoupon): string {
   if (c.discountType === "FLAT_TOTAL" && c.flatTotal != null)
-    return `${rupees(c.flatTotal)} total`;
+    return `${rupees(c.flatTotal)} flat price + GST`;
   // A tiered coupon has no single rate, and showing the stored discountPercent
   // would name one the shortest booking never gets.
   if (c.hourTiers?.length)
@@ -539,8 +539,8 @@ function CouponModal({
             <Choice
               active={discountType === "FLAT_TOTAL"}
               onClick={() => setDiscountType("FLAT_TOTAL")}
-              title="Fixed total"
-              detail="the customer pays one amount, e.g. ₹1"
+              title="Fixed price"
+              detail="the service costs one amount, e.g. ₹1, plus GST and any platform fee"
             />
           </div>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -574,7 +574,10 @@ function CouponModal({
                 </div>
               </>
             ) : (
-              <Field label="Customer pays (total, GST included)">
+              <Field
+                label="Service price (₹, before GST)"
+                hint="What one booking's service costs with the coupon. GST and the platform fee are added on top."
+              >
                 <input
                   type="number"
                   min={1}
