@@ -9,6 +9,7 @@ import { useCart } from "@/src/lib/cart";
 import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { gstLabel } from "@/src/lib/booking-v2/pricing";
+import { SAME_DAY_LEAD } from "@/src/lib/booking-v2/schedule";
 import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import {
   getBookingSchedule,
@@ -498,11 +499,14 @@ export default function CheckoutPage() {
     const checkoutKey = newCheckoutKey();
     const lat = Number(latitude);
     const lng = Number(longitude);
-    const now = new Date();
-    const fallbackDate = now.toISOString().slice(0, 10);
-    const fallbackTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-      now.getMinutes(),
-    ).padStart(2, "0")}`;
+    // With no shift saved for an item, the earliest start the server allows:
+    // SAME_DAY_LEAD from now, on the hour.
+    const soonest = new Date(Date.now() + SAME_DAY_LEAD * 60_000);
+    if (soonest.getMinutes() > 0 || soonest.getSeconds() > 0) {
+      soonest.setHours(soonest.getHours() + 1, 0, 0, 0);
+    }
+    const fallbackDate = `${soonest.getFullYear()}-${String(soonest.getMonth() + 1).padStart(2, "0")}-${String(soonest.getDate()).padStart(2, "0")}`;
+    const fallbackTime = `${String(soonest.getHours()).padStart(2, "0")}:00`;
 
     return cartItems.map((item) => {
       const sched = getBookingSchedule(item.serviceId, item.variantId);
@@ -1307,14 +1311,31 @@ function SlotEditModal({
   const days = useMemo(() => getNextDays(7), []);
 
   const [date, setDate] = useState(existing?.date ?? days[0]?.value ?? "");
+  // A start needs SAME_DAY_LEAD minutes' notice (the server refuses less), so
+  // on today's date the shifts that have already begun, or begin too soon,
+  // are not offered.
+  const bookable = useMemo(() => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    if (date !== today) return slots;
+    const earliest = now.getHours() * 60 + now.getMinutes() + SAME_DAY_LEAD;
+    return slots.filter((s) => {
+      const [h, m] = s.startTime.split(":").map(Number);
+      return h * 60 + m >= earliest;
+    });
+  }, [slots, date]);
   const [slotId, setSlotId] = useState<string | null>(
     existing
       ? (slots.find((s) => s.label === existing.label)?.id ?? null)
       : (slots[0]?.id ?? null),
   );
+  // The pick, or the first shift still bookable when the pick is not.
+  const activeSlotId = bookable.some((s) => s.id === slotId)
+    ? slotId
+    : (bookable[0]?.id ?? null);
 
   const save = () => {
-    const slot = slots.find((s) => s.id === slotId);
+    const slot = bookable.find((s) => s.id === activeSlotId);
     const day = days.find((d) => d.value === date);
     if (!slot || !day) return;
     saveBookingSchedule(item.serviceId, item.variantId, {
@@ -1348,13 +1369,18 @@ function SlotEditModal({
       </div>
 
       <p className="mb-2 text-sm font-semibold text-gray-700">Shift slot</p>
+      {bookable.length === 0 ? (
+        <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Bookings need {SAME_DAY_LEAD / 60} hours&apos; notice. No shift is left today; pick another day.
+        </p>
+      ) : null}
       <div className="mb-4 grid grid-cols-2 gap-2">
-        {slots.map((s) => (
+        {bookable.map((s) => (
           <button
             key={s.id}
             onClick={() => setSlotId(s.id)}
             className={`rounded-xl border py-3 text-sm font-semibold transition ${
-              s.id === slotId
+              s.id === activeSlotId
                 ? "border-orange-500 bg-orange-50 text-gray-900"
                 : "border-gray-200 text-gray-700 hover:border-gray-300"
             }`}

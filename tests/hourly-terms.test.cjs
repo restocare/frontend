@@ -50,16 +50,17 @@ const make = (price, prices) => ({
 const chef = make(149, [799, 1499, 899, 1699, 10499, 11899]);
 const helpers = make(99, [599, 1099, 699, 1299, 7693, 9093]);
 
-test("hourly terms use the base price and the 5 hour minimum", () => {
-  assert.deepEqual(hourlyTerms(chef), { rate: 149, minHours: 5, minPrice: 745 });
-  assert.deepEqual(hourlyTerms(helpers), { rate: 99, minHours: 5, minPrice: 495 });
+test("hourly terms use the base price and the 7 hour minimum", () => {
+  assert.deepEqual(hourlyTerms(chef), { rate: 149, minHours: 7, minPrice: 1043 });
+  assert.deepEqual(hourlyTerms(helpers), { rate: 99, minHours: 7, minPrice: 693 });
 });
 
 test("falls back to shift price / hours without a base price", () => {
   const svc = { price: null, variants: [{ name: "5 Hours (11 AM – 4 PM)", price: 799 }] };
   assert.equal(hourlyTerms(svc).rate, draft.hourlyRate(svc));
   assert.equal(hourlyTerms(svc).rate, 159.8);
-  assert.equal(hourlyTerms(svc).minPrice, 799);
+  // 7 hours at the shift-derived rate, since the 5-hour shift is under the minimum.
+  assert.equal(hourlyTerms(svc).minPrice, 1118.6);
 });
 
 test("category headline is null without a positive rate", () => {
@@ -68,5 +69,5 @@ test("category headline is null without a positive rate", () => {
 });
 
 test("category headline picks the lowest rate and cheapest minimum", () => {
-  assert.deepEqual(categoryHourlyHeadline([chef, helpers]), { rate: 99, minHours: 5, minPrice: 495 });
+  assert.deepEqual(categoryHourlyHeadline([chef, helpers]), { rate: 99, minHours: 7, minPrice: 693 });
 });

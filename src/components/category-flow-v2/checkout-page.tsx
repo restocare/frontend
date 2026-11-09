@@ -61,6 +61,7 @@ import {
   fmtTime,
   getDays,
   latestStart,
+  MIN_MINUTES,
   minShiftMinutes,
   monthShort,
   pickShiftVariant,
@@ -339,7 +340,7 @@ export function CategoryCheckout() {
   const days = useMemo(() => getDays(), []);
   // Hourly: the longest minimum among the people booked. Fixed: one job slot.
   const minMinutes = hourly
-    ? Math.max(5 * 60, ...lines.map((l) => minShiftMinutes(servicesById.get(l.serviceId)?.variants ?? [])))
+    ? Math.max(MIN_MINUTES, ...lines.map((l) => minShiftMinutes(servicesById.get(l.serviceId)?.variants ?? [])))
     : FIXED_JOB_MINUTES;
   const instantOk = dayIsBookable(clock.dateISO, minMinutes, clock);
   const [modeWanted, setMode] = useState<WhenMode>("instant");

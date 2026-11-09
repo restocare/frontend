@@ -79,9 +79,12 @@ test("the picked variant opens the draft with its window and night rate", () => 
   assert.equal(d.end, 24 * 60);
   assert.equal(d.nightRate, 20);
   assert.equal(d.days, 1);
+  // With no pick the draft opens on the shortest shift that meets the 7-hour
+  // minimum: the 10-hour day, not the 5-hour one.
   const none = draft.startDraft(chef, category);
+  assert.equal(none.minMinutes, 7 * 60);
   assert.equal(none.start, 11 * 60);
-  assert.equal(none.end, 16 * 60);
+  assert.equal(none.end, 21 * 60);
   assert.equal(none.days, 1);
 });
 
@@ -154,10 +157,14 @@ test("extras: rejected on a week, unchanged on a day", () => {
   assert.equal(draft.extraProblem(week, extra), "Add-ons aren't available for weekly bookings");
   assert.throws(() => draft.buildPayloads(week, 1, null), /weekly bookings/);
 
-  const day = ready(draft.startDraft(chef, category, pick(0)), { extras: [extra] });
+  // A 5-hour shift is under the 7-hour minimum, so an add-on needs more hours
+  // on it; the 10-hour day takes one as before.
+  const short = ready(draft.startDraft(chef, category, pick(0)), { extras: [extra] });
+  assert.equal(draft.extraProblem(short, extra), "Needs at least 7 hrs");
+  const day = ready(draft.startDraft(chef, category, pick(1)), { extras: [extra] });
   assert.equal(draft.extraProblem(day, extra), null);
-  assert.equal(draft.extraBase(day, extra), 745);
-  assert.equal(draft.extraProblem({ ...day, end: day.start + 60 }, extra), "Needs at least 5 hrs");
+  assert.equal(draft.extraBase(day, extra), 1490);
+  assert.equal(draft.extraProblem({ ...day, end: day.start + 60 }, extra), "Needs at least 7 hrs");
   assert.equal(draft.buildPayloads(day, 1, null).length, 2);
 });
 
@@ -174,7 +181,7 @@ test("a draft saved before night/days bills and books as before", () => {
     [745, legacy.date, undefined],
   ]);
   assert.equal(draft.draftCopy(legacy).billLabel(), "5 hrs × ₹149");
-  assert.equal(draft.draftCopy(legacy).sub, "₹149/hour, minimum 5 hrs");
+  assert.equal(draft.draftCopy(legacy).sub, "₹149/hour, minimum 7 hrs");
 });
 
 test("draft night figures match hourly-terms", () => {

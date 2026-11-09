@@ -251,7 +251,7 @@ export function hourlyFaqs(noun: string, minHours: number): Faq[] {
     },
     {
       q: "How far ahead can I book?",
-      a: `Any day in the next ${DAYS_AHEAD} days. For a booking today, the start time needs at least ${SAME_DAY_LEAD} minutes' notice.`,
+      a: `Any day in the next ${DAYS_AHEAD} days. The start time needs at least ${SAME_DAY_LEAD / 60} hours' notice.`,
     },
     {
       q: "How is the price worked out?",
