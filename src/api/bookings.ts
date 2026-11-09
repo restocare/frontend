@@ -84,6 +84,20 @@ export interface CreateBookingPayload {
   paymentMode: string;
   /** Redeemed server-side on the booking it rides with (single use). */
   couponCode?: string;
+  /**
+   * One key per checkout, the same on every booking it creates, so a
+   * "once per checkout" platform fee lands on the first of them only.
+   */
+  checkoutKey?: string;
+}
+
+/** A fresh checkout key: "ck_" + 16 hex chars. */
+export function newCheckoutKey(): string {
+  const hex =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replace(/-/g, "")
+      : Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+  return `ck_${hex.slice(0, 16)}`;
 }
 
 export interface BookingSummary {

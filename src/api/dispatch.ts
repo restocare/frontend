@@ -128,11 +128,59 @@ export interface PaymentSettings {
   partnerSharePercent: number;
   /** The company's cut: 100 − partnerSharePercent, computed by the server. */
   commissionPercent: number;
+  /**
+   * GST charged to the customer on the pre-tax base, in percent. The storefront
+   * and the customer app still display a fixed 18% themselves, so this must stay
+   * at 18 until they read it from the server.
+   */
+  gstPercent: number;
+  /**
+   * What the GST is charged on: the whole pre-tax base, or only the company's
+   * commission (the partner's share is not a taxable supply of ours).
+   */
+  taxModel: TaxModel;
+  /**
+   * Flat ₹ added to every booking's bill and kept by the company. GST applies
+   * to it; on cash jobs the partner hands it back from their wallet.
+   */
+  platformFeeRupees: number;
+  /** Once per booking (each service), or once per checkout however many services it holds. */
+  platformFeeMode: PlatformFeeMode;
+  /**
+   * Conveyance the company pays the partner for a duty that ends late: ₹ per
+   * km from their base to the job (0 = none), the cut-off ("HH:mm") a duty must
+   * end at or after, and the most km paid per job (0 = no cap).
+   */
+  conveyanceRatePerKm: number;
+  conveyanceAfterTime: string;
+  conveyanceMaxKm: number;
+  /**
+   * Second trigger: a duty this many minutes or shorter earns conveyance at any
+   * hour (300 = a 5-hour booking; 0 = off), in these categories (empty = all).
+   */
+  conveyanceShortDutyMaxMinutes: number;
+  conveyanceShortDutyCategoryIds: number[];
   updatedAt: string;
 }
 
+export type TaxModel = "ON_BASE" | "ON_COMMISSION";
+export type PlatformFeeMode = "PER_BOOKING" | "PER_ORDER";
+
 export type PaymentSettingsInput = Partial<
-  Pick<PaymentSettings, "leadFeeRupees" | "partnerSharePercent">
+  Pick<
+    PaymentSettings,
+    | "leadFeeRupees"
+    | "partnerSharePercent"
+    | "gstPercent"
+    | "taxModel"
+    | "platformFeeRupees"
+    | "platformFeeMode"
+    | "conveyanceRatePerKm"
+    | "conveyanceAfterTime"
+    | "conveyanceMaxKm"
+    | "conveyanceShortDutyMaxMinutes"
+    | "conveyanceShortDutyCategoryIds"
+  >
 >;
 
 /** How auto-allocation pushes leads to eligible partners. */

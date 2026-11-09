@@ -31,7 +31,6 @@ import {
   BookingSteps,
   CANCEL_FAQ,
   FaqSection,
-  GST_PERCENT,
   HelpCard,
   VERIFIED_FAQ,
   type Faq,
@@ -94,7 +93,7 @@ const ON_DEMAND_FAQS: Faq[] = [
   },
   {
     q: "How is the price worked out?",
-    a: `The price of the service or option you pick, plus ${GST_PERCENT}% GST. You see the full total before you confirm.`,
+    a: "The price of the service or option you pick, plus GST and any platform fee. You see the full total before you confirm.",
   },
   {
     q: "How do I pay?",
