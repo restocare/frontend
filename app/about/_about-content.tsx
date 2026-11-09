@@ -134,7 +134,7 @@ const PROBLEMS: { Icon: Icon; problem: string; fix: string }[] = [
 const STEPS = [
   { title: "Pick a service", text: "Staffing, deep cleaning or a repair — choose what your restaurant needs." },
   { title: "Choose when and where", text: "Set the date, time and address for the job." },
-  { title: "Confirm and pay", text: "Pay online or COD. A verified professional is assigned." },
+  { title: "Confirm and pay", text: "Pay online or on arrival. A verified professional is assigned." },
 ];
 
 export function AboutContent({

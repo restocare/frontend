@@ -77,6 +77,7 @@ export const queryKeys = {
     ["bookings", "user", userId] as const,
   contactSubmissions: (search: string) => ["contacts", search] as const,
   configure: ["configure"] as const,
+  pricingRates: ["pricing", "rates"] as const,
   auraOverview: ["aura", "overview"] as const,
   auraUsers: (params: Record<string, unknown>) =>
     ["aura", "users", params] as const,

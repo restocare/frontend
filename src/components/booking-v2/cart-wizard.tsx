@@ -25,10 +25,12 @@ import {
   paymentsApi,
   queryKeys,
   type CategoryTreeService,
+  newCheckoutKey,
   type CustomerCoupon,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { TAX_RATE, formatInr, round2 } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel, round2 } from "@/src/lib/booking-v2/pricing";
+import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { trackPurchaseOnce } from "@/lib/meta";
 import { clockNow, fmtDateLong, fmtTime, getDays, monthShort } from "@/src/lib/booking-v2/schedule";
 import {
@@ -279,7 +281,8 @@ function CartSidebar({
   note?: React.ReactNode;
   onEdit: () => void;
 }) {
-  const bill = computeCartBill(cart.lines, coupon ?? null);
+  const rates = usePricingRates();
+  const bill = computeCartBill(cart.lines, coupon ?? null, rates);
   const items = cart.lines.reduce((n, l) => n + l.quantity, 0);
   return (
     <Card className="p-5">
@@ -314,11 +317,12 @@ function CartSidebar({
         </dl>
       ) : null}
       <dl className="m-0 mt-4 grid gap-2 border-t border-gray-100 pt-4">
-        <BillRow label="Item total" value={formatInr(bill.subtotal)} />
+        <BillRow label="Service charges" value={formatInr(bill.subtotal)} />
         {coupon && bill.couponSaving > 0 ? (
           <BillRow label={`Coupon ${coupon.code}`} value={`−${formatInr(bill.couponSaving)}`} tone="discount" />
         ) : null}
-        <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
+        {bill.platformFee > 0 ? <BillRow label="Platform fee" value={formatInr(bill.platformFee)} /> : null}
+        <BillRow label={gstLabel(rates)} value={formatInr(bill.tax)} />
         <BillRow label="Total" value={formatInr(bill.total)} tone="total" />
       </dl>
       <div className="mt-5 hidden lg:block">{action}</div>
@@ -340,7 +344,7 @@ function StepSlot({ cart, update, goTo, backToCategory }: StepCommon) {
     cart.date && bookableDays.some((d) => d.value === cart.date) ? cart.date : firstOpenDay(days, clock);
   const chosen = windowById(cart.windowId);
   const windowValid = !!date && !!chosen && windowOpen(date, chosen, clock);
-  const bill = computeCartBill(cart.lines, null);
+  const bill = computeCartBill(cart.lines, null, usePricingRates());
 
   const next = () => {
     if (!date || !windowValid) return;
@@ -448,7 +452,7 @@ function StepCartAddress({ cart, update, goTo, backToCategory }: StepCommon) {
   const book = useAddressBook(cart.address);
   const { selected } = book;
   const canContinue = !!selected && hasPin(selected);
-  const bill = computeCartBill(cart.lines, null);
+  const bill = computeCartBill(cart.lines, null, usePricingRates());
 
   const next = () => {
     if (!selected || !hasPin(selected)) return;
@@ -573,7 +577,8 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
   };
 
   const payment = cart.paymentMode;
-  const bill = computeCartBill(cart.lines, applied);
+  const rates = usePricingRates();
+  const bill = computeCartBill(cart.lines, applied, rates);
   // Bookings are created "pay after the job" first (payment follows, priced
   // by the server), and the server refuses an online-only coupon on those.
   const couponNeedsPrepay = !!applied?.prepaidOnly;
@@ -602,7 +607,12 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
       const lines = cart.lines;
       // Created "pay after the job"; paying online follows, priced by the
       // server from these bookings, so an unpaid booking never reads as paid.
-      const payloads = buildCartPayloads({ ...cart, paymentMode: "COD" }, Number(user.id), applied);
+      // Every booking of this checkout carries the same key, so a "once per
+      // checkout" platform fee is charged on the first of them only.
+      const checkoutKey = newCheckoutKey();
+      const payloads = buildCartPayloads({ ...cart, paymentMode: "COD" }, Number(user.id), applied).map(
+        (p) => ({ ...p, checkoutKey }),
+      );
 
       // One booking per line. Keep going after a failure so one bad line
       // doesn't block the others, and report exactly what happened.
@@ -610,10 +620,19 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
       const failed: Outcome["failed"] = [];
       const bookedKeys = new Set<string>();
       // What the bookings that went through cost, GST included (the coupon's
-      // saving sits on its own line).
+      // saving sits on its own line). The platform fee is reported once, with
+      // the first line that goes through, as the bill shows it.
       let bookedTotal = 0;
-      const lineTotal = (i: number) =>
-        round2(bill.lineBases[i] * (1 + TAX_RATE) - (i === bill.couponLine ? bill.couponSaving : 0));
+      let feeLeft = round2(bill.platformFee * (1 + rates.gstPercent / 100));
+      const lineTotal = (i: number) => {
+        const t = round2(
+          bill.lineBases[i] * (1 + rates.taxRateOnBase) +
+            feeLeft -
+            (i === bill.couponLine ? bill.couponSaving : 0),
+        );
+        feeLeft = 0;
+        return t;
+      };
       for (let i = 0; i < payloads.length; i++) {
         try {
           const result = await bookingApi.create(payloads[i]);
@@ -688,7 +707,7 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
     : "";
   const payments: { id: PaymentMode; name: string; note: string }[] = [
     { id: "RAZORPAY", name: "Pay online", note: "UPI, cards and netbanking" },
-    { id: "COD", name: "Pay after the job", note: "Cash or UPI to the crew" },
+    { id: "COD", name: "Pay on Arrival", note: "Cash or UPI to the crew" },
   ];
   const unusedCoupons = coupons.filter((c) => !c.isUsed && c.couponId !== applied?.couponId);
 
@@ -797,7 +816,7 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
                 <span>
                   {applied.code} applied
                   {applied.discountType === "FLAT_TOTAL" && applied.flatTotal != null
-                    ? `, ${formatInr(applied.flatTotal)} for one item`
+                    ? `, ${formatInr(applied.flatTotal)} + GST for one item`
                     : applied.discountPercent
                       ? `, ${applied.discountPercent}% off one item`
                       : ""}

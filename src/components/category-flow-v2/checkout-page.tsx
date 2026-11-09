@@ -37,13 +37,15 @@ import {
   userApi,
   type CategoryTreeService,
   type CreateBookingPayload,
+  newCheckoutKey,
   type CustomerCoupon,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { categoryHref } from "@/lib/category-slugs";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
-import { TAX_RATE, formatInr, round2 } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel, gstOnFee, platformFeeFor, round2, taxOnBase } from "@/src/lib/booking-v2/pricing";
+import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCleaningCart, type CartLine } from "@/src/lib/booking-v2/cleaning-cart";
 import { hourlyRate } from "@/src/lib/booking-v2/draft";
@@ -383,7 +385,13 @@ export function CategoryCheckout() {
     return hourly && svc ? round2(hourlyRate(svc) * hours) : l.unitPrice;
   };
   const subtotal = round2(lines.reduce((sum, l) => sum + unitOf(l) * l.quantity, 0));
-  const tax = round2(subtotal * TAX_RATE);
+  // Priced under the live settings, the way the server will: GST on the whole
+  // base or on the commission only, and the platform fee — per booking (each
+  // person / item is one) or once for the checkout.
+  const rates = usePricingRates();
+  const bookingsCount = lines.reduce((n, l) => n + l.quantity, 0);
+  const platformFee = platformFeeFor(rates, bookingsCount);
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
 
   /* -------------------------------- coupon ------------------------------- */
 
@@ -458,23 +466,25 @@ export function CategoryCheckout() {
     }
   };
 
-  // Same rules as the other flows: a percentage comes off the first
-  // booking's pre-tax price; a flat-total coupon fixes that booking's price
-  // (GST included) and the server prices it.
+  // Same rules as the other flows and the server: the coupon works on the
+  // first booking's PRE-TAX price — a percentage off it, or a flat coupon
+  // fixing it — and GST (and the platform fee) stay on top of what is left.
   const couponBase = lines.length ? unitOf(lines[0]) : 0;
   const flatOf = (c: CustomerCoupon) => c.discountType === "FLAT_TOTAL" && c.flatTotal != null;
   const baseDiscountOf = (c: CustomerCoupon | null) =>
-    c && !flatOf(c) && c.discountPercent > 0 ? round2((couponBase * c.discountPercent) / 100) : 0;
-  const savingOf = (c: CustomerCoupon | null) =>
-    !c || !lines.length
+    !c
       ? 0
       : flatOf(c)
-        ? Math.max(0, round2(couponBase * (1 + TAX_RATE) - (c.flatTotal as number)))
-        : round2(baseDiscountOf(c) * (1 + TAX_RATE));
+        ? Math.max(0, round2(couponBase - (c.flatTotal as number)))
+        : c.discountPercent > 0
+          ? round2((couponBase * c.discountPercent) / 100)
+          : 0;
+  const savingOf = (c: CustomerCoupon | null) =>
+    !c || !lines.length ? 0 : round2(baseDiscountOf(c) * (1 + rates.taxRateOnBase));
   const isFlat = !!applied && flatOf(applied);
   const couponBaseDiscount = baseDiscountOf(applied);
   const couponSaving = savingOf(applied);
-  const total = Math.max(0, round2(subtotal + tax - couponSaving));
+  const total = Math.max(0, round2(subtotal + platformFee + tax - couponSaving));
   // Coupons the customer can still use: applied first, then the biggest saving.
   const available = coupons
     .filter((c) => !c.isUsed)
@@ -545,6 +555,9 @@ export function CategoryCheckout() {
     setError(null);
     const userId = Number(user.id);
     const online = payment === "RAZORPAY";
+    // Every booking of this checkout carries the same key, so a "once per
+    // checkout" platform fee is charged on the first of them only.
+    const checkoutKey = newCheckoutKey();
 
     // One booking per person or item, all for the same slot and address.
     const payloadFor = (l: CartLine): CreateBookingPayload => {
@@ -563,6 +576,7 @@ export function CategoryCheckout() {
         serviceCity: address.city,
         serviceAddress: address.address,
         paymentMode: online ? "RAZORPAY" : "COD",
+        checkoutKey,
       };
     };
 
@@ -573,6 +587,8 @@ export function CategoryCheckout() {
       let bookedTotal = 0;
       let saved = 0;
       let couponLeft = !!applied;
+      // The platform fee, GST included, is counted with the first booking.
+      let feeLeft = round2(platformFee * (1 + rates.gstPercent / 100));
       for (const l of lines) {
         const payload = payloadFor(l);
         const base = unitOf(l);
@@ -590,7 +606,10 @@ export function CategoryCheckout() {
           try {
             const res = await bookingApi.create(body);
             ids.push(res.bookingId);
-            bookedTotal += round2(base * (1 + TAX_RATE) - (coupon ? couponSaving : 0));
+            bookedTotal += round2(
+              base * (1 + rates.taxRateOnBase) + feeLeft - (coupon ? couponSaving : 0),
+            );
+            feeLeft = 0;
             if (coupon) saved = couponSaving;
           } catch (e) {
             failed.push(`${l.name}: ${messageOf(e, "booking failed")}`);
@@ -748,7 +767,7 @@ export function CategoryCheckout() {
                       [
                         done.mode === "COD" ? BoltIcon : WalletIcon,
                         "Payment",
-                        done.mode === "COD" ? `${formatInr(done.total)} · COD after the service` : `${formatInr(done.total)} · paid online`,
+                        done.mode === "COD" ? `${formatInr(done.total)} · pay on arrival` : `${formatInr(done.total)} · paid online`,
                       ],
                     ] as const
                   ).map(([Icon, label, value]) => (
@@ -1153,7 +1172,7 @@ export function CategoryCheckout() {
                   {(
                     [
                       { id: "RAZORPAY", Icon: WalletIcon, title: "Pay online", sub: "UPI, cards, netbanking" },
-                      { id: "COD", Icon: BoltIcon, title: "COD", sub: "Cash or UPI after the service" },
+                      { id: "COD", Icon: BoltIcon, title: "Pay on Arrival", sub: "Cash or UPI after the service" },
                     ] as const
                   ).map((m) => {
                     const on = payment === m.id;
@@ -1262,11 +1281,17 @@ export function CategoryCheckout() {
                 />
                 <dl className="m-0 space-y-1.5 border-t border-gray-100 px-4 py-3 text-[13px]">
                   <div className="flex justify-between">
-                    <dt className="text-gray-500">Item total</dt>
+                    <dt className="text-gray-500">Service charges</dt>
                     <dd className="m-0 tabular-nums">{formatInr(subtotal)}</dd>
                   </div>
+                  {platformFee > 0 ? (
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Platform fee</dt>
+                      <dd className="m-0 tabular-nums">{formatInr(platformFee)}</dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between">
-                    <dt className="text-gray-500">GST ({Math.round(TAX_RATE * 100)}%)</dt>
+                    <dt className="text-gray-500">{gstLabel(rates)}</dt>
                     <dd className="m-0 tabular-nums">{formatInr(tax)}</dd>
                   </div>
                   {applied && couponSaving > 0 ? (
@@ -1432,7 +1457,7 @@ function parseCoupons(coupons: CustomerCoupon[]): CustomerCoupon[] {
 /** "20% off one booking" or "₹199 for one booking". */
 function couponTerms(c: CustomerCoupon): string {
   return c.discountType === "FLAT_TOTAL" && c.flatTotal != null
-    ? `${formatInr(c.flatTotal)} for one booking`
+    ? `${formatInr(c.flatTotal)} + GST for one booking`
     : c.discountPercent
       ? `${c.discountPercent}% off one booking`
       : (c.description ?? "");

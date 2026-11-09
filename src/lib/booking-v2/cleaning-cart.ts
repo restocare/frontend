@@ -10,7 +10,7 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { CreateBookingPayload } from "@/src/api/api";
-import { TAX_RATE, round2 } from "./pricing";
+import { LEGACY_RATES, gstOnFee, platformFeeFor, round2, taxOnBase, type BillRates } from "./pricing";
 import type { DraftAddress } from "./draft";
 import type { Clock } from "./schedule";
 
@@ -292,6 +292,9 @@ export interface CartBill {
   /** Pre-tax amount of each line (unit × quantity). */
   lineBases: number[];
   subtotal: number;
+  /** The platform fee across the cart (per booking, or once per checkout); 0 when none. */
+  platformFee: number;
+  /** GST on the bases under the live model, plus GST on the platform fee. */
   tax: number;
   /** The line the coupon rides on (it is redeemed on one booking). */
   couponLine: number;
@@ -313,15 +316,22 @@ export function couponLineIndex(lines: Pick<CartLine, "variantId" | "quantity">[
   return i === -1 ? 0 : i;
 }
 
-/** Same rules as the hourly flow and the server: see pricing.ts. */
+/**
+ * Same rules as the hourly flow and the server: see pricing.ts. `rates` are
+ * the live ones (usePricingRates); each cart line becomes `quantity` bookings,
+ * which is what a per-booking platform fee counts.
+ */
 export function computeCartBill(
   lines: Pick<CartLine, "unitPrice" | "quantity" | "variantId">[],
   coupon: CartCoupon | null,
+  rates: BillRates = LEGACY_RATES,
 ): CartBill {
   const lineBases = lines.map((l) => round2(l.unitPrice * l.quantity));
   const subtotal = round2(lineBases.reduce((a, b) => a + b, 0));
-  const tax = round2(subtotal * TAX_RATE);
-  const gross = round2(subtotal + tax);
+  const bookings = lines.reduce((n, l) => n + l.quantity, 0);
+  const platformFee = platformFeeFor(rates, bookings);
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
+  const gross = round2(subtotal + platformFee + tax);
   const couponLine = couponLineIndex(lines);
   const base = lineBases[couponLine] ?? 0;
 
@@ -330,14 +340,26 @@ export function computeCartBill(
   let couponSaving = 0;
   if (coupon && lines.length) {
     if (isFlat) {
-      couponSaving = Math.max(0, round2(base * (1 + TAX_RATE) - (coupon.flatTotal as number)));
+      // The coupon fixes that line's pre-tax price; GST and the fee stay on top.
+      couponBaseDiscount = Math.max(0, round2(base - (coupon.flatTotal as number)));
+      couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
     } else if (coupon.discountPercent > 0) {
       couponBaseDiscount = round2((base * coupon.discountPercent) / 100);
-      couponSaving = round2(couponBaseDiscount * (1 + TAX_RATE));
+      couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
     }
   }
   const total = Math.max(0, round2(gross - couponSaving));
-  return { lineBases, subtotal, tax, couponLine, couponBaseDiscount, couponSaving, total, isFlat };
+  return {
+    lineBases,
+    subtotal,
+    platformFee,
+    tax,
+    couponLine,
+    couponBaseDiscount,
+    couponSaving,
+    total,
+    isFlat,
+  };
 }
 
 /** "HH:mm" for the API. */

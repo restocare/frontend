@@ -45,7 +45,7 @@ import {
   useHasCategoryFaqs,
 } from "./category-content-slots";
 
-import { CANCEL_FAQ, FaqSection, GST_PERCENT, WHATSAPP_URL, type Faq } from "./category-extras";
+import { CANCEL_FAQ, FaqSection, WHATSAPP_URL, type Faq } from "./category-extras";
 import {
   CartSummary,
   DetailsSheet,
@@ -67,7 +67,7 @@ const CLEANING_TRUST: BannerTrustItem[] = [
 const CLEANING_FAQS: Faq[] = [
   {
     q: "How are packages priced?",
-    a: `By size: fixture count for washrooms, cleanable area for kitchens, and area and seating for dining areas. A "from" price is the starting price for that size; the final price is confirmed at booking. Prices are before ${GST_PERCENT}% GST.`,
+    a: `By size: fixture count for washrooms, cleanable area for kitchens, and area and seating for dining areas. A "from" price is the starting price for that size; the final price is confirmed at booking. Prices are before GST.`,
   },
   {
     q: "Can I book several areas together?",

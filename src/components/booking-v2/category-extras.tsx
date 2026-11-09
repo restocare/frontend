@@ -10,12 +10,16 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { TAX_RATE } from "@/src/lib/booking-v2/pricing";
 import { DAYS_AHEAD, MAX_MINUTES, SAME_DAY_LEAD } from "@/src/lib/booking-v2/schedule";
 import { ChevronDownIcon } from "@/src/components/icons";
 
 export const WHATSAPP_URL = "https://wa.me/919953532995";
-export const GST_PERCENT = Math.round(TAX_RATE * 100);
+/**
+ * @deprecated The GST rate and what it applies to are set in the admin panel
+ * (Payment Settings) and read from GET /v1/pricing/rates; copy should say
+ * "plus GST" and let the bill show the figure. Kept for older imports.
+ */
+export const GST_PERCENT = 18;
 
 /* ------------------------------ help card ------------------------------ */
 
@@ -251,11 +255,11 @@ export function hourlyFaqs(noun: string, minHours: number): Faq[] {
     },
     {
       q: "How is the price worked out?",
-      a: `Hourly rate × hours × number of people, plus ${GST_PERCENT}% GST. You see the full total before you confirm.`,
+      a: "Hourly rate × hours × number of people, plus GST and any platform fee. You see the full total before you confirm.",
     },
     {
       q: "How do I pay?",
-      a: `Online by UPI, card or net banking, or COD — cash or UPI to the ${noun} after the service.`,
+      a: `Online by UPI, card or net banking, or pay on arrival — cash or UPI to the ${noun} after the service.`,
     },
     VERIFIED_FAQ,
     CANCEL_FAQ,
