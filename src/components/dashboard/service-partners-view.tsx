@@ -540,7 +540,7 @@ export function ServicePartnersView({
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 font-medium">Partner</th>
                   <th className="px-5 py-3 font-medium">Mobile</th>
-                  <th className="px-5 py-3 font-medium">Service</th>
+                  <th className="px-5 py-3 font-medium">Skill</th>
                   <th className="px-5 py-3 font-medium">City</th>
                   <th className="px-5 py-3 font-medium">Rating</th>
                   <th className="px-5 py-3 font-medium">Wallet</th>
@@ -573,7 +573,29 @@ export function ServicePartnersView({
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{p.mobile ?? "—"}</td>
                     <td className="px-5 py-3 text-muted-foreground">
-                      {p.service ?? p.category ?? "—"}
+                      {/* What dispatch rings them for. Declared sub-skills if
+                          there are any; otherwise the whole trade, which is
+                          what no skill (or only the main tag) actually means.
+                          Never `service` — that column is a representative FK
+                          placeholder showing an arbitrary service. */}
+                      {p.skills && p.skills.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {p.skills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      ) : p.category ? (
+                        <span title="No specific skill declared — takes every lead in this trade">
+                          All {p.category}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{p.city ?? "—"}</td>
                     <td className="px-5 py-3">
