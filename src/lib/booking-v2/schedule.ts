@@ -19,10 +19,10 @@ export const STEP_MINUTES = 60;
 export const DAY_START = 6 * 60;
 export const DAY_END = 24 * 60;
 export const DAYS_AHEAD = 7;
-/** Notice needed before a same-day start. */
-export const SAME_DAY_LEAD = 30;
-/** Shortest and longest booking, whatever the variants say. */
-export const MIN_MINUTES = 5 * 60;
+/** Notice needed before a start, in minutes: 2 hours. The server refuses less. */
+export const SAME_DAY_LEAD = 120;
+/** Shortest and longest booking, whatever the variants say: 7 to 12 hours. The server refuses shorter. */
+export const MIN_MINUTES = 7 * 60;
 export const MAX_MINUTES = 12 * 60;
 
 export interface Clock {
