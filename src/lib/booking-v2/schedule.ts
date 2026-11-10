@@ -1,8 +1,9 @@
 /**
  * Date and hours logic for the hourly booking flow. Pure: no DOM, no API.
  *
- * Times are minutes since midnight in IST. The day runs 6:00 AM to midnight
- * (1440), in one-hour steps. The shortest bookable length and the default
+ * Times are minutes since midnight in IST. Starts run 6:00 AM to 11:00 PM in
+ * one-hour steps; an end may run past midnight, as late as 6:00 AM the next
+ * day (END_LIMIT, 1800), so an evening shift can be booked (7 PM – 2 AM). The shortest bookable length and the default
  * window come from the service's shift variants, whose names carry both,
  * e.g. "5 Hour Shift (11 AM – 4 PM)".
  */
@@ -18,6 +19,8 @@ import {
 export const STEP_MINUTES = 60;
 export const DAY_START = 6 * 60;
 export const DAY_END = 24 * 60;
+/** The latest an end may be: 6:00 AM the next day. */
+export const END_LIMIT = DAY_END + DAY_START;
 export const DAYS_AHEAD = 7;
 /** Notice needed before a start, in minutes: 2 hours. The server refuses less. */
 export const SAME_DAY_LEAD = 120;
@@ -66,12 +69,22 @@ export function fmtDuration(minutes: number): string {
   return out;
 }
 
-/** "HH:mm" for the API. Midnight becomes 23:59 so it stays on the same day. */
+/**
+ * "HH:mm" for the API. Midnight becomes 23:59 so it stays on the same day;
+ * a later end wraps to the next day's clock ("02:00"), which the server reads
+ * as the next day whenever it is earlier than the start.
+ */
 export function toHHmm(minutes: number): string {
-  if (minutes >= DAY_END) return "23:59";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
+  if (minutes === DAY_END) return "23:59";
+  const wrapped = minutes > DAY_END ? minutes - DAY_END : minutes;
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** fmtTime, with "next day" after an end that runs past midnight: 1500 → "1:00 AM next day". */
+export function fmtEndTime(minutes: number): string {
+  return minutes > DAY_END ? `${fmtTime(minutes)} next day` : fmtTime(minutes);
 }
 
 export function earliestStart(dateISO: string, clock: Clock): number {
@@ -87,7 +100,7 @@ export function snapToStep(minutes: number): number {
 }
 
 export function latestStart(minMinutes: number): number {
-  return DAY_END - minMinutes;
+  return Math.min(END_LIMIT - minMinutes, DAY_END - STEP_MINUTES);
 }
 
 export function timeOptions(from: number, to: number): number[] {
@@ -125,7 +138,7 @@ export function shiftWindow(name: string): Window | null {
   if (endHour == null && durationHours) endHour = startHour + durationHours;
   if (endHour == null) return null;
   if (endHour <= startHour) endHour += 24;
-  return { start: startHour * 60, end: Math.min(endHour * 60, DAY_END) };
+  return { start: startHour * 60, end: Math.min(endHour * 60, END_LIMIT) };
 }
 
 /** First variant window that fits the day, else 11:00 for the minimum length. */

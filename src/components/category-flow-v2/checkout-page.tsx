@@ -38,7 +38,9 @@ import {
   type CategoryTreeService,
   type CreateBookingPayload,
   newCheckoutKey,
+  paidWith,
   type CustomerCoupon,
+  type PaidWith,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
@@ -50,7 +52,8 @@ import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCleaningCart, type CartLine } from "@/src/lib/booking-v2/cleaning-cart";
 import { hourlyRate } from "@/src/lib/booking-v2/draft";
 import {
-  DAY_END,
+  END_LIMIT,
+  fmtEndTime,
   DAY_START,
   MAX_MINUTES,
   clockNow,
@@ -365,14 +368,14 @@ export function CategoryCheckout() {
         latest,
       );
   const minHours = minMinutes / 60;
-  const maxEnd = Math.min(start + MAX_MINUTES, DAY_END);
+  const maxEnd = Math.min(start + MAX_MINUTES, END_LIMIT);
   const end = hourly
     ? Math.min(Math.max(snapToStep(picked.end ?? start + minMinutes), start + minMinutes), maxEnd)
     : start + FIXED_JOB_MINUTES;
   const hours = hourly ? (end - start) / 60 : FIXED_JOB_MINUTES / 60;
   const whenLabel = autoStart
     ? "Today · as soon as possible"
-    : `${mode === "instant" ? "Today" : fmtDateLong(date)} · ${fmtTime(start)}${hourly ? ` to ${fmtTime(end)}` : ""}`;
+    : `${mode === "instant" ? "Today" : fmtDateLong(date)} · ${fmtTime(start)}${hourly ? ` to ${fmtEndTime(end)}` : ""}`;
 
   // A new start keeps the same length of booking where it can.
   const pickStart = (v: number) =>
@@ -582,7 +585,7 @@ export function CategoryCheckout() {
     };
 
     /** Creates every booking; returns what went through and what didn't. */
-    const bookAll = async () => {
+    const bookAll = async (paid: PaidWith | null = null) => {
       const ids: number[] = [];
       const failed: string[] = [];
       let bookedTotal = 0;
@@ -591,7 +594,7 @@ export function CategoryCheckout() {
       // The platform fee, GST included, is counted with the first booking.
       let feeLeft = round2(platformFee * (1 + rates.gstPercent / 100));
       for (const l of lines) {
-        const payload = payloadFor(l);
+        const payload = paid ? { ...payloadFor(l), ...paid } : payloadFor(l);
         const base = unitOf(l);
         for (let i = 0; i < l.quantity; i++) {
           // The coupon rides on the first booking only: codes are single use.
@@ -661,6 +664,7 @@ export function CategoryCheckout() {
       // Pay online: take and verify the payment first. Nothing is booked yet,
       // so a cancelled or failed payment leaves no booking behind.
       let paymentId: string;
+      let paid: PaidWith;
       try {
         if (!(await loadRazorpayScript())) throw new Error("Could not load the payment gateway.");
         const order = await paymentsApi.createOrder(total, "INR");
@@ -677,6 +681,7 @@ export function CategoryCheckout() {
         const verification = await paymentsApi.verify(signature);
         if (!verification?.success) throw new Error(verification?.message || "The payment could not be verified.");
         paymentId = signature.razorpay_payment_id;
+        paid = paidWith(signature);
       } catch (e) {
         setError(
           `${messageOf(e, "The payment did not go through.")} No booking was made. Try again, or choose COD.`,
@@ -684,10 +689,11 @@ export function CategoryCheckout() {
         return;
       }
 
-      // Paid and verified: now confirm the bookings. The cart is emptied even
+      // Paid and verified: now confirm the bookings, each carrying the signed
+      // ids so the server creates them already paid. The cart is emptied even
       // if some fail, so the customer is never charged twice; support books
       // or refunds those from the payment ID shown.
-      const { ids, failed, bookedTotal, saved } = await bookAll();
+      const { ids, failed, bookedTotal, saved } = await bookAll(paid);
       emptyCart();
       const problem = failed.length
         ? `Your payment went through (payment ID ${paymentId}), but ${
@@ -1740,7 +1746,7 @@ function TimeField({
         >
           {options.map((o) => (
             <option key={o.value} value={o.value} disabled={o.disabled}>
-              {fmtTime(o.value)}
+              {fmtEndTime(o.value)}
             </option>
           ))}
         </select>

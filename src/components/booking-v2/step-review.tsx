@@ -13,8 +13,11 @@ import { useRouter } from "next/navigation";
 import {
   bookingApi,
   couponsApi,
+  paidButNotBooked,
+  paidWith,
   paymentsApi,
   type CustomerCoupon,
+  type PaidWith,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { formatInr } from "@/src/lib/booking-v2/pricing";
@@ -173,6 +176,10 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
     try {
       const payloads = buildPayloads({ ...draft, paymentMode: payment }, Number(user.id), applied);
 
+      // Pay online: take and verify the payment first. Nothing is booked yet,
+      // so a cancelled or failed payment leaves no booking behind. The signed
+      // ids then ride on every booking, which the server creates already paid.
+      let paid: PaidWith | null = null;
       if (payment === "RAZORPAY") {
         const ok = await loadRazorpayScript();
         if (!ok) throw new Error("Could not load the payment gateway. Please try again.");
@@ -193,12 +200,18 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
         if (!verification?.success) {
           throw new Error(verification?.message ?? "Payment could not be verified.");
         }
+        paid = paidWith(signature);
       }
 
       const ids: number[] = [];
-      for (const payload of payloads) {
-        const result = await bookingApi.create(payload);
-        ids.push(result.bookingId);
+      try {
+        for (const payload of payloads) {
+          const result = await bookingApi.create(paid ? { ...payload, ...paid } : payload);
+          ids.push(result.bookingId);
+        }
+      } catch (e) {
+        if (!paid) throw e;
+        throw new Error(paidButNotBooked(paid.razorpayPaymentId, ids.length ? "some of the bookings" : "the booking"));
       }
       clearDraft();
       // Meta Purchase, once per order (the booking ids identify the order).
