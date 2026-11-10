@@ -671,9 +671,12 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
         }
       }
 
-      // Leave only what didn't book, so trying again won't double-book.
+      // Pay on arrival: leave only what didn't book, so trying again won't
+      // double-book. Paid: the cart is emptied even if some lines failed, so
+      // the customer is never charged twice; support books or refunds those
+      // from the payment ID shown.
       update(
-        failed.length
+        failed.length && !paid
           ? { lines: lines.filter((l) => !bookedKeys.has(l.key)) }
           : { lines: [], date: null, windowId: null, paymentMode: null },
       );
