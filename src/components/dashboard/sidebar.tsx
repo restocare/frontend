@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   AuraIcon,
   BagIcon,
+  BellIcon,
   BriefcaseIcon,
   BuildingIcon,
   CalendarIcon,
@@ -255,6 +256,13 @@ const ADMIN_NAV: NavEntry[] = [
         label: "Payment Settings",
         href: "/dashboard/dispatcher/payment-settings",
         icon: WalletIcon,
+        permission: "dispatcher.view",
+      },
+      {
+        // The pushes a customer gets about a booking: heavy rush, welcome, thanks.
+        label: "Customer Notifications",
+        href: "/dashboard/dispatcher/customer-notifications",
+        icon: BellIcon,
         permission: "dispatcher.view",
       },
       {

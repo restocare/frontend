@@ -22,6 +22,7 @@ export * from "./dispatch";
 export * from "./hr";
 export * from "./partners";
 export * from "./pricing";
+export * from "./customer-notifications";
 export * from "./qc";
 export * from "./query-keys";
 export * from "./skill-tags";

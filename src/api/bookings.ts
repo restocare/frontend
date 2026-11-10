@@ -89,6 +89,32 @@ export interface CreateBookingPayload {
    * "once per checkout" platform fee lands on the first of them only.
    */
   checkoutKey?: string;
+  /**
+   * Pay-first online booking: the Razorpay order the whole checkout was paid
+   * with, on every booking of that checkout (see paidWith). The server
+   * verifies them and creates the booking already paid.
+   */
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+}
+
+/** The payload fields that carry a verified Razorpay payment onto a booking. */
+export type PaidWith = Required<
+  Pick<CreateBookingPayload, "razorpayOrderId" | "razorpayPaymentId" | "razorpaySignature">
+>;
+
+export function paidWith(s: VerifyRazorpayPayload): PaidWith {
+  return {
+    razorpayOrderId: s.razorpay_order_id,
+    razorpayPaymentId: s.razorpay_payment_id,
+    razorpaySignature: s.razorpay_signature,
+  };
+}
+
+/** What to tell a customer whose payment went through but whose booking did not. */
+export function paidButNotBooked(paymentId: string, what: string): string {
+  return `Your payment went through (payment ID ${paymentId}), but ${what} could not be booked. Our team will book it for you or refund you; you can also call support with this payment ID.`;
 }
 
 /** A fresh checkout key: "ck_" + 16 hex chars. */

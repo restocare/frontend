@@ -22,11 +22,14 @@ import {
   bookingApi,
   categoryTreeApi,
   couponsApi,
+  paidButNotBooked,
+  paidWith,
   paymentsApi,
   queryKeys,
   type CategoryTreeService,
   newCheckoutKey,
   type CustomerCoupon,
+  type PaidWith,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { formatInr, gstLabel, round2 } from "@/src/lib/booking-v2/pricing";
@@ -579,9 +582,8 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
   const payment = cart.paymentMode;
   const rates = usePricingRates();
   const bill = computeCartBill(cart.lines, applied, rates);
-  // Bookings are created "pay after the job" first (payment follows, priced
-  // by the server), and the server refuses an online-only coupon on those.
-  const couponNeedsPrepay = !!applied?.prepaidOnly;
+  // The server takes an online-only coupon only on a booking paid online.
+  const couponNeedsPrepay = !!applied?.prepaidOnly && payment !== "RAZORPAY";
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -596,23 +598,45 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
     }
     if (!payment) return setError("Choose a payment method.");
     if (couponNeedsPrepay) {
-      return setError(
-        `Coupon ${applied?.code} only works when paying online at booking, which the cart doesn't support yet. Remove it to continue.`,
-      );
+      return setError(`Coupon ${applied?.code} only works with online payment. Pay online, or remove it to continue.`);
     }
 
     setPlacing(true);
     const when = whenText(cart);
     try {
       const lines = cart.lines;
-      // Created "pay after the job"; paying online follows, priced by the
-      // server from these bookings, so an unpaid booking never reads as paid.
+
+      // Pay online: take and verify the payment first. Nothing is booked yet,
+      // so a cancelled or failed payment leaves no booking behind.
+      let paid: PaidWith | null = null;
+      if (payment === "RAZORPAY") {
+        try {
+          if (!(await loadRazorpayScript())) throw new Error("Could not load the payment gateway.");
+          const order = await paymentsApi.createOrder(bill.total, "INR");
+          if (!order?.id || !order?.keyId) throw new Error("Could not start the payment.");
+          const signature = await openRazorpay(
+            order,
+            { name: user.name ?? undefined, email: user.email ?? undefined, contact: user.mobile ?? user.phone ?? undefined },
+            `${cart.categoryName}, ${fmtDateLong(cart.date)}`,
+          );
+          const verification = await paymentsApi.verify(signature);
+          if (!verification?.success) throw new Error(verification?.message || "The payment could not be verified.");
+          paid = paidWith(signature);
+        } catch (e) {
+          setError(`${messageOf(e, "The payment did not go through.")} No booking was made. Try again, or choose COD.`);
+          return;
+        }
+      }
+
       // Every booking of this checkout carries the same key, so a "once per
-      // checkout" platform fee is charged on the first of them only.
+      // checkout" platform fee is charged on the first of them only; a paid
+      // checkout also carries the signed ids, so each is created already paid.
       const checkoutKey = newCheckoutKey();
-      const payloads = buildCartPayloads({ ...cart, paymentMode: "COD" }, Number(user.id), applied).map(
-        (p) => ({ ...p, checkoutKey }),
-      );
+      const payloads = buildCartPayloads(
+        { ...cart, paymentMode: paid ? "RAZORPAY" : "COD" },
+        Number(user.id),
+        applied,
+      ).map((p) => ({ ...p, checkoutKey, ...(paid ?? {}) }));
 
       // One booking per line. Keep going after a failure so one bad line
       // doesn't block the others, and report exactly what happened.
@@ -647,39 +671,28 @@ function StepCartReview({ cart, update, setQuantity, goTo, backToCategory, onDon
         }
       }
 
-      // Leave only what didn't book, so trying again won't double-book.
+      // Pay on arrival: leave only what didn't book, so trying again won't
+      // double-book. Paid: the cart is emptied even if some lines failed, so
+      // the customer is never charged twice; support books or refunds those
+      // from the payment ID shown.
       update(
-        failed.length
+        failed.length && !paid
           ? { lines: lines.filter((l) => !bookedKeys.has(l.key)) }
           : { lines: [], date: null, windowId: null, paymentMode: null },
       );
       if (!booked.length) {
-        setError(`We couldn't place the booking: ${failed.map((f) => `${f.label}: ${f.reason}`).join("; ")}`);
+        setError(
+          paid
+            ? paidButNotBooked(paid.razorpayPaymentId, "the booking")
+            : `We couldn't place the booking: ${failed.map((f) => `${f.label}: ${f.reason}`).join("; ")}`,
+        );
         return;
       }
 
-      // Pay online for what booked: the server prices the order from those
-      // bookings and re-checks the captured amount before marking them paid.
-      let mode: PaymentMode = "COD";
-      let total = round2(bookedTotal);
-      let paymentProblem: string | null = null;
-      if (payment === "RAZORPAY") {
-        try {
-          if (!(await loadRazorpayScript())) throw new Error("Could not load the payment gateway.");
-          const order = await paymentsApi.createBookingOrder(Number(user.id), booked.map((b) => b.id));
-          if (!order?.id || !order?.keyId) throw new Error("Could not start the payment.");
-          const signature = await openRazorpay(
-            order,
-            { name: user.name ?? undefined, email: user.email ?? undefined, contact: user.mobile ?? user.phone ?? undefined },
-            `${cart.categoryName}, ${fmtDateLong(cart.date)}`,
-          );
-          await paymentsApi.confirmBookingPayment({ ...signature, userId: Number(user.id), bookingIds: order.bookingIds });
-          mode = "RAZORPAY";
-          total = order.payableAmount;
-        } catch (e) {
-          paymentProblem = messageOf(e, "The payment did not go through.");
-        }
-      }
+      const mode: PaymentMode = paid ? "RAZORPAY" : "COD";
+      const total = round2(bookedTotal);
+      const paymentProblem: string | null =
+        paid && failed.length ? paidButNotBooked(paid.razorpayPaymentId, "some of the services") : null;
       // Meta Purchase, once per order (the booking ids identify the order).
       trackPurchaseOnce(
         booked.map((b) => b.id).join("-"),
@@ -933,8 +946,7 @@ function Done({ outcome, backToCategory }: { outcome: Outcome; backToCategory: (
         ) : null}
         {outcome.paymentProblem ? (
           <p className="m-0 mt-5 rounded-xl bg-rc-yellow-tint/60 px-4 py-3 text-left text-sm text-gray-800" role="alert">
-            Payment didn&apos;t go through ({outcome.paymentProblem}). Your bookings are confirmed to pay after the job; you
-            can also pay online any time from My orders.
+            {outcome.paymentProblem}
           </p>
         ) : null}
         <p className="m-0 mt-5 text-[15px] leading-relaxed text-gray-600">

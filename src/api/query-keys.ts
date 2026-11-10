@@ -78,6 +78,7 @@ export const queryKeys = {
   contactSubmissions: (search: string) => ["contacts", search] as const,
   configure: ["configure"] as const,
   pricingRates: ["pricing", "rates"] as const,
+  customerNotifications: ["dispatcher", "customer-notifications"] as const,
   auraOverview: ["aura", "overview"] as const,
   auraUsers: (params: Record<string, unknown>) =>
     ["aura", "users", params] as const,

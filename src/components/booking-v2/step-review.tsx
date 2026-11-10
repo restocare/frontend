@@ -13,8 +13,11 @@ import { useRouter } from "next/navigation";
 import {
   bookingApi,
   couponsApi,
+  paidButNotBooked,
+  paidWith,
   paymentsApi,
   type CustomerCoupon,
+  type PaidWith,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { formatInr } from "@/src/lib/booking-v2/pricing";
@@ -148,7 +151,13 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
 
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ ids: number[]; mode: PaymentMode; total: number } | null>(null);
+  const [done, setDone] = useState<{
+    ids: number[];
+    mode: PaymentMode;
+    total: number;
+    /** Paid online, but some or all bookings could not be made. */
+    problem?: string | null;
+  } | null>(null);
 
   const confirm = async () => {
     setError(null);
@@ -173,6 +182,10 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
     try {
       const payloads = buildPayloads({ ...draft, paymentMode: payment }, Number(user.id), applied);
 
+      // Pay online: take and verify the payment first. Nothing is booked yet,
+      // so a cancelled or failed payment leaves no booking behind. The signed
+      // ids then ride on every booking, which the server creates already paid.
+      let paid: PaidWith | null = null;
       if (payment === "RAZORPAY") {
         const ok = await loadRazorpayScript();
         if (!ok) throw new Error("Could not load the payment gateway. Please try again.");
@@ -193,12 +206,29 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
         if (!verification?.success) {
           throw new Error(verification?.message ?? "Payment could not be verified.");
         }
+        paid = paidWith(signature);
       }
 
       const ids: number[] = [];
-      for (const payload of payloads) {
-        const result = await bookingApi.create(payload);
-        ids.push(result.bookingId);
+      try {
+        for (const payload of payloads) {
+          const result = await bookingApi.create(paid ? { ...payload, ...paid } : payload);
+          ids.push(result.bookingId);
+        }
+      } catch (e) {
+        if (!paid) throw e;
+        // Paid: leave the review step for the done screen, which has no
+        // Confirm, so a retry cannot take a second payment; support books or
+        // refunds from the payment ID shown.
+        clearDraft();
+        setDone({
+          ids,
+          mode: payment,
+          total: bill.total,
+          problem: paidButNotBooked(paid.razorpayPaymentId, ids.length ? "some of the bookings" : "the booking"),
+        });
+        window.scrollTo(0, 0);
+        return;
       }
       clearDraft();
       // Meta Purchase, once per order (the booking ids identify the order).
@@ -247,7 +277,14 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
           <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-rc-green text-white">
             <CheckGlyph className="h-10 w-10" />
           </div>
-          <h1 className="m-0 text-2xl font-bold tracking-tight sm:text-3xl">Booking confirmed</h1>
+          <h1 className="m-0 text-2xl font-bold tracking-tight sm:text-3xl">
+            {done.ids.length ? "Booking confirmed" : "Payment received"}
+          </h1>
+          {done.problem ? (
+            <p className="m-0 mt-5 rounded-xl bg-rc-yellow-tint/60 px-4 py-3 text-left text-sm text-gray-800" role="alert">
+              {done.problem}
+            </p>
+          ) : null}
           {idText ? (
             <p className="m-0 mt-2 text-sm text-gray-500">
               Booking {done.ids.length > 1 ? "IDs" : "ID"}{" "}
