@@ -25,6 +25,8 @@ import {
   bookingApi,
   couponsApi,
   newCheckoutKey,
+  paidButNotBooked,
+  paidWith,
   paymentsApi,
   userApi,
   type CartItemData,
@@ -620,7 +622,15 @@ export default function CheckoutPage() {
       );
     }
 
-    await submitBookings(payloads);
+    // Paid and verified: every booking carries the signed ids, so the server
+    // creates it already paid (BAC-0074). If one cannot be made now, the
+    // customer gets the payment ID for support rather than a silent failure.
+    const paid = paidWith(checkoutResult);
+    try {
+      await submitBookings(payloads.map((p) => ({ ...p, ...paid })));
+    } catch {
+      throw new Error(paidButNotBooked(paid.razorpayPaymentId, "the booking"));
+    }
   };
 
   const handlePlaceOrder = async () => {
