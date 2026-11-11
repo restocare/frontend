@@ -80,19 +80,23 @@ apiClient.interceptors.response.use(
     const original = error.config ?? {};
 
     if (error.response?.status === 401 && !original.__isRetry) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed.ok) {
         const { user, setAuth } = useAuthStore.getState();
-        if (user) setAuth(newToken, user);
+        if (user) setAuth(refreshed.token, user);
         original.__isRetry = true;
-        original.headers = { ...original.headers, Authorization: `Bearer ${newToken}` };
+        original.headers = { ...original.headers, Authorization: `Bearer ${refreshed.token}` };
         return apiClient(original);
       }
 
-      // Refresh failed: wipe the mirror and the stored session (forceLogout
-      // clears the rc.* keys too, so /login cannot bounce straight back in).
-      useAuthStore.getState().clearAuth();
-      forceLogout();
+      // The server refused the session: wipe the mirror and the stored session
+      // (forceLogout clears the rc.* keys too, so /login cannot bounce straight
+      // back in). A refresh the server could not serve (500/503, no network)
+      // keeps the session; this request just fails (BUG-001).
+      if (refreshed.refused) {
+        useAuthStore.getState().clearAuth();
+        forceLogout();
+      }
     }
 
     return Promise.reject(error);

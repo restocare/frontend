@@ -91,36 +91,47 @@ export function isAdminSession(): boolean {
 
 /* ------------------------ silent token refresh -------------------------- */
 
-let refreshPromise: Promise<string | null> | null = null;
+/**
+ * How a refresh ended: a new token; refused (the session is gone: sign out);
+ * or unavailable (no network, a server error) — which says nothing about the
+ * session, so the user stays signed in and the next request tries again.
+ */
+export type RefreshOutcome =
+  | { ok: true; token: string }
+  | { ok: false; refused: boolean };
+
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
 /**
  * Exchange the stored refresh token for a fresh access token.
  * Single-flight: concurrent 401s share one refresh request, across both this
  * client and the axios client in app/api/apiClient.ts (which imports this).
  */
-export async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<RefreshOutcome> {
   if (refreshPromise) return refreshPromise;
 
   const refreshToken = getRefreshToken();
   const sessionId = getSessionId();
-  if (!refreshToken || !sessionId) return null;
+  if (!refreshToken || !sessionId) return { ok: false, refused: true };
 
-  refreshPromise = (async () => {
+  refreshPromise = (async (): Promise<RefreshOutcome> => {
     try {
       const res = await fetch(`${API_BASE_URL}/v1/auth/refresh-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ refreshToken, sessionId }),
       });
-      if (!res.ok) return null;
+      // 400/401/403: the server looked at the session and said no. Anything
+      // else (a 500, a 503 from a busy database) is not a verdict on it.
+      if (!res.ok) return { ok: false, refused: res.status >= 400 && res.status < 500 };
       const data = (await res.json()) as { accessToken?: string };
       if (data?.accessToken) {
         setToken(data.accessToken);
-        return data.accessToken;
+        return { ok: true, token: data.accessToken };
       }
-      return null;
+      return { ok: false, refused: true };
     } catch {
-      return null;
+      return { ok: false, refused: false };
     }
   })();
 
@@ -259,14 +270,16 @@ async function request<T>(
   }
 
   // The access token expired (or is otherwise rejected): try a single silent
-  // refresh, then replay the original request once. If the refresh fails, wipe
-  // auth and bounce to /login. Skipped for unauthenticated calls and retries.
+  // refresh, then replay the original request once. Only a refused refresh
+  // wipes auth and bounces to /login; a refresh the server could not serve
+  // keeps the session and reports this request's failure instead (BUG-001).
+  // Skipped for unauthenticated calls and retries.
   if (response.status === 401 && !skipAuth && !isRetry) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed.ok) {
       return request<T>(path, options, true);
     }
-    forceLogout();
+    if (refreshed.refused) forceLogout();
   }
 
   const text = await response.text();
@@ -317,9 +330,9 @@ export async function uploadFile<T>(
   // Same silent refresh as JSON requests, so an expired session doesn't fail
   // an upload the admin spent time preparing. FormData can be sent again.
   if (response.status === 401 && token && !isRetry) {
-    const newToken = await refreshAccessToken();
-    if (newToken) return uploadFile<T>(path, formData, method, true);
-    forceLogout();
+    const refreshed = await refreshAccessToken();
+    if (refreshed.ok) return uploadFile<T>(path, formData, method, true);
+    if (refreshed.refused) forceLogout();
   }
   const parsed = parseBody(await response.text());
   if (!response.ok) {
@@ -347,9 +360,9 @@ export async function downloadFile(path: string, isRetry = false): Promise<Blob>
     );
   }
   if (response.status === 401 && token && !isRetry) {
-    const newToken = await refreshAccessToken();
-    if (newToken) return downloadFile(path, true);
-    forceLogout();
+    const refreshed = await refreshAccessToken();
+    if (refreshed.ok) return downloadFile(path, true);
+    if (refreshed.refused) forceLogout();
   }
   if (!response.ok) {
     const parsed = parseBody(await response.text());
