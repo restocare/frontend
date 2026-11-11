@@ -42,6 +42,16 @@ const normalizeStatus = (status?: string) =>
 const isPastStatus = (status?: string) =>
   /cancel|reject|complete|finished|done/.test(normalizeStatus(status));
 
+/**
+ * Started (OTP verified / in progress): the partner is working, so the
+ * customer can no longer cancel; only support can. Same rule as the server
+ * (booking-cancel-rules.ts) and the customer app.
+ */
+const canCustomerCancel = (b: { status?: string; otpVerified?: boolean }) =>
+  !isPastStatus(b.status) &&
+  !b.otpVerified &&
+  !/in-progress|inprogress|started/.test(normalizeStatus(b.status));
+
 const PROGRESS_LABELS = ["Confirmed", "Accepted", "On the way", "Completed"];
 
 function progressStep(status?: string): number {
@@ -147,6 +157,8 @@ export function MyBookingsContent({ embedded = false }: { embedded?: boolean }) 
     onError: (e) => {
       setCancelTarget(null);
       setNotice(e instanceof Error ? e.message : "Unable to cancel booking.");
+      // The job may have started since the list loaded: show it as it is now.
+      if (user?.id) queryClient.invalidateQueries({ queryKey: queryKeys.userBookings(user.id) });
     },
   });
 
@@ -391,7 +403,9 @@ export function MyBookingsContent({ embedded = false }: { embedded?: boolean }) 
                   <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rc-line bg-rc-ground/50 px-4 py-3 sm:px-6">
                     <span className="text-xs text-rc-ink-2">1 service in this booking</span>
                     <div className="flex flex-wrap items-center gap-2">
-                      {tab === "ACTIVE" ? (
+                      {tab === "ACTIVE" && !canCustomerCancel(b) ? (
+                        <span className="text-xs font-semibold text-rc-ink-2">Service in progress</span>
+                      ) : tab === "ACTIVE" ? (
                         <button onClick={() => { setCancelChoice(null); setCancelNote(""); setCancelTarget(id); }} disabled={cancelMutation.isPending} aria-label={`Cancel booking ${id}`} className={`min-h-11 rounded-full border border-rc-line bg-white px-4 text-xs font-semibold text-rc-red transition hover:border-rc-red/30 hover:bg-rc-red/5 disabled:opacity-60 ${focusRing}`}>
                           Cancel booking
                         </button>

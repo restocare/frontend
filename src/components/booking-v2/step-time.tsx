@@ -7,7 +7,8 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
-import { formatInr } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel } from "@/src/lib/booking-v2/pricing";
+import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import {
   DAY_END,
   DAY_START,
@@ -150,7 +151,8 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
   const problem = validateRange(start, end, minMinutes, date, clock);
   const valid = problem === "ok";
   // Includes services added for the same time on the review step.
-  const full = fullBill({ ...draft, date, start, end }, null);
+  const rates = usePricingRates();
+  const full = fullBill({ ...draft, date, start, end }, null, rates);
   const bill = { ...full.main, total: full.total, tax: full.tax };
   const extraCount = draft.extras?.length ?? 0;
   const copy = draftCopy({ ...draft, date, start, end });
@@ -218,7 +220,10 @@ export function StepTime({ draft, update, goTo, leave }: StepProps) {
                   value={formatInr(full.extrasBase)}
                 />
               ) : null}
-              <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
+              {full.platformFee > 0 ? (
+                <BillRow label="Platform fee" value={formatInr(full.platformFee)} />
+              ) : null}
+              <BillRow label={gstLabel(rates)} value={formatInr(bill.tax)} />
             </>
           }
           total={formatInr(bill.total)}

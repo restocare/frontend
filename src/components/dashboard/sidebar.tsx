@@ -266,6 +266,13 @@ const ADMIN_NAV: NavEntry[] = [
         permission: "dispatcher.view",
       },
       {
+        // What Razorpay reported, and the captures nobody booked (refund or book).
+        label: "Payments",
+        href: "/dashboard/dispatcher/payments",
+        icon: WalletIcon,
+        permission: "dispatcher.view",
+      },
+      {
         label: "Pricing Rules",
         href: "/dashboard/dispatcher/pricing",
         icon: TagIcon,
@@ -338,13 +345,6 @@ const ADMIN_NAV: NavEntry[] = [
     icon: CartIcon,
     permission: "vendors.view",
     section: "business",
-  },
-  {
-    label: "Payments",
-    href: "/dashboard/payments",
-    icon: WalletIcon,
-    permission: "payments.view",
-    section: "operations",
   },
   {
     label: "Styling",

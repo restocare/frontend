@@ -191,3 +191,25 @@ test("draft night figures match hourly-terms", () => {
     assert.equal(draft.billedNightHours(d), hourlyTerms.nightHoursIn(d.start, d.end));
   }
 });
+
+// The wizard prices from the live Payment Settings (GST on the commission,
+// a per-checkout platform fee); the legacy 18%-on-base is only the fallback.
+test("chef day bill under the live rates: GST on commission plus the platform fee", () => {
+  const live = {
+    taxModel: "ON_COMMISSION",
+    commissionPercent: 20,
+    gstPercent: 18,
+    taxRateOnBase: 0.036,
+    platformFeeRupees: 5,
+    platformFeeMode: "PER_ORDER",
+  };
+  const day = ready(draft.startDraft(chef, category, pick(0)));
+  const bill = draft.fullBill(day, null, live);
+  assert.equal(bill.main.perBookingBase, 745);
+  assert.equal(bill.platformFee, 5);
+  assert.equal(bill.tax, 27.72); // 745 × 3.6% = 26.82, plus 18% of ₹5 = 0.90
+  assert.equal(bill.total, 777.72);
+  // Every booking of the checkout carries the key a per-order fee is charged once under.
+  const payloads = draft.buildPayloads(day, 1, null, "ck_test");
+  assert.equal(payloads[0].checkoutKey, "ck_test");
+});

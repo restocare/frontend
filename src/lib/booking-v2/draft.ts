@@ -12,7 +12,17 @@ import type {
   CreateBookingPayload,
   CustomerCoupon,
 } from "@/src/api/api";
-import { TAX_RATE, computeBill, formatInr, round2, type Bill } from "./pricing";
+import {
+  LEGACY_RATES,
+  computeBill,
+  formatInr,
+  gstOnFee,
+  platformFeeFor,
+  round2,
+  taxOnBase,
+  type Bill,
+  type BillRates,
+} from "./pricing";
 import { isCleaningCategory } from "./cleaning";
 import {
   defaultWindow,
@@ -327,7 +337,10 @@ export interface FullBill {
   main: Bill;
   extrasBase: number;
   extrasTax: number;
+  /** The platform fee across every booking of this checkout (each, or once); 0 when none. */
+  platformFee: number;
   subtotal: number;
+  /** GST on the bases under the live model, plus GST on the platform fee. */
   tax: number;
   total: number;
 }
@@ -336,30 +349,44 @@ export interface FullBill {
  * The whole booking: the main service as before (the coupon stays on it)
  * plus every extra at its own price for the same window.
  */
-export function fullBill(draft: BookingDraft, coupon: CustomerCoupon | null): FullBill {
-  const main = mainBill(draft, coupon);
-  const extrasBase = round2((draft.extras ?? []).reduce((sum, x) => sum + extraBase(draft, x), 0));
-  const extrasTax = round2(extrasBase * TAX_RATE);
+export function fullBill(
+  draft: BookingDraft,
+  coupon: CustomerCoupon | null,
+  rates: BillRates = LEGACY_RATES,
+): FullBill {
+  const main = mainBill(draft, coupon, rates);
+  const extras = draft.extras ?? [];
+  const extrasBase = round2(extras.reduce((sum, x) => sum + extraBase(draft, x), 0));
+  // Every person, every day and every extra is its own booking, which is what
+  // a per-booking platform fee counts; a per-checkout fee is charged once.
+  const bookings = draft.quantity * draftDays(draft) + extras.length;
+  const platformFee = platformFeeFor(rates, bookings);
+  const subtotal = round2(main.subtotal + extrasBase);
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
   return {
     main,
     extrasBase,
-    extrasTax,
-    subtotal: round2(main.subtotal + extrasBase),
-    tax: round2(main.tax + extrasTax),
-    total: round2(main.total + extrasBase + extrasTax),
+    extrasTax: taxOnBase(extrasBase, rates),
+    platformFee,
+    subtotal,
+    tax,
+    total: Math.max(0, round2(subtotal + platformFee + tax - main.couponSaving)),
   };
 }
 
 /** The main service: per-day base × days × people, coupon on one booking. */
-function mainBill(draft: BookingDraft, coupon: CustomerCoupon | null): Bill {
-  return computeBill({
-    hours: billedHours(draft),
-    rate: draft.rate,
-    quantity: draft.quantity * draftDays(draft),
-    nightHours: billedNightHours(draft),
-    nightRate: draft.nightRate ?? 0,
-    coupon,
-  });
+function mainBill(draft: BookingDraft, coupon: CustomerCoupon | null, rates: BillRates): Bill {
+  return computeBill(
+    {
+      hours: billedHours(draft),
+      rate: draft.rate,
+      quantity: draft.quantity * draftDays(draft),
+      nightHours: billedNightHours(draft),
+      nightRate: draft.nightRate ?? 0,
+      coupon,
+    },
+    rates,
+  );
 }
 
 /** `iso` (yyyy-mm-dd) moved by `n` days, across month and year ends. */
@@ -378,10 +405,12 @@ export function buildPayloads(
   draft: BookingDraft,
   userId: number,
   coupon: CustomerCoupon | null,
+  /** One key on every booking of this checkout, so a per-order platform fee lands once. */
+  checkoutKey?: string,
 ): CreateBookingPayload[] {
   const address = draft.address;
   if (!address) throw new Error("Pick an address before booking.");
-  const bill = mainBill(draft, coupon);
+  const bill = mainBill(draft, coupon, LEGACY_RATES);
   const variantId = pickShiftVariant(draft.variants, draft.start, draft.end);
   const blocked = (draft.extras ?? []).map((x) => extraProblem(draft, x)).find(Boolean);
   if (blocked) throw new Error(`${blocked} for one of the added services. Change the hours or remove it.`);
@@ -400,6 +429,7 @@ export function buildPayloads(
     serviceCity: address.city,
     serviceAddress: address.address,
     paymentMode: draft.paymentMode ?? "COD",
+    ...(checkoutKey ? { checkoutKey } : {}),
   }));
 
   const quantity = draft.quantity;
@@ -423,6 +453,7 @@ export function buildPayloads(
       serviceAddress: address.address,
       paymentMode: draft.paymentMode ?? "COD",
       ...(carriesCoupon ? { couponCode: coupon!.code } : {}),
+      ...(checkoutKey ? { checkoutKey } : {}),
     };
   });
   return [...mains, ...extras];
