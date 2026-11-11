@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import {
   bookingApi,
   couponsApi,
+  newCheckoutKey,
   paidButNotBooked,
   paidWith,
   paymentsApi,
@@ -20,7 +21,8 @@ import {
   type PaidWith,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { formatInr } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel } from "@/src/lib/booking-v2/pricing";
+import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { trackPurchaseOnce } from "@/lib/meta";
 import { fmtDateLong, fmtDateShort, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
 import {
@@ -143,7 +145,8 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
   const minutes = draft.end - draft.start;
   const quantity = draft.quantity;
   // Main service (coupon on it) plus any services added for the same time.
-  const full = fullBill(draft, applied);
+  const rates = usePricingRates();
+  const full = fullBill(draft, applied, rates);
   const bill = { ...full.main, total: full.total };
   const extras = draft.extras ?? [];
   const payment = draft.paymentMode;
@@ -180,7 +183,12 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
 
     setPlacing(true);
     try {
-      const payloads = buildPayloads({ ...draft, paymentMode: payment }, Number(user.id), applied);
+      const payloads = buildPayloads(
+        { ...draft, paymentMode: payment },
+        Number(user.id),
+        applied,
+        newCheckoutKey(),
+      );
 
       // Pay online: take and verify the payment first. Nothing is booked yet,
       // so a cancelled or failed payment leaves no booking behind. The signed
@@ -381,10 +389,13 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
               value={formatInr(full.extrasBase)}
             />
           ) : null}
+          {full.platformFee > 0 ? (
+            <BillRow label="Platform fee" value={formatInr(full.platformFee)} />
+          ) : null}
           {applied && bill.couponSaving > 0 ? (
             <BillRow label={`Coupon ${applied.code}`} value={`−${formatInr(bill.couponSaving)}`} tone="discount" />
           ) : null}
-          <BillRow label="Taxes (18%)" value={formatInr(full.tax)} />
+          <BillRow label={gstLabel(rates)} value={formatInr(full.tax)} />
         </>
       }
       total={formatInr(bill.total)}

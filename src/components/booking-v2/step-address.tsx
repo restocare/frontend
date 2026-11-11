@@ -9,7 +9,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { formatInr } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel } from "@/src/lib/booking-v2/pricing";
+import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { fmtDateLong, fmtDuration } from "@/src/lib/booking-v2/schedule";
 import { SpinnerIcon } from "@/src/components/icons";
 import { draftCopy, fullBill, isFixedDraft } from "@/src/lib/booking-v2/draft";
@@ -37,7 +38,8 @@ export function StepAddress({ draft, update, goTo, leave }: StepProps) {
 
   const minutes = draft.end - draft.start;
   // Includes services added for the same time on the review step.
-  const full = fullBill(draft, null);
+  const rates = usePricingRates();
+  const full = fullBill(draft, null, rates);
   const bill = { ...full.main, total: full.total, tax: full.tax };
   const extraCount = draft.extras?.length ?? 0;
   const copy = draftCopy(draft);
@@ -82,7 +84,10 @@ export function StepAddress({ draft, update, goTo, leave }: StepProps) {
                   value={formatInr(full.extrasBase)}
                 />
               ) : null}
-              <BillRow label="Taxes (18%)" value={formatInr(bill.tax)} />
+              {full.platformFee > 0 ? (
+                <BillRow label="Platform fee" value={formatInr(full.platformFee)} />
+              ) : null}
+              <BillRow label={gstLabel(rates)} value={formatInr(bill.tax)} />
         </>
       }
       total={formatInr(bill.total)}
