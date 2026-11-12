@@ -32,12 +32,28 @@ export interface CustomerCoupon {
   discountType?: "PERCENT" | "FLAT_TOTAL";
   /** For FLAT_TOTAL: the service's fixed pre-tax price; GST and the platform fee are added on top. */
   flatTotal?: number | null;
+  /** A duration ladder: "20% from 10 hrs, 30% from 12 hrs". Absent on a flat-rate coupon. */
+  hourTiers?: { minHours: number; discountPercent: number }[];
+  /** The most the coupon takes off; with it, discountPercent is the rate for THIS cart. */
+  maxDiscount?: number | null;
+  /** The booked hours reach none of the tiers: the coupon needs at least this many. */
+  needsMinHours?: number | null;
+}
+
+/** What the customer is booking, so a tiered coupon lists at the rate those hours earn. */
+export interface CouponContext {
+  minutes?: number | null;
+  categoryIds?: number[];
 }
 
 /** Customer coupons — the same endpoints the mobile app uses. */
 export const couponsApi = {
-  list: async (): Promise<CustomerCoupon[]> => {
-    const response = await apiClient.get<unknown>("/v1/coupons");
+  list: async (context: CouponContext = {}): Promise<CustomerCoupon[]> => {
+    const query = new URLSearchParams();
+    if (context.minutes) query.set("minutes", String(context.minutes));
+    if (context.categoryIds?.length) query.set("categoryIds", context.categoryIds.join(","));
+    const qs = query.toString();
+    const response = await apiClient.get<unknown>(`/v1/coupons${qs ? `?${qs}` : ""}`);
     const coupons = parseCustomerCoupons(response);
     if (!coupons) throw new Error("Could not load your coupons. Please try again.");
     return coupons;

@@ -233,6 +233,10 @@ export const customersApi = {
     );
   },
 
+  /** DELETE /v1/admin/coupons/campaigns/:id — delete a campaign nobody has used (a used one can only be disabled). */
+  deleteCampaign: (couponId: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/admin/coupons/campaigns/${couponId}`),
+
   /** DELETE /v1/admin/coupons/campaigns/:id/audience/:userId — take one customer off a private list. */
   removeCampaignAudience: (couponId: number, userId: number) =>
     apiClient.delete<CampaignCoupon>(

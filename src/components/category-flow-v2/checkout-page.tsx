@@ -401,12 +401,14 @@ export function CategoryCheckout() {
 
   // Retried, and its error shown, so a failed load never reads as "no coupons".
   const queryClient = useQueryClient();
-  const couponsKey = ["checkout-coupons", user?.id ?? null] as const;
+  // The hours being booked, so a tiered coupon is listed at the rate they earn.
+  const couponMinutes = hourly ? end - start : null;
+  const couponsKey = ["checkout-coupons", user?.id ?? null, couponMinutes, categoryId] as const;
   const couponsQuery = useQuery({
     queryKey: couponsKey,
     queryFn: async () => {
       try {
-        const res = await couponsApi.list();
+        const res = await couponsApi.list({ minutes: couponMinutes, categoryIds: [categoryId] });
         const list = parseCoupons(res);
         if (!list.length && process.env.NODE_ENV !== "production") {
           console.info("[checkout] GET /v1/coupons returned no usable coupons:", res);
@@ -1461,13 +1463,23 @@ function parseCoupons(coupons: CustomerCoupon[]): CustomerCoupon[] {
     });
 }
 
-/** "20% off one booking" or "₹199 for one booking". */
+/** "20% off one booking", "₹199 + GST for one booking", or a tiered coupon's ladder. */
 function couponTerms(c: CustomerCoupon): string {
-  return c.discountType === "FLAT_TOTAL" && c.flatTotal != null
-    ? `${formatInr(c.flatTotal)} + GST for one booking`
-    : c.discountPercent
-      ? `${c.discountPercent}% off one booking`
-      : (c.description ?? "");
+  if (c.needsMinHours != null) return `Book ${c.needsMinHours} hrs or more to use this`;
+  if (c.hourTiers?.length) {
+    const ladder = [...c.hourTiers]
+      .sort((a, b) => a.minHours - b.minHours)
+      .map((t) => `${t.discountPercent}% from ${t.minHours} hrs`)
+      .join(", ");
+    return c.discountPercent ? `${c.discountPercent}% off this booking · ${ladder}` : ladder;
+  }
+  if (c.discountType === "FLAT_TOTAL" && c.flatTotal != null) {
+    return `${formatInr(c.flatTotal)} + GST for one booking`;
+  }
+  // A capped coupon's percentage is the rate for this cart (e.g. 8.6%), which
+  // reads oddly; the server's description says what the offer really is.
+  if (c.maxDiscount != null && c.description) return c.description;
+  return c.discountPercent ? `${c.discountPercent}% off one booking` : (c.description ?? "");
 }
 
 function fmtExpiry(iso: string): string | null {
@@ -1595,7 +1607,7 @@ function CouponList({
                 ) : null}
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || (!on && c.needsMinHours != null)}
                   onClick={() => {
                     if (on) onRemove();
                     else {
