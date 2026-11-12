@@ -341,19 +341,19 @@ function CouponModal({
 
   const [code, setCode] = useState(coupon?.code ?? "");
   // FLAT_OFF ("₹100 off") is the admin's name for a percentage coupon stored
-  // as 100% capped at the amount; the server and apps already price that.
-  const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT_TOTAL" | "FLAT_OFF">(
+  // as 100% capped at the amount; the storefront and apps cap the saving at it.
+  // One with hour tiers is a tiered coupon that happens to be capped, so it
+  // keeps opening as a percentage coupon (saving it as a flat amount would
+  // wipe its tiers).
+  const isFlatOff =
     coupon?.discountType === "PERCENT" &&
-      (coupon.discountPercent ?? 0) >= 100 &&
-      coupon.maxDiscount != null
-      ? "FLAT_OFF"
-      : (coupon?.discountType ?? "PERCENT"),
+    (coupon.discountPercent ?? 0) >= 100 &&
+    coupon.maxDiscount != null &&
+    !coupon.hourTiers?.length;
+  const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT_TOTAL" | "FLAT_OFF">(
+    isFlatOff ? "FLAT_OFF" : (coupon?.discountType ?? "PERCENT"),
   );
-  const [flatOff, setFlatOff] = useState(
-    coupon?.discountType === "PERCENT" && (coupon.discountPercent ?? 0) >= 100 && coupon.maxDiscount != null
-      ? String(coupon.maxDiscount)
-      : "100",
-  );
+  const [flatOff, setFlatOff] = useState(isFlatOff ? String(coupon?.maxDiscount) : "100");
   const [discountPercent, setDiscountPercent] = useState(
     coupon?.discountPercent != null ? String(coupon.discountPercent) : "20",
   );
@@ -616,7 +616,7 @@ function CouponModal({
             ) : discountType === "FLAT_OFF" ? (
               <Field
                 label="Amount off (₹)"
-                hint="Taken off one booking's GST-inclusive total. A booking cheaper than this is free."
+                hint="Taken off one booking's service price, GST included. The platform fee and night conveyance are not discounted. A service cheaper than this is free."
               >
                 <input
                   type="number"

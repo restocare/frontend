@@ -415,10 +415,17 @@ export function buildPayloads(
   coupon: CustomerCoupon | null,
   /** One key on every booking of this checkout, so a per-order platform fee lands once. */
   checkoutKey?: string,
+  /** The live rates the bill was shown under (a capped coupon and the night charge read them). */
+  rates: BillRates = LEGACY_RATES,
 ): CreateBookingPayload[] {
   const address = draft.address;
   if (!address) throw new Error("Pick an address before booking.");
-  const bill = mainBill(draft, coupon, LEGACY_RATES);
+  const bill = mainBill(draft, coupon, rates);
+  // The night conveyance each booking showed; declared only while the rates carry one.
+  const nightField =
+    (rates.nightChargeRupees ?? 0) > 0
+      ? { nightCharge: endsAtNight(draft.start, draft.end, rates) ? (rates.nightChargeRupees as number) : 0 }
+      : {};
   const variantId = pickShiftVariant(draft.variants, draft.start, draft.end);
   const blocked = (draft.extras ?? []).map((x) => extraProblem(draft, x)).find(Boolean);
   if (blocked) throw new Error(`${blocked} for one of the added services. Change the hours or remove it.`);
@@ -432,6 +439,7 @@ export function buildPayloads(
     startTime: toHHmm(draft.start),
     endTime: toHHmm(draft.end),
     totalAmount: extraBase(draft, x),
+    ...nightField,
     serviceLat: address.lat ?? 0,
     serviceLng: address.lng ?? 0,
     serviceCity: address.city,
@@ -455,6 +463,7 @@ export function buildPayloads(
         carriesCoupon && !bill.isFlat
           ? round2(bill.perBookingBase - bill.couponBaseDiscount)
           : bill.perBookingBase,
+      ...nightField,
       serviceLat: address.lat ?? 0,
       serviceLng: address.lng ?? 0,
       serviceCity: address.city,

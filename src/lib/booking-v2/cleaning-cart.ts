@@ -10,7 +10,15 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { CreateBookingPayload } from "@/src/api/api";
-import { LEGACY_RATES, gstOnFee, platformFeeFor, round2, taxOnBase, type BillRates } from "./pricing";
+import {
+  LEGACY_RATES,
+  gstOnFee,
+  percentCouponDiscount,
+  platformFeeFor,
+  round2,
+  taxOnBase,
+  type BillRates,
+} from "./pricing";
 import type { DraftAddress } from "./draft";
 import type { Clock } from "./schedule";
 
@@ -286,6 +294,8 @@ export interface CartCoupon {
   discountType?: "PERCENT" | "FLAT_TOTAL";
   discountPercent: number;
   flatTotal?: number | null;
+  /** The most a percentage coupon takes off, GST included ("₹100 off" is 100% capped at ₹100). */
+  maxDiscount?: number | null;
 }
 
 export interface CartBill {
@@ -344,8 +354,11 @@ export function computeCartBill(
       couponBaseDiscount = Math.max(0, round2(base - (coupon.flatTotal as number)));
       couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
     } else if (coupon.discountPercent > 0) {
-      couponBaseDiscount = round2((base * coupon.discountPercent) / 100);
-      couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
+      ({ baseDiscount: couponBaseDiscount, saving: couponSaving } = percentCouponDiscount(
+        base,
+        coupon,
+        rates,
+      ));
     }
   }
   const total = Math.max(0, round2(gross - couponSaving));

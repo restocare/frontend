@@ -214,6 +214,58 @@ test("chef day bill under the live rates: GST on commission plus the platform fe
   assert.equal(payloads[0].checkoutKey, "ck_test");
 });
 
+test("a capped percentage coupon: \"₹100 off\" (100% capped at ₹100) takes off ₹100, not the whole price", () => {
+  const live = {
+    taxModel: "ON_COMMISSION",
+    commissionPercent: 20,
+    gstPercent: 18,
+    taxRateOnBase: 0.036,
+    platformFeeRupees: 30,
+    platformFeeMode: "PER_ORDER",
+  };
+  const off100 = { discountType: "PERCENT", discountPercent: 100, maxDiscount: 100 };
+  const bill = pricing.computeBill({ hours: 7, rate: 149, quantity: 1, coupon: off100 }, live);
+  assert.equal(bill.couponSaving, 100);
+  assert.equal(bill.couponBaseDiscount, 96.53); // 100 ÷ 1.036
+  // 1043 + 30 + GST (37.55 + 5.40) − 100
+  assert.equal(bill.total, 1015.95);
+  // "20% up to ₹300": the percentage until the cap bites.
+  const capped = { discountType: "PERCENT", discountPercent: 20, maxDiscount: 300 };
+  assert.equal(pricing.percentCouponDiscount(1000, capped, live).saving, 207.2);
+  assert.equal(pricing.percentCouponDiscount(2000, capped, live).saving, 300);
+  // No cap: unchanged.
+  assert.equal(pricing.percentCouponDiscount(1000, { discountPercent: 20 }, live).saving, 207.2);
+});
+
+test("a booking declares the night conveyance it showed, only while the rates carry one", () => {
+  const rates = {
+    taxModel: "ON_COMMISSION",
+    commissionPercent: 20,
+    gstPercent: 18,
+    taxRateOnBase: 0.036,
+    platformFeeRupees: 0,
+    platformFeeMode: "PER_ORDER",
+    nightChargeRupees: 50,
+    nightChargeAfterTime: "22:00",
+  };
+  const base = ready(draft.startDraft(chef, category, pick(0)));
+  const late = draft.buildPayloads({ ...base, start: 15 * 60, end: 22 * 60 }, 1, null, "ck", rates);
+  assert.equal(late[0].nightCharge, 50);
+  const early = draft.buildPayloads({ ...base, start: 11 * 60, end: 18 * 60 }, 1, null, "ck", rates);
+  assert.equal(early[0].nightCharge, 0);
+  // An older server (no rate): the field is not sent at all.
+  const older = draft.buildPayloads({ ...base, start: 15 * 60, end: 22 * 60 }, 1, null, "ck");
+  assert.equal("nightCharge" in older[0], false);
+});
+
+test("a start only just over the notice is re-checked before payment", () => {
+  const clock = (h, m) => ({ dateISO: "2026-11-12", minutes: h * 60 + m });
+  assert.equal(schedule.startStillAccepted("2026-11-12", 14 * 60, clock(12, 29)), true);
+  assert.equal(schedule.startStillAccepted("2026-11-12", 14 * 60, clock(12, 30)), false);
+  assert.equal(schedule.startStillAccepted("2026-11-13", 6 * 60, clock(23, 59)), true);
+  assert.equal(schedule.startStillAccepted("2026-11-11", 14 * 60, clock(8, 0)), false);
+});
+
 test("night conveyance: a window ending at or after the cut-off pays it per booking, GST on it", () => {
   const live = {
     taxModel: "ON_COMMISSION",

@@ -28,6 +28,21 @@ export const DAYS_AHEAD = 7;
  * 1 hour 30 minutes.
  */
 export const SAME_DAY_LEAD = 120;
+/** The notice the server actually requires (booking-lead-time.ts), in minutes and in words. */
+export const SERVER_NOTICE_MINUTES = 90;
+export const NOTICE_LABEL = "1 hour 30 minutes";
+
+/**
+ * Would the server still accept this start? Checked again just before a
+ * booking is paid for: the first start offered can sit just over the notice
+ * (12:29 offers 2 PM, 91 minutes away) and the page may have been open a
+ * while. A minute of margin covers the seconds the clock does not carry.
+ */
+export function startStillAccepted(dateISO: string, startMin: number, clock: Clock): boolean {
+  if (dateISO > clock.dateISO) return true;
+  if (dateISO < clock.dateISO) return false;
+  return startMin - clock.minutes >= SERVER_NOTICE_MINUTES + 1;
+}
 /** Shortest and longest booking, whatever the variants say: 7 to 12 hours. The server refuses shorter. */
 export const MIN_MINUTES = 7 * 60;
 export const MAX_MINUTES = 12 * 60;

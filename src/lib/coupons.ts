@@ -17,8 +17,12 @@ export function parseCustomerCoupon(value: unknown, depth = 0): CustomerCoupon |
   const percent = Number(row.discountPercent ?? row.discount ?? row.percent);
   const flatTotal = row.flatTotal == null ? null : Number(row.flatTotal);
   const isFlat = row.discountType === "FLAT_TOTAL";
+  // A tiered coupon the booked hours do not reach is listed at 0% with the hours
+  // it needs, so the customer is told what to add rather than the offer vanishing.
+  const needsMin = Number(row.needsMinHours);
+  const belowTier = Number.isFinite(needsMin) && needsMin > 0;
   // Never report success with an incomplete response and a zero/NaN saving.
-  if (isFlat ? flatTotal == null || !Number.isFinite(flatTotal) || flatTotal < 0 : !Number.isFinite(percent) || percent <= 0 || percent > 100) return null;
+  if (isFlat ? flatTotal == null || !Number.isFinite(flatTotal) || flatTotal < 0 : !Number.isFinite(percent) || (percent <= 0 && !belowTier) || percent > 100) return null;
   return {
     ...row,
     couponId,

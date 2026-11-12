@@ -9,7 +9,7 @@ import { useCart } from "@/src/lib/cart";
 import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { gstLabel } from "@/src/lib/booking-v2/pricing";
-import { SAME_DAY_LEAD } from "@/src/lib/booking-v2/schedule";
+import { NOTICE_LABEL, SAME_DAY_LEAD } from "@/src/lib/booking-v2/schedule";
 import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import {
   getBookingSchedule,
@@ -1381,7 +1381,7 @@ function SlotEditModal({
       <p className="mb-2 text-sm font-semibold text-gray-700">Shift slot</p>
       {bookable.length === 0 ? (
         <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Bookings need {SAME_DAY_LEAD / 60} hours&apos; notice. No shift is left today; pick another day.
+          Bookings need at least {NOTICE_LABEL}&apos; notice. No shift is left today; pick another day.
         </p>
       ) : null}
       <div className="mb-4 grid grid-cols-2 gap-2">

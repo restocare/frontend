@@ -100,6 +100,32 @@ export interface BillCoupon {
   discountType?: "PERCENT" | "FLAT_TOTAL";
   discountPercent: number;
   flatTotal?: number | null;
+  /**
+   * The most a percentage coupon takes off, GST included. "₹100 off" is stored
+   * as 100% capped at ₹100, so a bill that ignores this prices it as free.
+   */
+  maxDiscount?: number | null;
+}
+
+/**
+ * What a percentage coupon takes off ONE booking: the pre-tax part and what
+ * the customer saves with its GST, held to the cap. The server prices it the
+ * same way (the service price and its GST; never the platform fee or the
+ * night conveyance), so the screen, the payment and the booking agree.
+ */
+export function percentCouponDiscount(
+  base: number,
+  coupon: Pick<BillCoupon, "discountPercent" | "maxDiscount">,
+  rates: BillRates,
+): { baseDiscount: number; saving: number } {
+  const baseDiscount = round2((base * coupon.discountPercent) / 100);
+  const saving = round2(baseDiscount * (1 + rates.taxRateOnBase));
+  const cap = coupon.maxDiscount;
+  if (cap != null && cap >= 0 && saving > cap) {
+    const capped = round2(cap);
+    return { baseDiscount: round2(capped / (1 + rates.taxRateOnBase)), saving: capped };
+  }
+  return { baseDiscount, saving };
 }
 
 export interface BillInput {
@@ -161,10 +187,11 @@ export function computeBill(
     couponBaseDiscount = Math.max(0, round2(perBookingBase - (coupon.flatTotal as number)));
     couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
   } else if (coupon && coupon.discountPercent > 0) {
-    couponBaseDiscount = round2(
-      (perBookingBase * coupon.discountPercent) / 100,
-    );
-    couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
+    ({ baseDiscount: couponBaseDiscount, saving: couponSaving } = percentCouponDiscount(
+      perBookingBase,
+      coupon,
+      rates,
+    ));
   }
 
   const total = Math.max(0, round2(gross - couponSaving));

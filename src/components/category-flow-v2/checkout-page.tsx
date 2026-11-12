@@ -26,7 +26,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, LayoutGroup, motion, MotionConfig, type Variants } from "framer-motion";
 import {
   bookingApi,
@@ -48,6 +48,7 @@ import { categoryHref } from "@/lib/category-slugs";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import {
   endsAtNight,
+  percentCouponDiscount,
   formatInr,
   gstLabel,
   gstOnFee,
@@ -67,6 +68,8 @@ import {
   DAY_START,
   MAX_MINUTES,
   clockNow,
+  NOTICE_LABEL,
+  startStillAccepted,
   dayIsBookable,
   earliestStart,
   fmtDateLong,
@@ -349,7 +352,8 @@ export function CategoryCheckout() {
 
   /* --------------------------------- when -------------------------------- */
 
-  const clock = useMemo(() => clockNow(), []);
+  // State, so a start that has gone stale can be refreshed to the real time.
+  const [clock, setClock] = useState(clockNow);
   const days = useMemo(() => getDays(), []);
   // Hourly: the longest minimum among the people booked. Fixed: one job slot.
   const minMinutes = hourly
@@ -405,8 +409,9 @@ export function CategoryCheckout() {
   const rates = usePricingRates();
   const bookingsCount = lines.reduce((n, l) => n + l.quantity, 0);
   const platformFee = platformFeeFor(rates, bookingsCount);
-  // Night conveyance: every booking of an hourly window ending late pays it.
-  const nightCharge = hourly ? nightChargeFor(rates, endsAtNight(start, end, rates), bookingsCount) : 0;
+  // Night conveyance: every booking whose window ends late pays it. A
+  // fixed-price job is sent with an end too (start + its length), so it counts.
+  const nightCharge = nightChargeFor(rates, endsAtNight(start, end, rates), bookingsCount);
   const nightEach = bookingsCount ? round2(nightCharge / bookingsCount) : 0;
   const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee + nightCharge, rates));
 
@@ -439,12 +444,21 @@ export function CategoryCheckout() {
     enabled: !!user?.id,
     retry: (count, e) => count < 2 && !(e instanceof ApiError && e.status === 401),
     staleTime: 30_000,
+    // Changing the hours is a new query: keep the last list meanwhile so the
+    // applied coupon does not blink out, and hold the order until it settles.
+    placeholderData: keepPreviousData,
   });
+  const couponsStale = couponsQuery.isPlaceholderData;
   const coupons = useMemo(() => couponsQuery.data ?? [], [couponsQuery.data]);
-  // undefined = nothing picked here yet: use the one the server says is applied.
-  const [couponPick, setApplied] = useState<CustomerCoupon | null | undefined>(undefined);
+  // The coupon in use is read from this list, which is priced for THESE hours
+  // and this category. The apply call answers at the coupon's lowest tier, so
+  // its reply is never kept. undefined = nothing picked here yet: the one the
+  // server says is applied.
+  const [pickedId, setPickedId] = useState<number | null | undefined>(undefined);
   const applied =
-    couponPick === undefined ? (coupons.find((c) => c.isApplied && !c.isUsed) ?? null) : couponPick;
+    pickedId === undefined
+      ? (coupons.find((c) => c.isApplied && !c.isUsed) ?? null)
+      : (coupons.find((c) => c.couponId === pickedId && !c.isUsed) ?? null);
   const [couponInput, setCouponInput] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -458,11 +472,19 @@ export function CategoryCheckout() {
       // The API replaces the selection atomically. Keep the current coupon
       // until the replacement is validated successfully.
       const coupon = await couponsApi.apply(trimmed);
-      setApplied(coupon);
-      queryClient.setQueryData<CustomerCoupon[]>(couponsKey, (current = []) => [
-        { ...coupon, isApplied: true },
-        ...current.filter((c) => c.couponId !== coupon.couponId).map((c) => ({ ...c, isApplied: false })),
-      ]);
+      // Read it back from the list priced for these hours; the apply reply is
+      // the lowest tier's rate.
+      const fresh = await couponsQuery.refetch();
+      const listed = (fresh.data ?? []).find((c) => c.couponId === coupon.couponId);
+      if (!listed) {
+        // Applied on the server but not offered for this booking (another
+        // category): take it back rather than show a discount that will not hold.
+        await couponsApi.remove(coupon.couponId).catch(() => undefined);
+        await couponsQuery.refetch();
+        setCouponError(`${coupon.code} does not apply to this booking.`);
+        return;
+      }
+      setPickedId(listed.couponId);
       setCouponInput("");
     } catch (e) {
       setCouponError(messageOf(e, `${trimmed} is not a valid code.`));
@@ -476,7 +498,7 @@ export function CategoryCheckout() {
     setCouponError(null);
     try {
       await couponsApi.remove(applied.couponId);
-      setApplied(null);
+      setPickedId(null);
       queryClient.setQueryData<CustomerCoupon[]>(couponsKey, (current = []) => current.map((c) => ({ ...c, isApplied: false })));
     } catch (e) {
       setCouponError(messageOf(e, "Could not remove the coupon. Please try again."));
@@ -490,16 +512,19 @@ export function CategoryCheckout() {
   // fixing it — and GST (and the platform fee) stay on top of what is left.
   const couponBase = lines.length ? unitOf(lines[0]) : 0;
   const flatOf = (c: CustomerCoupon) => c.discountType === "FLAT_TOTAL" && c.flatTotal != null;
-  const baseDiscountOf = (c: CustomerCoupon | null) =>
-    !c
-      ? 0
-      : flatOf(c)
-        ? Math.max(0, round2(couponBase - (c.flatTotal as number)))
-        : c.discountPercent > 0
-          ? round2((couponBase * c.discountPercent) / 100)
-          : 0;
-  const savingOf = (c: CustomerCoupon | null) =>
-    !c || !lines.length ? 0 : round2(baseDiscountOf(c) * (1 + rates.taxRateOnBase));
+  // A percentage is held to the coupon's cap ("₹100 off" is 100% capped at ₹100).
+  const discountOf = (c: CustomerCoupon | null): { baseDiscount: number; saving: number } => {
+    if (!c || !lines.length) return { baseDiscount: 0, saving: 0 };
+    if (flatOf(c)) {
+      const baseDiscount = Math.max(0, round2(couponBase - (c.flatTotal as number)));
+      return { baseDiscount, saving: round2(baseDiscount * (1 + rates.taxRateOnBase)) };
+    }
+    return c.discountPercent > 0
+      ? percentCouponDiscount(couponBase, c, rates)
+      : { baseDiscount: 0, saving: 0 };
+  };
+  const baseDiscountOf = (c: CustomerCoupon | null) => discountOf(c).baseDiscount;
+  const savingOf = (c: CustomerCoupon | null) => discountOf(c).saving;
   const isFlat = !!applied && flatOf(applied);
   const couponBaseDiscount = baseDiscountOf(applied);
   const couponSaving = savingOf(applied);
@@ -526,7 +551,15 @@ export function CategoryCheckout() {
   const stepsDone = steps.filter(Boolean).length;
   const currentStep = steps.findIndex((d) => !d);
   const couponNeedsPrepay = !!applied?.prepaidOnly && payment === "COD";
-  const ready = lines.length > 0 && stepsDone === steps.length && !placing && !couponNeedsPrepay;
+  // A tiered coupon the booked hours do not reach: the server refuses it, after payment.
+  const couponBlocked = applied?.needsMinHours != null;
+  const ready =
+    lines.length > 0 &&
+    stepsDone === steps.length &&
+    !placing &&
+    !couponNeedsPrepay &&
+    !couponBlocked &&
+    !couponsStale;
 
   // Meta Purchase, once per order: the booking ids identify the order.
   const reportPurchase = (ids: number[], amount: number) =>
@@ -566,10 +599,25 @@ export function CategoryCheckout() {
           ? "Choose how to pay."
           : couponNeedsPrepay
             ? `Coupon ${applied?.code} only works with online payment.`
-            : null;
+            : couponBlocked
+              ? `Coupon ${applied?.code} needs a booking of ${applied?.needsMinHours} hours or more. Add hours, or remove the coupon.`
+              : couponsStale
+                ? "Updating your offers…"
+                : null;
 
   const place = async () => {
     if (!ready || !user?.id || !address) return;
+    // The start offered can sit just over the server's notice and this page may
+    // have been open a while. Re-check it now, before any money moves, and move
+    // to the next time available rather than refuse the booking after payment.
+    const nowClock = clockNow();
+    if (!startStillAccepted(date, start, nowClock)) {
+      setClock(nowClock);
+      setError(
+        `That start time is now too close (we need ${NOTICE_LABEL}' notice). Your time has moved to the next one available. Check the bill, then place the order again.`,
+      );
+      return;
+    }
     setPlacing(true);
     setError(null);
     const userId = Number(user.id);
@@ -590,6 +638,8 @@ export function CategoryCheckout() {
         startTime: toHHmm(start),
         endTime: toHHmm(end),
         totalAmount: unitOf(l),
+        // What this booking showed as night conveyance; declared only while the rates carry one.
+        ...((rates.nightChargeRupees ?? 0) > 0 ? { nightCharge: nightEach } : {}),
         serviceLat: address.lat ?? 0,
         serviceLng: address.lng ?? 0,
         serviceCity: address.city,

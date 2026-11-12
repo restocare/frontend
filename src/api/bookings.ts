@@ -98,6 +98,13 @@ export interface CreateBookingPayload {
   serviceCity: string;
   serviceAddress: string;
   paymentMode: string;
+  /**
+   * The night conveyance this booking showed the customer (₹, before GST; 0 when
+   * its window does not end late). Sent only while the live rates carry one: the
+   * server charges it only to a client that declares it, so an older build's
+   * price and payment stay as they showed them.
+   */
+  nightCharge?: number;
   /** Redeemed server-side on the booking it rides with (single use). */
   couponCode?: string;
   /**
