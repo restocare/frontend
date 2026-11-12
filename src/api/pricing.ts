@@ -17,6 +17,13 @@ export interface PricingRates {
   /** Flat ₹ per booking (PER_BOOKING) or per checkout (PER_ORDER); 0 = none. GST applies to it. */
   platformFeeRupees: number;
   platformFeeMode: PlatformFeeMode;
+  /**
+   * Night conveyance: flat ₹ per booking whose window ends at or after
+   * nightChargeAfterTime ("HH:mm") or past midnight; 0 = none. GST applies to
+   * it. Optional so a server that predates it still prices the rest.
+   */
+  nightChargeRupees?: number;
+  nightChargeAfterTime?: string;
 }
 
 /**
@@ -30,6 +37,8 @@ export const LEGACY_PRICING_RATES: PricingRates = {
   taxRateOnBase: 0.18,
   platformFeeRupees: 0,
   platformFeeMode: "PER_BOOKING",
+  nightChargeRupees: 0,
+  nightChargeAfterTime: "22:00",
 };
 
 /** The public endpoint wraps its payload: { status, message, statusCode, data }. */

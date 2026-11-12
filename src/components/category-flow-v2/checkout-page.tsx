@@ -46,7 +46,17 @@ import { ApiError } from "@/src/api/apiClient";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { categoryHref } from "@/lib/category-slugs";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
-import { formatInr, gstLabel, gstOnFee, platformFeeFor, round2, taxOnBase } from "@/src/lib/booking-v2/pricing";
+import {
+  endsAtNight,
+  formatInr,
+  gstLabel,
+  gstOnFee,
+  nightChargeFor,
+  nightChargeLabel,
+  platformFeeFor,
+  round2,
+  taxOnBase,
+} from "@/src/lib/booking-v2/pricing";
 import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { trackEvent, trackPurchaseOnce } from "@/lib/meta";
 import { useCleaningCart, type CartLine } from "@/src/lib/booking-v2/cleaning-cart";
@@ -395,7 +405,10 @@ export function CategoryCheckout() {
   const rates = usePricingRates();
   const bookingsCount = lines.reduce((n, l) => n + l.quantity, 0);
   const platformFee = platformFeeFor(rates, bookingsCount);
-  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
+  // Night conveyance: every booking of an hourly window ending late pays it.
+  const nightCharge = hourly ? nightChargeFor(rates, endsAtNight(start, end, rates), bookingsCount) : 0;
+  const nightEach = bookingsCount ? round2(nightCharge / bookingsCount) : 0;
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee + nightCharge, rates));
 
   /* -------------------------------- coupon ------------------------------- */
 
@@ -490,7 +503,7 @@ export function CategoryCheckout() {
   const isFlat = !!applied && flatOf(applied);
   const couponBaseDiscount = baseDiscountOf(applied);
   const couponSaving = savingOf(applied);
-  const total = Math.max(0, round2(subtotal + platformFee + tax - couponSaving));
+  const total = Math.max(0, round2(subtotal + platformFee + nightCharge + tax - couponSaving));
   // Coupons the customer can still use: applied first, then the biggest saving.
   const available = coupons
     .filter((c) => !c.isUsed)
@@ -613,7 +626,10 @@ export function CategoryCheckout() {
             const res = await bookingApi.create(body);
             ids.push(res.bookingId);
             bookedTotal += round2(
-              base * (1 + rates.taxRateOnBase) + feeLeft - (coupon ? couponSaving : 0),
+              base * (1 + rates.taxRateOnBase) +
+                nightEach * (1 + rates.gstPercent / 100) +
+                feeLeft -
+                (coupon ? couponSaving : 0),
             );
             feeLeft = 0;
             if (coupon) saved = couponSaving;
@@ -1299,6 +1315,12 @@ export function CategoryCheckout() {
                       <dd className="m-0 tabular-nums">{formatInr(platformFee)}</dd>
                     </div>
                   ) : null}
+                  {nightCharge > 0 ? (
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">{nightChargeLabel(nightCharge, rates)}</dt>
+                      <dd className="m-0 tabular-nums">{formatInr(nightCharge)}</dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between">
                     <dt className="text-gray-500">{gstLabel(rates)}</dt>
                     <dd className="m-0 tabular-nums">{formatInr(tax)}</dd>
@@ -1465,7 +1487,13 @@ function parseCoupons(coupons: CustomerCoupon[]): CustomerCoupon[] {
 
 /** "20% off one booking", "₹199 + GST for one booking", or a tiered coupon's ladder. */
 function couponTerms(c: CustomerCoupon): string {
-  if (c.needsMinHours != null) return `Book ${c.needsMinHours} hrs or more to use this`;
+  if (c.needsMinHours != null) {
+    // The nearest tier above the booked hours, so the customer sees what to add.
+    const next = [...(c.hourTiers ?? [])].sort((a, b) => a.minHours - b.minHours)[0];
+    return next
+      ? `Book ${c.needsMinHours} hrs or more to use this · ${next.discountPercent}% off from ${next.minHours} hrs`
+      : `Book ${c.needsMinHours} hrs or more to use this`;
+  }
   if (c.hourTiers?.length) {
     const ladder = [...c.hourTiers]
       .sort((a, b) => a.minHours - b.minHours)

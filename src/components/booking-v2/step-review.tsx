@@ -21,7 +21,7 @@ import {
   type PaidWith,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { formatInr, gstLabel } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel, nightChargeLabel } from "@/src/lib/booking-v2/pricing";
 import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { trackPurchaseOnce } from "@/lib/meta";
 import { fmtDateLong, fmtDateShort, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
@@ -391,6 +391,9 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
           ) : null}
           {full.platformFee > 0 ? (
             <BillRow label="Platform fee" value={formatInr(full.platformFee)} />
+          ) : null}
+          {full.nightCharge > 0 ? (
+            <BillRow label={nightChargeLabel(full.nightCharge, rates)} value={formatInr(full.nightCharge)} />
           ) : null}
           {applied && bill.couponSaving > 0 ? (
             <BillRow label={`Coupon ${applied.code}`} value={`−${formatInr(bill.couponSaving)}`} tone="discount" />

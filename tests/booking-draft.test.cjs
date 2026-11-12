@@ -213,3 +213,32 @@ test("chef day bill under the live rates: GST on commission plus the platform fe
   const payloads = draft.buildPayloads(day, 1, null, "ck_test");
   assert.equal(payloads[0].checkoutKey, "ck_test");
 });
+
+test("night conveyance: a window ending at or after the cut-off pays it per booking, GST on it", () => {
+  const live = {
+    taxModel: "ON_COMMISSION",
+    commissionPercent: 20,
+    gstPercent: 18,
+    taxRateOnBase: 0.036,
+    platformFeeRupees: 5,
+    platformFeeMode: "PER_ORDER",
+    nightChargeRupees: 100,
+    nightChargeAfterTime: "22:00",
+  };
+  assert.equal(pricing.endsAtNight(13 * 60, 20 * 60, live), false);
+  assert.equal(pricing.endsAtNight(15 * 60, 22 * 60, live), true);
+  assert.equal(pricing.endsAtNight(17 * 60, 25 * 60, live), true); // 1 AM next day
+  assert.equal(pricing.endsAtNight(13 * 60, 20 * 60, { ...live, nightChargeAfterTime: "19:00" }), true);
+  assert.equal(pricing.nightChargeFor(live, true, 2), 200);
+  assert.equal(pricing.nightChargeFor(live, false, 2), 0);
+  assert.equal(pricing.nightChargeFor({ ...live, nightChargeRupees: 0 }, true, 2), 0);
+
+  const bill = pricing.computeBill({ hours: 5, rate: 149, quantity: 2, night: true }, live);
+  assert.equal(bill.subtotal, 1490);
+  assert.equal(bill.nightCharge, 200);
+  assert.equal(bill.tax, 90.54); // 1490 × 3.6% = 53.64, plus 18% of ₹205 = 36.90
+  assert.equal(bill.total, 1785.54);
+  // Without the field (an older server) nothing changes.
+  const older = { ...live, nightChargeRupees: undefined, nightChargeAfterTime: undefined };
+  assert.equal(pricing.computeBill({ hours: 5, rate: 149, quantity: 2, night: true }, older).nightCharge, 0);
+});

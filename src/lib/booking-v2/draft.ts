@@ -17,6 +17,8 @@ import {
   computeBill,
   formatInr,
   gstOnFee,
+  endsAtNight,
+  nightChargeFor,
   platformFeeFor,
   round2,
   taxOnBase,
@@ -339,8 +341,10 @@ export interface FullBill {
   extrasTax: number;
   /** The platform fee across every booking of this checkout (each, or once); 0 when none. */
   platformFee: number;
+  /** Night conveyance, every booking of a window ending late; 0 when none. */
+  nightCharge: number;
   subtotal: number;
-  /** GST on the bases under the live model, plus GST on the platform fee. */
+  /** GST on the bases under the live model, plus GST on the platform fee and night conveyance. */
   tax: number;
   total: number;
 }
@@ -361,16 +365,19 @@ export function fullBill(
   // a per-booking platform fee counts; a per-checkout fee is charged once.
   const bookings = draft.quantity * draftDays(draft) + extras.length;
   const platformFee = platformFeeFor(rates, bookings);
+  // A window ending late pays the night conveyance on every booking, extras too.
+  const nightCharge = nightChargeFor(rates, endsAtNight(draft.start, draft.end, rates), bookings);
   const subtotal = round2(main.subtotal + extrasBase);
-  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee + nightCharge, rates));
   return {
     main,
     extrasBase,
     extrasTax: taxOnBase(extrasBase, rates),
     platformFee,
+    nightCharge,
     subtotal,
     tax,
-    total: Math.max(0, round2(subtotal + platformFee + tax - main.couponSaving)),
+    total: Math.max(0, round2(subtotal + platformFee + nightCharge + tax - main.couponSaving)),
   };
 }
 
@@ -383,6 +390,7 @@ function mainBill(draft: BookingDraft, coupon: CustomerCoupon | null, rates: Bil
       quantity: draft.quantity * draftDays(draft),
       nightHours: billedNightHours(draft),
       nightRate: draft.nightRate ?? 0,
+      night: endsAtNight(draft.start, draft.end, rates),
       coupon,
     },
     rates,
