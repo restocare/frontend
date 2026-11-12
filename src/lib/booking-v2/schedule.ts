@@ -22,7 +22,11 @@ export const DAY_END = 24 * 60;
 /** The latest an end may be: 6:00 AM the next day. */
 export const END_LIMIT = DAY_END + DAY_START;
 export const DAYS_AHEAD = 7;
-/** Notice needed before a start, in minutes: 2 hours. The server refuses less. */
+/**
+ * Notice before a start, in minutes: now + 2 hours, rounded to the NEAREST
+ * hour (12:29 → 2 PM, 12:30 → 3 PM). The server allows what this can offer:
+ * 1 hour 30 minutes.
+ */
 export const SAME_DAY_LEAD = 120;
 /** Shortest and longest booking, whatever the variants say: 7 to 12 hours. The server refuses shorter. */
 export const MIN_MINUTES = 7 * 60;
@@ -90,7 +94,7 @@ export function fmtEndTime(minutes: number): string {
 export function earliestStart(dateISO: string, clock: Clock): number {
   if (dateISO !== clock.dateISO) return DAY_START;
   const soonest =
-    Math.ceil((clock.minutes + SAME_DAY_LEAD) / STEP_MINUTES) * STEP_MINUTES;
+    Math.round((clock.minutes + SAME_DAY_LEAD) / STEP_MINUTES) * STEP_MINUTES;
   return Math.max(DAY_START, soonest);
 }
 

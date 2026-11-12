@@ -62,7 +62,7 @@ const CARD: Record<
   SCHEDULED_HEAVY_RUSH: {
     title: "Scheduled booking · heavy rush",
     intro:
-      "Close to the start and still no partner: the customer is told and can wait or cancel. Goes to every booking (bookings need 2 hours notice, so 1.5 hours before the start is always after the booking). Not sent once a partner has the job.",
+      "Close to the start and still no partner: the customer is told and can wait or cancel. Goes to every booking (bookings need 1 hour 30 minutes' notice, so 1 hour before the start is always after the booking). Not sent once a partner has the job.",
     timingLabel: "Send before start (hours)",
     timingHint: "Only while no partner is assigned.",
     unit: "hours",
