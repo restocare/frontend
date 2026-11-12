@@ -10,7 +10,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { DAYS_AHEAD, MAX_MINUTES, SAME_DAY_LEAD } from "@/src/lib/booking-v2/schedule";
+import { DAYS_AHEAD, MAX_MINUTES, NOTICE_LABEL } from "@/src/lib/booking-v2/schedule";
 import { ChevronDownIcon } from "@/src/components/icons";
 
 export const WHATSAPP_URL = "https://wa.me/919953532995";
@@ -251,7 +251,7 @@ export function hourlyFaqs(noun: string, minHours: number): Faq[] {
     },
     {
       q: "How far ahead can I book?",
-      a: `Any day in the next ${DAYS_AHEAD} days. The start time needs at least ${SAME_DAY_LEAD / 60} hours' notice.`,
+      a: `Any day in the next ${DAYS_AHEAD} days. The start time needs at least ${NOTICE_LABEL}' notice.`,
     },
     {
       q: "How is the price worked out?",

@@ -21,10 +21,17 @@ import {
   type PaidWith,
 } from "@/src/api/api";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
-import { formatInr, gstLabel } from "@/src/lib/booking-v2/pricing";
+import { formatInr, gstLabel, nightChargeLabel } from "@/src/lib/booking-v2/pricing";
 import { usePricingRates } from "@/src/lib/booking-v2/use-pricing-rates";
 import { trackPurchaseOnce } from "@/lib/meta";
-import { fmtDateLong, fmtDateShort, fmtDuration, fmtTime } from "@/src/lib/booking-v2/schedule";
+import {
+  clockNow,
+  fmtDateLong,
+  fmtDateShort,
+  fmtDuration,
+  fmtTime,
+  startStillAccepted,
+} from "@/src/lib/booking-v2/schedule";
 import {
   addDaysISO,
   buildPayloads,
@@ -87,29 +94,41 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
   /* ------------------------------- coupons -------------------------------- */
 
   const [coupons, setCoupons] = useState<CustomerCoupon[]>([]);
-  const [applied, setApplied] = useState<CustomerCoupon | null>(null);
+  // The coupon in use is read from the list, which is priced for THESE hours
+  // and this category; the apply call answers at the lowest tier, so its reply
+  // is never kept.
+  const applied = coupons.find((c) => c.isApplied && !c.isUsed) ?? null;
   const [couponInput, setCouponInput] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // The hours and category being booked, so a tiered coupon is listed at the
+  // rate they earn (and one they do not reach says how many hours it needs).
+  const couponMinutes = draft.end - draft.start;
+  const couponContext = { minutes: couponMinutes, categoryIds: [draft.categoryId] };
+  // The hours the list was loaded for: while they differ the list is stale.
+  const [couponsFor, setCouponsFor] = useState<number | null>(null);
+  const couponsStale = couponsFor !== couponMinutes;
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     couponsApi
-      .list()
+      .list({ minutes: couponMinutes, categoryIds: [draft.categoryId] })
       .then((list) => {
         if (cancelled) return;
         setCoupons(list);
-        const current = list.find((c) => c.isApplied);
-        if (current) setApplied(current);
+        setCouponsFor(couponMinutes);
       })
       .catch(() => {
-        if (!cancelled) setCoupons([]);
+        if (cancelled) return;
+        setCoupons([]);
+        setCouponsFor(couponMinutes);
       });
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, couponMinutes, draft.categoryId]);
 
   const applyCoupon = async (code: string) => {
     const trimmed = code.trim().toUpperCase();
@@ -118,7 +137,16 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
     setCouponError(null);
     try {
       const result = await couponsApi.apply(trimmed);
-      setApplied(result);
+      const list = await couponsApi.list(couponContext);
+      if (!list.some((c) => c.couponId === result.couponId)) {
+        // Applied on the server but not offered for this booking (another
+        // category): take it back rather than show a discount that will not hold.
+        await couponsApi.remove(result.couponId).catch(() => undefined);
+        setCoupons(await couponsApi.list(couponContext));
+        setCouponError(`${result.code} does not apply to this booking.`);
+        return;
+      }
+      setCoupons(list);
       setCouponInput("");
     } catch (e) {
       setCouponError(e instanceof Error ? e.message : `${trimmed} is not a valid code.`);
@@ -135,7 +163,8 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
     } catch {
       // Best effort: the booking simply will not carry the code.
     } finally {
-      setApplied(null);
+      // Best effort, as before: the booking simply will not carry the code.
+      setCoupons((current) => current.map((c) => ({ ...c, isApplied: false })));
       setCouponBusy(false);
     }
   };
@@ -180,6 +209,23 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
       setError(`Coupon ${applied?.code} only works with online payment. Pay online, or remove the coupon.`);
       return;
     }
+    if (couponsStale) {
+      setError("Updating your offers. Please try again in a moment.");
+      return;
+    }
+    // A tiered coupon the booked hours do not reach is refused by the server, after payment.
+    if (applied?.needsMinHours != null) {
+      setError(
+        `Coupon ${applied.code} needs a booking of ${applied.needsMinHours} hours or more. Add hours, or remove the coupon.`,
+      );
+      return;
+    }
+    // The start offered can sit just over the server's notice and the page may
+    // have been open a while: re-check before any money moves.
+    if (!startStillAccepted(draft.date, draft.start, clockNow())) {
+      goTo("time");
+      return;
+    }
 
     setPlacing(true);
     try {
@@ -188,6 +234,7 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
         Number(user.id),
         applied,
         newCheckoutKey(),
+        rates,
       );
 
       // Pay online: take and verify the payment first. Nothing is booked yet,
@@ -391,6 +438,9 @@ export function StepReview({ draft, update, goTo, leave }: StepProps) {
           ) : null}
           {full.platformFee > 0 ? (
             <BillRow label="Platform fee" value={formatInr(full.platformFee)} />
+          ) : null}
+          {full.nightCharge > 0 ? (
+            <BillRow label={nightChargeLabel(full.nightCharge, rates)} value={formatInr(full.nightCharge)} />
           ) : null}
           {applied && bill.couponSaving > 0 ? (
             <BillRow label={`Coupon ${applied.code}`} value={`−${formatInr(bill.couponSaving)}`} tone="discount" />

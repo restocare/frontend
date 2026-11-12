@@ -17,6 +17,8 @@ import {
   computeBill,
   formatInr,
   gstOnFee,
+  endsAtNight,
+  nightChargeFor,
   platformFeeFor,
   round2,
   taxOnBase,
@@ -339,8 +341,10 @@ export interface FullBill {
   extrasTax: number;
   /** The platform fee across every booking of this checkout (each, or once); 0 when none. */
   platformFee: number;
+  /** Night conveyance, every booking of a window ending late; 0 when none. */
+  nightCharge: number;
   subtotal: number;
-  /** GST on the bases under the live model, plus GST on the platform fee. */
+  /** GST on the bases under the live model, plus GST on the platform fee and night conveyance. */
   tax: number;
   total: number;
 }
@@ -361,16 +365,19 @@ export function fullBill(
   // a per-booking platform fee counts; a per-checkout fee is charged once.
   const bookings = draft.quantity * draftDays(draft) + extras.length;
   const platformFee = platformFeeFor(rates, bookings);
+  // A window ending late pays the night conveyance on every booking, extras too.
+  const nightCharge = nightChargeFor(rates, endsAtNight(draft.start, draft.end, rates), bookings);
   const subtotal = round2(main.subtotal + extrasBase);
-  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee + nightCharge, rates));
   return {
     main,
     extrasBase,
     extrasTax: taxOnBase(extrasBase, rates),
     platformFee,
+    nightCharge,
     subtotal,
     tax,
-    total: Math.max(0, round2(subtotal + platformFee + tax - main.couponSaving)),
+    total: Math.max(0, round2(subtotal + platformFee + nightCharge + tax - main.couponSaving)),
   };
 }
 
@@ -383,6 +390,7 @@ function mainBill(draft: BookingDraft, coupon: CustomerCoupon | null, rates: Bil
       quantity: draft.quantity * draftDays(draft),
       nightHours: billedNightHours(draft),
       nightRate: draft.nightRate ?? 0,
+      night: endsAtNight(draft.start, draft.end, rates),
       coupon,
     },
     rates,
@@ -407,10 +415,17 @@ export function buildPayloads(
   coupon: CustomerCoupon | null,
   /** One key on every booking of this checkout, so a per-order platform fee lands once. */
   checkoutKey?: string,
+  /** The live rates the bill was shown under (a capped coupon and the night charge read them). */
+  rates: BillRates = LEGACY_RATES,
 ): CreateBookingPayload[] {
   const address = draft.address;
   if (!address) throw new Error("Pick an address before booking.");
-  const bill = mainBill(draft, coupon, LEGACY_RATES);
+  const bill = mainBill(draft, coupon, rates);
+  // The night conveyance each booking showed; declared only while the rates carry one.
+  const nightField =
+    (rates.nightChargeRupees ?? 0) > 0
+      ? { nightCharge: endsAtNight(draft.start, draft.end, rates) ? (rates.nightChargeRupees as number) : 0 }
+      : {};
   const variantId = pickShiftVariant(draft.variants, draft.start, draft.end);
   const blocked = (draft.extras ?? []).map((x) => extraProblem(draft, x)).find(Boolean);
   if (blocked) throw new Error(`${blocked} for one of the added services. Change the hours or remove it.`);
@@ -424,6 +439,7 @@ export function buildPayloads(
     startTime: toHHmm(draft.start),
     endTime: toHHmm(draft.end),
     totalAmount: extraBase(draft, x),
+    ...nightField,
     serviceLat: address.lat ?? 0,
     serviceLng: address.lng ?? 0,
     serviceCity: address.city,
@@ -447,6 +463,7 @@ export function buildPayloads(
         carriesCoupon && !bill.isFlat
           ? round2(bill.perBookingBase - bill.couponBaseDiscount)
           : bill.perBookingBase,
+      ...nightField,
       serviceLat: address.lat ?? 0,
       serviceLng: address.lng ?? 0,
       serviceCity: address.city,

@@ -33,6 +33,7 @@ const GST = { min: 0, max: 28 };
 const PLATFORM_FEE = { min: 0, max: 500 };
 const CONVEYANCE_RATE = { min: 0, max: 100 };
 const CONVEYANCE_MAX_KM = { min: 0, max: 200 };
+const NIGHT_CHARGE = { min: 0, max: 1000 };
 const SHORT_DUTY_HOURS = { min: 0, max: 24 };
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** The conveyance example is a partner this far from the job. */
@@ -94,6 +95,8 @@ interface Draft {
   conveyanceRate: string;
   conveyanceAfter: string;
   conveyanceMaxKm: string;
+  /** What the customer pays per booking that ends late, ₹. */
+  nightCharge: string;
   /** Hours, as typed; the server stores minutes. */
   shortDutyHours: string;
   shortDutyCategoryIds: number[];
@@ -111,6 +114,7 @@ function draftOf(s: PaymentSettings): Draft {
     conveyanceRate: String(s.conveyanceRatePerKm ?? 0),
     conveyanceAfter: s.conveyanceAfterTime ?? "22:00",
     conveyanceMaxKm: String(s.conveyanceMaxKm ?? 0),
+    nightCharge: String(s.nightChargeRupees ?? 0),
     shortDutyHours: String((s.conveyanceShortDutyMaxMinutes ?? 0) / 60),
     shortDutyCategoryIds: s.conveyanceShortDutyCategoryIds ?? [],
   };
@@ -722,6 +726,12 @@ function ConveyanceSection({
       ? `Saved — conveyance ${inr(res.conveyanceRatePerKm)}/km for duties ending at or after ${res.conveyanceAfterTime}${res.conveyanceMaxKm > 0 ? `, up to ${res.conveyanceMaxKm} km` : ""}.`
       : "Saved — no conveyance.",
   );
+  const nightCharge = field(
+    draft.nightCharge,
+    NIGHT_CHARGE,
+    "what the customer pays per booking that ends late (0 for none)",
+    "₹",
+  );
   const rate = field(
     draft.conveyanceRate,
     CONVEYANCE_RATE,
@@ -750,9 +760,10 @@ function ConveyanceSection({
   const savedShortMinutes = settings.conveyanceShortDutyMaxMinutes ?? 0;
   const savedCategoryIds = settings.conveyanceShortDutyCategoryIds ?? [];
   const valid =
-    !rate.problem && !maxKm.problem && !afterProblem && !shortHours.problem;
+    !rate.problem && !maxKm.problem && !afterProblem && !shortHours.problem && !nightCharge.problem;
   const dirty =
     rate.value !== (settings.conveyanceRatePerKm ?? 0) ||
+    nightCharge.value !== (settings.nightChargeRupees ?? 0) ||
     after !== (settings.conveyanceAfterTime ?? "22:00") ||
     maxKm.value !== (settings.conveyanceMaxKm ?? 0) ||
     shortMinutes !== savedShortMinutes ||
@@ -782,6 +793,7 @@ function ConveyanceSection({
       !valid ||
       rate.value === null ||
       maxKm.value === null ||
+      nightCharge.value === null ||
       shortMinutes === null
     )
       return;
@@ -792,6 +804,8 @@ function ConveyanceSection({
       body.conveyanceAfterTime = after;
     if (maxKm.value !== settings.conveyanceMaxKm)
       body.conveyanceMaxKm = maxKm.value;
+    if (nightCharge.value !== (settings.nightChargeRupees ?? 0))
+      body.nightChargeRupees = nightCharge.value;
     if (shortMinutes !== savedShortMinutes)
       body.conveyanceShortDutyMaxMinutes = shortMinutes;
     if (!sameIds(draft.shortDutyCategoryIds, savedCategoryIds))
@@ -803,6 +817,7 @@ function ConveyanceSection({
       conveyanceRate: String(settings.conveyanceRatePerKm ?? 0),
       conveyanceAfter: settings.conveyanceAfterTime ?? "22:00",
       conveyanceMaxKm: String(settings.conveyanceMaxKm ?? 0),
+      nightCharge: String(settings.nightChargeRupees ?? 0),
       shortDutyHours: String(savedShortMinutes / 60),
       shortDutyCategoryIds: savedCategoryIds,
     });
@@ -839,6 +854,27 @@ function ConveyanceSection({
             className={INPUT}
           />
           <Hint problem={rate.problem}>0 means no conveyance.</Hint>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Customer pays (₹ per late booking)
+          </span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={NIGHT_CHARGE.min}
+            max={NIGHT_CHARGE.max}
+            step={1}
+            value={draft.nightCharge}
+            onChange={(e) => patch({ nightCharge: e.target.value })}
+            disabled={disabled}
+            className={INPUT}
+          />
+          <Hint problem={nightCharge.problem}>
+            Shown as &quot;Night conveyance&quot; on the customer&apos;s bill when the booking
+            ends at or after the cut-off below, or past midnight. GST applies. 0 means none.
+          </Hint>
         </label>
 
         <label className="block">

@@ -106,6 +106,8 @@ function offerLabel(c: CampaignCoupon): string {
     return c.hourTiers
       .map((t) => `${t.discountPercent}% from ${t.minHours}h`)
       .join(", ");
+  // "₹100 off" is stored as 100% capped at ₹100.
+  if ((c.discountPercent ?? 0) >= 100 && c.maxDiscount != null) return `${rupees(c.maxDiscount)} off`;
   const pct = `${c.discountPercent ?? 0}% off`;
   return c.maxDiscount != null ? `${pct} up to ${rupees(c.maxDiscount)}` : pct;
 }
@@ -199,6 +201,13 @@ function CouponRow({
       customersApi.updateCampaign(c.couponId, { isActive: !c.isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
   });
+  // Only a coupon nobody has used can go; the server refuses the rest.
+  const remove = useMutation({
+    mutationFn: () => customersApi.deleteCampaign(c.couponId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onError: (e) =>
+      window.alert(e instanceof ApiError ? e.message : "Could not delete this coupon."),
+  });
 
   const conditions: string[] = [];
   if (c.minOrderAmount != null)
@@ -283,6 +292,16 @@ function CouponRow({
             >
               {c.isActive ? "Disable" : "Enable"}
             </Btn>
+            <Btn
+              small
+              tone="ghost"
+              busy={remove.isPending}
+              onClick={() => {
+                if (window.confirm(`Delete coupon ${c.code}? This cannot be undone.`)) remove.mutate();
+              }}
+            >
+              Delete
+            </Btn>
           </div>
         )}
       </td>
@@ -321,9 +340,20 @@ function CouponModal({
   const isEdit = Boolean(coupon);
 
   const [code, setCode] = useState(coupon?.code ?? "");
-  const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT_TOTAL">(
-    coupon?.discountType ?? "PERCENT",
+  // FLAT_OFF ("₹100 off") is the admin's name for a percentage coupon stored
+  // as 100% capped at the amount; the storefront and apps cap the saving at it.
+  // One with hour tiers is a tiered coupon that happens to be capped, so it
+  // keeps opening as a percentage coupon (saving it as a flat amount would
+  // wipe its tiers).
+  const isFlatOff =
+    coupon?.discountType === "PERCENT" &&
+    (coupon.discountPercent ?? 0) >= 100 &&
+    coupon.maxDiscount != null &&
+    !coupon.hourTiers?.length;
+  const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT_TOTAL" | "FLAT_OFF">(
+    isFlatOff ? "FLAT_OFF" : (coupon?.discountType ?? "PERCENT"),
   );
+  const [flatOff, setFlatOff] = useState(isFlatOff ? String(coupon?.maxDiscount) : "100");
   const [discountPercent, setDiscountPercent] = useState(
     coupon?.discountPercent != null ? String(coupon.discountPercent) : "20",
   );
@@ -403,13 +433,15 @@ function CouponModal({
   });
 
   const rules = (): CampaignCouponRules => ({
-    discountType,
+    discountType: discountType === "FLAT_OFF" ? "PERCENT" : discountType,
     ...(discountType === "PERCENT"
       ? {
           discountPercent: Number(discountPercent),
           maxDiscount: maxDiscount ? Number(maxDiscount) : null,
         }
-      : { flatTotal: Number(flatTotal) }),
+      : discountType === "FLAT_OFF"
+        ? { discountPercent: 100, maxDiscount: Number(flatOff), hourTiers: [] }
+        : { flatTotal: Number(flatTotal) }),
     minOrderAmount: minOrderAmount ? Number(minOrderAmount) : null,
     visibility,
     categoryIds,
@@ -464,7 +496,9 @@ function CouponModal({
   const submit = () => {
     setErr("");
     if (!isEdit && !code.trim()) return setErr("Give the coupon a code.");
-    if (discountType === "PERCENT") {
+    if (discountType === "FLAT_OFF") {
+      if (!(Number(flatOff) >= 1)) return setErr("The amount off must be at least ₹1.");
+    } else if (discountType === "PERCENT") {
       const pct = Number(discountPercent);
       if (!(pct >= 1 && pct <= 100))
         return setErr("The percentage must be between 1 and 100.");
@@ -537,6 +571,12 @@ function CouponModal({
               detail="e.g. 20% OFF, with an optional cap"
             />
             <Choice
+              active={discountType === "FLAT_OFF"}
+              onClick={() => setDiscountType("FLAT_OFF")}
+              title="Fixed amount off"
+              detail="e.g. ₹100 off one booking"
+            />
+            <Choice
               active={discountType === "FLAT_TOTAL"}
               onClick={() => setDiscountType("FLAT_TOTAL")}
               title="Fixed price"
@@ -573,6 +613,20 @@ function CouponModal({
                   <HourTierEditor tiers={hourTiers} onChange={setHourTiers} />
                 </div>
               </>
+            ) : discountType === "FLAT_OFF" ? (
+              <Field
+                label="Amount off (₹)"
+                hint="Taken off one booking's service price, GST included. The platform fee and night conveyance are not discounted. A service cheaper than this is free."
+              >
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  value={flatOff}
+                  onChange={(e) => setFlatOff(e.target.value)}
+                  placeholder="e.g. 100"
+                />
+              </Field>
             ) : (
               <Field
                 label="Service price (₹, before GST)"

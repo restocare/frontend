@@ -147,6 +147,11 @@ export interface PaymentSettings {
   /** Once per booking (each service), or once per checkout however many services it holds. */
   platformFeeMode: PlatformFeeMode;
   /**
+   * Night conveyance the customer pays: flat ₹ per booking whose window ends
+   * at or after conveyanceAfterTime, or past midnight. GST applies to it.
+   */
+  nightChargeRupees: number;
+  /**
    * Conveyance the company pays the partner for a duty that ends late: ₹ per
    * km from their base to the job (0 = none), the cut-off ("HH:mm") a duty must
    * end at or after, and the most km paid per job (0 = no cap).
@@ -175,6 +180,7 @@ export type PaymentSettingsInput = Partial<
     | "taxModel"
     | "platformFeeRupees"
     | "platformFeeMode"
+    | "nightChargeRupees"
     | "conveyanceRatePerKm"
     | "conveyanceAfterTime"
     | "conveyanceMaxKm"

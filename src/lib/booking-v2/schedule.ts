@@ -22,8 +22,27 @@ export const DAY_END = 24 * 60;
 /** The latest an end may be: 6:00 AM the next day. */
 export const END_LIMIT = DAY_END + DAY_START;
 export const DAYS_AHEAD = 7;
-/** Notice needed before a start, in minutes: 2 hours. The server refuses less. */
+/**
+ * Notice before a start, in minutes: now + 2 hours, rounded to the NEAREST
+ * hour (12:29 → 2 PM, 12:30 → 3 PM). The server allows what this can offer:
+ * 1 hour 30 minutes.
+ */
 export const SAME_DAY_LEAD = 120;
+/** The notice the server actually requires (booking-lead-time.ts), in minutes and in words. */
+export const SERVER_NOTICE_MINUTES = 90;
+export const NOTICE_LABEL = "1 hour 30 minutes";
+
+/**
+ * Would the server still accept this start? Checked again just before a
+ * booking is paid for: the first start offered can sit just over the notice
+ * (12:29 offers 2 PM, 91 minutes away) and the page may have been open a
+ * while. A minute of margin covers the seconds the clock does not carry.
+ */
+export function startStillAccepted(dateISO: string, startMin: number, clock: Clock): boolean {
+  if (dateISO > clock.dateISO) return true;
+  if (dateISO < clock.dateISO) return false;
+  return startMin - clock.minutes >= SERVER_NOTICE_MINUTES + 1;
+}
 /** Shortest and longest booking, whatever the variants say: 7 to 12 hours. The server refuses shorter. */
 export const MIN_MINUTES = 7 * 60;
 export const MAX_MINUTES = 12 * 60;
@@ -90,7 +109,7 @@ export function fmtEndTime(minutes: number): string {
 export function earliestStart(dateISO: string, clock: Clock): number {
   if (dateISO !== clock.dateISO) return DAY_START;
   const soonest =
-    Math.ceil((clock.minutes + SAME_DAY_LEAD) / STEP_MINUTES) * STEP_MINUTES;
+    Math.round((clock.minutes + SAME_DAY_LEAD) / STEP_MINUTES) * STEP_MINUTES;
   return Math.max(DAY_START, soonest);
 }
 

@@ -29,6 +29,8 @@ export const LEGACY_RATES: BillRates = {
   taxRateOnBase: 0.18,
   platformFeeRupees: 0,
   platformFeeMode: "PER_BOOKING",
+  nightChargeRupees: 0,
+  nightChargeAfterTime: "22:00",
 };
 
 /** @deprecated The rate is editable; use `rates.taxRateOnBase`. Kept for older imports. */
@@ -55,6 +57,38 @@ export function platformFeeFor(rates: BillRates, bookings: number): number {
   return round2(rates.platformFeeMode === "PER_ORDER" ? fee : fee * bookings);
 }
 
+/** Minutes past midnight of "HH:mm"; NaN for anything else. */
+function minutesOf(hhmm: string): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+}
+
+/**
+ * A window that ends at night: at or after the cut-off the rates carry
+ * (default 22:00), or past midnight (an end beyond 24:00 in day minutes).
+ * The server decides the same way from the booked times.
+ */
+export function endsAtNight(startMin: number, endMin: number, rates: BillRates): boolean {
+  if (!(endMin > startMin)) return false;
+  if (endMin > 24 * 60) return true;
+  const cutoff = minutesOf(rates.nightChargeAfterTime || "22:00");
+  return Number.isFinite(cutoff) && endMin >= cutoff;
+}
+
+/** The night conveyance for `bookings` bookings of a late window: each one pays it. */
+export function nightChargeFor(rates: BillRates, late: boolean, bookings: number): number {
+  const fee = rates.nightChargeRupees ?? 0;
+  if (!late || !(fee > 0) || bookings <= 0) return 0;
+  return round2(fee * bookings);
+}
+
+/** The night conveyance row's label: "Night conveyance", or "(2 × ₹50)" when more than one booking pays it. */
+export function nightChargeLabel(nightCharge: number, rates: BillRates): string {
+  const each = rates.nightChargeRupees ?? 0;
+  const bookings = each > 0 ? Math.round(nightCharge / each) : 1;
+  return bookings > 1 ? `Night conveyance (${bookings} × ${formatInr(each)})` : `Night conveyance`;
+}
+
 /** The bill's GST line label: "GST (18%)", or what it is on when it is not the whole price. */
 export function gstLabel(rates: BillRates): string {
   return rates.taxModel === "ON_COMMISSION"
@@ -66,6 +100,32 @@ export interface BillCoupon {
   discountType?: "PERCENT" | "FLAT_TOTAL";
   discountPercent: number;
   flatTotal?: number | null;
+  /**
+   * The most a percentage coupon takes off, GST included. "₹100 off" is stored
+   * as 100% capped at ₹100, so a bill that ignores this prices it as free.
+   */
+  maxDiscount?: number | null;
+}
+
+/**
+ * What a percentage coupon takes off ONE booking: the pre-tax part and what
+ * the customer saves with its GST, held to the cap. The server prices it the
+ * same way (the service price and its GST; never the platform fee or the
+ * night conveyance), so the screen, the payment and the booking agree.
+ */
+export function percentCouponDiscount(
+  base: number,
+  coupon: Pick<BillCoupon, "discountPercent" | "maxDiscount">,
+  rates: BillRates,
+): { baseDiscount: number; saving: number } {
+  const baseDiscount = round2((base * coupon.discountPercent) / 100);
+  const saving = round2(baseDiscount * (1 + rates.taxRateOnBase));
+  const cap = coupon.maxDiscount;
+  if (cap != null && cap >= 0 && saving > cap) {
+    const capped = round2(cap);
+    return { baseDiscount: round2(capped / (1 + rates.taxRateOnBase)), saving: capped };
+  }
+  return { baseDiscount, saving };
 }
 
 export interface BillInput {
@@ -79,6 +139,8 @@ export interface BillInput {
   nightHours?: number;
   /** Extra rate per night hour, pre-tax; default 0. */
   nightRate?: number;
+  /** The window ends at night (endsAtNight): every booking pays the night conveyance. */
+  night?: boolean;
   coupon?: BillCoupon | null;
 }
 
@@ -89,7 +151,9 @@ export interface Bill {
   subtotal: number;
   /** The platform fee across the bookings (each, or once); 0 when none. */
   platformFee: number;
-  /** GST on the bases under the live model, plus GST on the platform fee. */
+  /** Night conveyance across the bookings (each one, for a late window); 0 when none. */
+  nightCharge: number;
+  /** GST on the bases under the live model, plus GST on the platform fee and night conveyance. */
   tax: number;
   /** Pre-tax discount applied to the first booking (percent coupons only). */
   couponBaseDiscount: number;
@@ -101,14 +165,15 @@ export interface Bill {
 }
 
 export function computeBill(
-  { hours, rate, quantity, nightHours = 0, nightRate = 0, coupon }: BillInput,
+  { hours, rate, quantity, nightHours = 0, nightRate = 0, night = false, coupon }: BillInput,
   rates: BillRates = LEGACY_RATES,
 ): Bill {
   const perBookingBase = round2(hours * rate + nightHours * nightRate);
   const subtotal = round2(perBookingBase * quantity);
   const platformFee = platformFeeFor(rates, quantity);
-  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee, rates));
-  const gross = round2(subtotal + platformFee + tax);
+  const nightCharge = nightChargeFor(rates, night, quantity);
+  const tax = round2(taxOnBase(subtotal, rates) + gstOnFee(platformFee + nightCharge, rates));
+  const gross = round2(subtotal + platformFee + nightCharge + tax);
 
   const isFlat =
     !!coupon &&
@@ -122,10 +187,11 @@ export function computeBill(
     couponBaseDiscount = Math.max(0, round2(perBookingBase - (coupon.flatTotal as number)));
     couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
   } else if (coupon && coupon.discountPercent > 0) {
-    couponBaseDiscount = round2(
-      (perBookingBase * coupon.discountPercent) / 100,
-    );
-    couponSaving = round2(couponBaseDiscount * (1 + rates.taxRateOnBase));
+    ({ baseDiscount: couponBaseDiscount, saving: couponSaving } = percentCouponDiscount(
+      perBookingBase,
+      coupon,
+      rates,
+    ));
   }
 
   const total = Math.max(0, round2(gross - couponSaving));
@@ -134,6 +200,7 @@ export function computeBill(
     perBookingBase,
     subtotal,
     platformFee,
+    nightCharge,
     tax,
     couponBaseDiscount,
     couponSaving,
