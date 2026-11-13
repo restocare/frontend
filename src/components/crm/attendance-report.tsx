@@ -363,11 +363,6 @@ export function EmployeeAttendanceModal({ person, onClose }: { person: ExportPer
                       <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{d.record ? fmtWorked(d.record.workedMinutes) : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5">
                         <Badge tone={KIND_TONE[d.kind]}>{d.label}</Badge>
-                        {d.record?.policyNote?.includes("Corrected by ") && (
-                          <div className="mt-1 text-[11px] text-muted-foreground" title={d.record.policyNote}>
-                            Edited by HR
-                          </div>
-                        )}
                       </td>
                       {canFix && (
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
