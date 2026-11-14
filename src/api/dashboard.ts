@@ -319,7 +319,7 @@ export interface PartnerProgressRow {
   stage: 1 | 2 | 3;
   stageName: "ONBOARDING" | "TRAINING" | "DEPLOYMENT" | "DEPLOYED";
   live: boolean;
-  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED" | "MANUAL_IMPORTED";
   rejectionReason: string | null;
   registeredAt: string;
   verifiedAt: string | null;

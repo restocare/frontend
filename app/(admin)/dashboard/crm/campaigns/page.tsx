@@ -42,6 +42,17 @@ const PAGE_SIZE = 20;
 
 const CHANNELS: CampaignChannel[] = ["EMAIL", "WHATSAPP", "SMS"];
 
+/** Who a campaign goes to: customers (and leads) or service partners. */
+type Audience = "CUSTOMERS" | "PARTNERS";
+
+const AUDIENCES: { key: Audience; label: string }[] = [
+  { key: "CUSTOMERS", label: "Customers" },
+  { key: "PARTNERS", label: "Partners" },
+];
+
+const audienceOf = (segment: string): Audience =>
+  segment.endsWith("_PARTNERS") ? "PARTNERS" : "CUSTOMERS";
+
 const SEGMENTS: { key: CampaignSegment; label: string; hint: string }[] = [
   {
     key: "ALL_CLIENTS",
@@ -73,7 +84,37 @@ const SEGMENTS: { key: CampaignSegment; label: string; hint: string }[] = [
     label: "Imported leads",
     hint: "Every lead on the Leads page — prospects, not customer accounts",
   },
+  // Partners — the onboarding buckets of the Service Partners page. Blocked
+  // and rejected partners are never messaged.
+  {
+    key: "ALL_PARTNERS",
+    label: "All partners",
+    hint: "Every service partner except blocked and rejected ones",
+  },
+  {
+    key: "ACTIVE_PARTNERS",
+    label: "Active partners",
+    hint: "Activated partners who receive leads",
+  },
+  {
+    key: "VERIFIED_PARTNERS",
+    label: "Verified partners",
+    hint: "Documents verified, not yet activated",
+  },
+  {
+    key: "PENDING_PARTNERS",
+    label: "Pending partners",
+    hint: "Registered in the app, awaiting document review",
+  },
+  {
+    key: "IMPORTED_PARTNERS",
+    label: "Imported partners",
+    hint: "Added from the spreadsheet import, awaiting review",
+  },
 ];
+
+const segmentsFor = (audience: Audience) =>
+  SEGMENTS.filter((s) => audienceOf(s.key) === audience);
 
 // SELECTED_CUSTOMERS / SELECTED_LEADS are deliberately absent from SEGMENTS:
 // they are not rules an admin can pick here, they come from ticking people on
@@ -193,7 +234,7 @@ export default function CrmCampaignsPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
         title="Marketing Campaigns"
-        subtitle="Email, WhatsApp and SMS blasts over live customer segments"
+        subtitle="Email, WhatsApp and SMS blasts over live customer and partner segments"
         action={
           canManage ? (
             <Btn
@@ -534,6 +575,11 @@ function CampaignFormModal({
   const [segment, setSegment] = useState<string>(
     campaign?.segment ?? "ALL_CLIENTS",
   );
+  const audience = audienceOf(segment);
+  // Switching audience lands on that audience's first segment.
+  const pickAudience = (next: Audience) => {
+    if (next !== audience) setSegment(segmentsFor(next)[0].key);
+  };
   const [subject, setSubject] = useState(campaign?.subject ?? "");
   const [message, setMessage] = useState(campaign?.message ?? "");
   const [choice, setChoice] = useState<TemplateChoice>({
@@ -623,6 +669,25 @@ function CampaignFormModal({
             placeholder="Diwali staffing offer"
           />
         </Field>
+        <Field label="Send to">
+          <div className="flex gap-2">
+            {AUDIENCES.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => pickAudience(a.key)}
+                aria-pressed={audience === a.key}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                  audience === a.key
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:bg-accent"
+                }`}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Channel">
             <select
@@ -643,7 +708,7 @@ function CampaignFormModal({
               value={segment}
               onChange={(e) => setSegment(e.target.value)}
             >
-              {SEGMENTS.map((s) => (
+              {segmentsFor(audience).map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
                 </option>

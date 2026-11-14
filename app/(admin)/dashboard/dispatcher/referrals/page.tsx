@@ -17,6 +17,7 @@ const ONBOARDING_STYLES: Record<string, string> = {
   VERIFIED: "bg-primary/10 text-primary",
   ACTIVE: "bg-success/10 text-success",
   REJECTED: "bg-danger/10 text-danger",
+  MANUAL_IMPORTED: "bg-muted text-muted-foreground",
 };
 
 function fmtDate(iso: string): string {

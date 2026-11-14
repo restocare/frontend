@@ -56,7 +56,7 @@ export interface CrmPartnerRow {
   totalJobs: number;
   isOnline: boolean;
   isBlocked: boolean;
-  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED" | "MANUAL_IMPORTED";
   bookingCount: number;
   createdAt: string;
 }
@@ -750,7 +750,13 @@ export type CampaignSegment =
   /** Imported ad/call-centre leads, not customer accounts. */
   | "MARKETING_LEADS"
   /** Not a rule — the exact leads an admin ticked on the Leads page. */
-  | "SELECTED_LEADS";
+  | "SELECTED_LEADS"
+  /** Service partners by onboarding stage (never blocked or rejected). */
+  | "ALL_PARTNERS"
+  | "ACTIVE_PARTNERS"
+  | "VERIFIED_PARTNERS"
+  | "PENDING_PARTNERS"
+  | "IMPORTED_PARTNERS";
 
 export type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "FAILED";
 

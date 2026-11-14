@@ -24,6 +24,7 @@ import { PartnerActivityModal } from "@/src/components/dashboard/partner-activit
 const PAGE_SIZE = 20;
 const STATUS_TABS = [
   { key: "ALL", label: "All" },
+  { key: "MANUAL_IMPORTED", label: "Imported" },
   { key: "PENDING", label: "Pending" },
   { key: "VERIFIED", label: "Verified" },
   { key: "ACTIVE", label: "Active" },
@@ -136,7 +137,7 @@ export default function CrmPartnersPage() {
                           })
                         }
                       >
-                        {["PENDING", "VERIFIED", "ACTIVE", "REJECTED"].map((s) => (
+                        {["MANUAL_IMPORTED", "PENDING", "VERIFIED", "ACTIVE", "REJECTED"].map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
