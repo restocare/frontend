@@ -143,7 +143,10 @@ function GroomingModuleCard() {
  *  the partner analytics report. */
 type StatusTab = PartnerOnboardingStatus | "ALL" | "ANALYTICS" | "BLOCKED";
 
+const tabLabel = (key: StatusTab) => STATUS_TABS.find((t) => t.key === key)?.label ?? String(key);
+
 const STATUS_TABS: { key: StatusTab; label: string }[] = [
+  { key: "MANUAL_IMPORTED", label: "Imported" },
   { key: "PENDING", label: "Pending" },
   { key: "VERIFIED", label: "Verified" },
   { key: "ACTIVE", label: "Active" },
@@ -250,20 +253,40 @@ export function ServicePartnersView({
     },
   });
 
-  /** Fetch the CSV template — a plain link can't carry the bearer token. */
+  /** Save a fetched file — a plain link can't carry the bearer token. */
+  const saveBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleTemplate = async () => {
     try {
-      const blob = await dispatcherApi.partnerImportTemplate();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "partner-import-template.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(await dispatcherApi.partnerImportTemplate(), "partner-import-template.csv");
     } catch (e) {
       setNotice(e instanceof ApiError ? e.message : "Could not download the template.");
+    }
+  };
+
+  const [exporting, setExporting] = useState(false);
+  /** The list as a sheet, filtered exactly like the tab on screen. */
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const tab = statusTab === "ANALYTICS" ? "ALL" : statusTab;
+      saveBlob(
+        await dispatcherApi.exportPartners(search.trim() || undefined, tab, categoryId),
+        `partners-${tab.toLowerCase()}.csv`,
+      );
+    } catch (e) {
+      setNotice(e instanceof ApiError ? e.message : "Could not export the partner list.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -303,8 +326,18 @@ export function ServicePartnersView({
             Service professionals onboarded on the platform.
           </p>
         </div>
-        {canCreate && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => void handleExport()}
+            disabled={exporting}
+            title="Download the partners on this tab as a CSV (same columns as the import template)"
+            className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-accent disabled:opacity-50"
+          >
+            {exporting ? <SpinnerIcon className="h-4 w-4" /> : <span>⬇</span>}
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+          {canCreate && (
+          <>
             <button
               onClick={() => void handleTemplate()}
               title="Download the CSV template to fill in"
@@ -340,8 +373,9 @@ export function ServicePartnersView({
             >
               ＋ Add partner
             </button>
-          </div>
-        )}
+          </>
+          )}
+        </div>
       </div>
 
       {/* Import outcome. A hand-filled sheet usually has a few bad rows, so
@@ -525,12 +559,12 @@ export function ServicePartnersView({
               {search
                 ? "No partners match your search."
                 : duty !== "ALL"
-                  ? `No ${duty.toLowerCase()} partners${statusTab === "ALL" ? "" : ` in ${statusTab.toLowerCase()}`}.`
+                  ? `No ${duty.toLowerCase()} partners${statusTab === "ALL" ? "" : ` in ${tabLabel(statusTab).toLowerCase()}`}.`
                   : statusTab === "PENDING"
                     ? "No partners awaiting review."
                     : statusTab === "ALL"
                       ? "No service partners yet."
-                      : `No ${statusTab.toLowerCase()} partners.`}
+                      : `No ${tabLabel(statusTab).toLowerCase()} partners.`}
             </p>
           </div>
         ) : (

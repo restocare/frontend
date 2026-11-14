@@ -10,7 +10,12 @@ import { toQueryString } from "./_shared";
 /* ----------------------------- Dispatcher ------------------------------- */
 
 export type PartnerOnboardingStatus =
-  "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+  | "PENDING"
+  | "VERIFIED"
+  | "ACTIVE"
+  | "REJECTED"
+  /** Added by an admin from the spreadsheet import; reviewed like pending. */
+  | "MANUAL_IMPORTED";
 
 export interface PartnerRow {
   professionalId: number;
@@ -211,6 +216,7 @@ export interface PartnerStatusCounts {
   VERIFIED: number;
   ACTIVE: number;
   REJECTED: number;
+  MANUAL_IMPORTED?: number;
   ALL: number;
 }
 
@@ -396,6 +402,21 @@ export const dispatcherApi = {
   /** GET /v1/admin/partners/import-template — the CSV an admin fills in. */
   partnerImportTemplate: () =>
     downloadFile("/v1/admin/partners/import-template"),
+
+  /** GET /v1/admin/partners/export — the list as CSV, filtered like the tab;
+   *  its first columns are the import template's, so it can be re-uploaded. */
+  exportPartners: (
+    search?: string,
+    status?: PartnerOnboardingStatus | "ALL" | "BLOCKED",
+    categoryId?: number,
+  ) =>
+    downloadFile(
+      `/v1/admin/partners/export${toQueryString({
+        search,
+        status: status && status !== "ALL" ? status : undefined,
+        categoryId,
+      })}`,
+    ),
 
   /** POST /v1/admin/partners/import — bulk-register partners from a filled
    *  sheet. Rows are independent, so the result lists every failure by row. */

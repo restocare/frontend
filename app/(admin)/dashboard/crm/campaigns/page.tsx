@@ -11,10 +11,12 @@ import { ApiError } from "@/src/api/apiClient";
 import {
   crmCampaignsApi,
   crmQueryKeys,
+  type AutoCampaignRow,
   type CampaignChannel,
   type CampaignRecipientRow,
   type CampaignRow,
   type CampaignSegment,
+  type CampaignTrigger,
 } from "@/src/api/api";
 import {
   Badge,
@@ -41,6 +43,17 @@ import { openedWithNewParam } from "@/src/lib/deep-link";
 const PAGE_SIZE = 20;
 
 const CHANNELS: CampaignChannel[] = ["EMAIL", "WHATSAPP", "SMS"];
+
+/** Who a campaign goes to: customers (and leads) or service partners. */
+type Audience = "CUSTOMERS" | "PARTNERS";
+
+const AUDIENCES: { key: Audience; label: string }[] = [
+  { key: "CUSTOMERS", label: "Customers" },
+  { key: "PARTNERS", label: "Partners" },
+];
+
+const audienceOf = (segment: string): Audience =>
+  segment.endsWith("_PARTNERS") ? "PARTNERS" : "CUSTOMERS";
 
 const SEGMENTS: { key: CampaignSegment; label: string; hint: string }[] = [
   {
@@ -73,7 +86,37 @@ const SEGMENTS: { key: CampaignSegment; label: string; hint: string }[] = [
     label: "Imported leads",
     hint: "Every lead on the Leads page — prospects, not customer accounts",
   },
+  // Partners — the onboarding buckets of the Service Partners page. Blocked
+  // and rejected partners are never messaged.
+  {
+    key: "ALL_PARTNERS",
+    label: "All partners",
+    hint: "Every service partner except blocked and rejected ones",
+  },
+  {
+    key: "ACTIVE_PARTNERS",
+    label: "Active partners",
+    hint: "Activated partners who receive leads",
+  },
+  {
+    key: "VERIFIED_PARTNERS",
+    label: "Verified partners",
+    hint: "Documents verified, not yet activated",
+  },
+  {
+    key: "PENDING_PARTNERS",
+    label: "Pending partners",
+    hint: "Registered in the app, awaiting document review",
+  },
+  {
+    key: "IMPORTED_PARTNERS",
+    label: "Imported partners",
+    hint: "Added from the spreadsheet import, awaiting review",
+  },
 ];
+
+const segmentsFor = (audience: Audience) =>
+  SEGMENTS.filter((s) => audienceOf(s.key) === audience);
 
 // SELECTED_CUSTOMERS / SELECTED_LEADS are deliberately absent from SEGMENTS:
 // they are not rules an admin can pick here, they come from ticking people on
@@ -85,7 +128,29 @@ const pickedLabels: Record<string, string> = {
 };
 
 const segmentLabel = (key: string) =>
-  pickedLabels[key] ?? SEGMENTS.find((s) => s.key === key)?.label ?? key;
+  key === "AUTOMATIC"
+    ? "Automatic"
+    : (pickedLabels[key] ?? SEGMENTS.find((s) => s.key === key)?.label ?? key);
+
+/** The three automatic campaigns, in the order they are shown. */
+const TRIGGERS: { key: CampaignTrigger; label: string; when: string }[] = [
+  {
+    key: "NEW_CUSTOMER",
+    label: "New customer",
+    when: "The moment a customer signs up on the website or app",
+  },
+  {
+    key: "NEW_PARTNER",
+    label: "New partner",
+    when: "The moment a partner registers in the partner app (imports and admin entry are not messaged)",
+  },
+  {
+    key: "NEW_META_LEAD",
+    label: "New Meta lead",
+    when: "The moment a lead arrives from Meta ads (Leads page imports are not messaged)",
+  },
+];
+const triggerMeta = (key: CampaignTrigger) => TRIGGERS.find((t) => t.key === key);
 
 const statusToneMap: Record<string, string> = {
   DRAFT: "warning",
@@ -126,6 +191,29 @@ export default function CrmCampaignsPage() {
 
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: ["crm", "campaigns"] });
+
+  // The three automatic campaigns, shown above the blasts.
+  const auto = useQuery({
+    queryKey: crmQueryKeys.autoCampaigns,
+    queryFn: () => crmCampaignsApi.listAuto(),
+  });
+  const toggleAuto = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+      crmCampaignsApi.update(id, { enabled }),
+    onSuccess: (c) => {
+      setActionError(null);
+      setNotice(
+        c.enabled
+          ? `“${c.name}” is on — new arrivals will get the template.`
+          : `“${c.name}” is off — nothing more goes out; anyone already queued stays queued.`,
+      );
+      invalidate();
+    },
+    onError: (e) =>
+      setActionError(
+        e instanceof ApiError ? e.message : "Could not update the automatic campaign.",
+      ),
+  });
 
   const send = useMutation({
     mutationFn: (id: number) => crmCampaignsApi.send(id),
@@ -193,7 +281,7 @@ export default function CrmCampaignsPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
         title="Marketing Campaigns"
-        subtitle="Email, WhatsApp and SMS blasts over live customer segments"
+        subtitle="Email, WhatsApp and SMS blasts over live customer and partner segments"
         action={
           canManage ? (
             <Btn
@@ -215,6 +303,31 @@ export default function CrmCampaignsPage() {
       {actionError && <Notice kind="error">{actionError}</Notice>}
       {notice && <Notice kind="success">{notice}</Notice>}
 
+      <AutoCampaignsPanel
+        rows={auto.data ?? []}
+        loading={auto.isLoading}
+        canManage={canManage}
+        busyId={toggleAuto.isPending ? toggleAuto.variables?.id ?? null : null}
+        onToggle={(c) => {
+          // Nothing can go out without a template, so "switch on" asks for one.
+          if (!c.enabled && !c.templateName) {
+            setNotice(null);
+            setActionError(null);
+            setEditing(c);
+            return;
+          }
+          toggleAuto.mutate({ id: c.campaignId, enabled: !c.enabled });
+        }}
+        onEdit={(c) => {
+          setNotice(null);
+          setActionError(null);
+          setEditing(c);
+        }}
+        onTest={(c) => setTesting(c)}
+        onView={(c) => setViewing(c)}
+      />
+
+      <h2 className="text-lg font-semibold text-foreground">Campaigns</h2>
       <div className="flex flex-wrap gap-3">
         <select
           className={`${inputCls} w-auto`}
@@ -534,6 +647,11 @@ function CampaignFormModal({
   const [segment, setSegment] = useState<string>(
     campaign?.segment ?? "ALL_CLIENTS",
   );
+  const audience = audienceOf(segment);
+  // Switching audience lands on that audience's first segment.
+  const pickAudience = (next: Audience) => {
+    if (next !== audience) setSegment(segmentsFor(next)[0].key);
+  };
   const [subject, setSubject] = useState(campaign?.subject ?? "");
   const [message, setMessage] = useState(campaign?.message ?? "");
   const [choice, setChoice] = useState<TemplateChoice>({
@@ -547,12 +665,16 @@ function CampaignFormModal({
   const [formError, setFormError] = useState<string | null>(null);
 
   const isWhatsapp = channel === "WHATSAPP";
+  // An automatic campaign: WhatsApp, a fixed audience, and always a template.
+  const trigger = campaign?.trigger ?? null;
+  const triggerInfo = trigger ? triggerMeta(trigger) : undefined;
 
   // Live audience preview for the picked segment + channel.
   const preview = useQuery({
     queryKey: crmQueryKeys.segmentPreview(segment, channel),
     queryFn: () => crmCampaignsApi.previewSegment(segment, channel),
     retry: false,
+    enabled: !trigger,
   });
 
   const save = useMutation({
@@ -560,8 +682,9 @@ function CampaignFormModal({
       const cap = Number(dailyCap);
       const body = {
         name: name.trim(),
-        channel,
-        segment,
+        // An automatic campaign keeps its fixed channel and audience.
+        channel: trigger ? undefined : channel,
+        segment: trigger ? undefined : segment,
         subject: channel === "EMAIL" ? subject.trim() : undefined,
         message: message.trim(),
         // Template settings only mean anything on WhatsApp; sending them on an
@@ -600,6 +723,10 @@ function CampaignFormModal({
       return setFormError(
         "Fill every template variable — a blank one sends an empty line.",
       );
+    if (trigger && !choice.name)
+      return setFormError(
+        "An automatic campaign needs an approved template — it opens the conversation.",
+      );
 
     setFormError(null);
     save.mutate();
@@ -609,7 +736,13 @@ function CampaignFormModal({
 
   return (
     <Modal
-      title={campaign ? "Edit campaign" : "New campaign"}
+      title={
+        trigger
+          ? `Automatic campaign: ${triggerInfo?.label ?? trigger}`
+          : campaign
+            ? "Edit campaign"
+            : "New campaign"
+      }
       onClose={onClose}
       wide
     >
@@ -622,6 +755,36 @@ function CampaignFormModal({
             onChange={(e) => setName(e.target.value)}
             placeholder="Diwali staffing offer"
           />
+        </Field>
+        {trigger && (
+          <div className="rounded-xl border border-border bg-accent/40 px-4 py-3 text-sm">
+            <span className="font-medium text-foreground">Sent automatically.</span>{" "}
+            <span className="text-muted-foreground">
+              {triggerInfo?.when}. One message per number, ever; STOP replies are
+              honoured. Switch it on or off from the panel.
+            </span>
+          </div>
+        )}
+        {!trigger && (
+        <>
+        <Field label="Send to">
+          <div className="flex gap-2">
+            {AUDIENCES.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => pickAudience(a.key)}
+                aria-pressed={audience === a.key}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                  audience === a.key
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:bg-accent"
+                }`}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Channel">
@@ -643,7 +806,7 @@ function CampaignFormModal({
               value={segment}
               onChange={(e) => setSegment(e.target.value)}
             >
-              {SEGMENTS.map((s) => (
+              {segmentsFor(audience).map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
                 </option>
@@ -680,6 +843,8 @@ function CampaignFormModal({
             </>
           )}
         </div>
+        </>
+        )}
 
         {channel === "EMAIL" && (
           <Field label="Subject *">
@@ -698,9 +863,9 @@ function CampaignFormModal({
                 Approved template
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Marketing can only go out as a template Meta has approved. Pick
-                “no template” to send the free-form message below instead — that
-                reaches only customers who messaged you in the last 24 hours.
+                {trigger
+                  ? "A business-initiated message must be a template Meta has approved; this one opens the conversation with every new arrival."
+                  : "Marketing can only go out as a template Meta has approved. Pick “no template” to send the free-form message below instead — that reaches only customers who messaged you in the last 24 hours."}
               </p>
             </div>
 
@@ -709,11 +874,16 @@ function CampaignFormModal({
               onChange={setChoice}
               previewName={preview.data?.sample?.[0]?.name ?? null}
               previewTo={
-                preview.data ? `${preview.data.count} recipients` : undefined
+                trigger
+                  ? "each new arrival"
+                  : preview.data
+                    ? `${preview.data.count} recipients`
+                    : undefined
               }
-              allowNone
+              allowNone={!trigger}
             />
 
+            {!trigger && (
             <Field
               label="Daily cap"
               hint="Your WABA tier limit — leave blank for no cap"
@@ -728,6 +898,7 @@ function CampaignFormModal({
                 inputMode="numeric"
               />
             </Field>
+            )}
           </div>
         )}
 
@@ -753,11 +924,141 @@ function CampaignFormModal({
             Cancel
           </Btn>
           <Btn busy={save.isPending} onClick={submit}>
-            {campaign ? "Save changes" : "Create draft"}
+            {trigger ? "Save" : campaign ? "Save changes" : "Create draft"}
           </Btn>
         </div>
       </div>
     </Modal>
+  );
+}
+
+/* ----------------------- Automatic campaigns --------------------------- */
+
+/**
+ * The three always-on campaigns: one template per trigger, sent to each person
+ * the moment they arrive. Each card is the switch, the template, and what the
+ * ledger says happened; Edit, Send test and Recipients reuse the blast modals.
+ */
+function AutoCampaignsPanel({
+  rows,
+  loading,
+  canManage,
+  busyId,
+  onToggle,
+  onEdit,
+  onTest,
+  onView,
+}: {
+  rows: AutoCampaignRow[];
+  loading: boolean;
+  canManage: boolean;
+  busyId: number | null;
+  onToggle: (c: AutoCampaignRow) => void;
+  onEdit: (c: AutoCampaignRow) => void;
+  onTest: (c: AutoCampaignRow) => void;
+  onView: (c: AutoCampaignRow) => void;
+}) {
+  const byTrigger = new Map(rows.map((r) => [r.trigger, r]));
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">Automatic campaigns</h2>
+        <p className="text-sm text-muted-foreground">
+          One WhatsApp template per event, sent the moment someone arrives. Pick a
+          template, send yourself a test, then switch it on.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {TRIGGERS.map((t) => {
+          const c = byTrigger.get(t.key);
+          const on = !!c?.enabled;
+          return (
+            <Card key={t.key}>
+              <div className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-foreground">{t.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t.when}</p>
+                  </div>
+                  <Badge tone={on ? "success" : "muted"}>{on ? "On" : "Off"}</Badge>
+                </div>
+                {loading && !c ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : !c ? (
+                  <p className="text-sm text-muted-foreground">
+                    Not set up yet — run the latest backend migration.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">Template: </span>
+                      {c.templateName ? (
+                        <span className="font-medium text-foreground">
+                          {c.templateName}
+                          {c.templateLanguage ? ` (${c.templateLanguage})` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-warning">none picked</span>
+                      )}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="rounded-lg bg-accent/40 px-2 py-1.5">
+                        <div className="text-base font-semibold text-foreground">
+                          {c.sentLast7Days}
+                        </div>
+                        <div className="text-muted-foreground">sent, 7 days</div>
+                      </div>
+                      <div className="rounded-lg bg-accent/40 px-2 py-1.5">
+                        <div className="text-base font-semibold text-foreground">
+                          {c.counts.delivered + c.counts.read}
+                        </div>
+                        <div className="text-muted-foreground">delivered</div>
+                      </div>
+                      <div className="rounded-lg bg-accent/40 px-2 py-1.5">
+                        <div className="text-base font-semibold text-foreground">
+                          {c.counts.failed}
+                        </div>
+                        <div className="text-muted-foreground">failed</div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {c.counts.total} queued in all · {c.counts.pending} waiting ·{" "}
+                      {c.counts.skipped} skipped
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {canManage && (
+                        <Btn
+                          small
+                          tone={on ? "ghost" : undefined}
+                          busy={busyId === c.campaignId}
+                          onClick={() => onToggle(c)}
+                        >
+                          {on ? "Switch off" : "Switch on"}
+                        </Btn>
+                      )}
+                      {canManage && (
+                        <Btn small tone="ghost" onClick={() => onEdit(c)}>
+                          <PencilIcon className="h-3.5 w-3.5" />
+                          Edit
+                        </Btn>
+                      )}
+                      {canManage && c.templateName && (
+                        <Btn small tone="ghost" onClick={() => onTest(c)}>
+                          Send test
+                        </Btn>
+                      )}
+                      <Btn small tone="ghost" onClick={() => onView(c)}>
+                        Recipients
+                      </Btn>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

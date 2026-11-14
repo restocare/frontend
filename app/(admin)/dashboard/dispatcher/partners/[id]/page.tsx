@@ -758,7 +758,7 @@ function OnboardingReview({
 
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-        {(status === "PENDING" || status === "REJECTED") && (
+        {(status === "PENDING" || status === "MANUAL_IMPORTED" || status === "REJECTED") && (
           <button
             onClick={() => onTransition("VERIFIED")}
             disabled={busy}

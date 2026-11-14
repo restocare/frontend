@@ -56,7 +56,7 @@ export interface CrmPartnerRow {
   totalJobs: number;
   isOnline: boolean;
   isBlocked: boolean;
-  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED" | "MANUAL_IMPORTED";
   bookingCount: number;
   createdAt: string;
 }
@@ -750,7 +750,18 @@ export type CampaignSegment =
   /** Imported ad/call-centre leads, not customer accounts. */
   | "MARKETING_LEADS"
   /** Not a rule — the exact leads an admin ticked on the Leads page. */
-  | "SELECTED_LEADS";
+  | "SELECTED_LEADS"
+  /** Service partners by onboarding stage (never blocked or rejected). */
+  | "ALL_PARTNERS"
+  | "ACTIVE_PARTNERS"
+  | "VERIFIED_PARTNERS"
+  | "PENDING_PARTNERS"
+  | "IMPORTED_PARTNERS"
+  /** Not a rule — an automatic campaign, fed one person at a time. */
+  | "AUTOMATIC";
+
+/** What fires an automatic campaign. One fixed campaign per trigger. */
+export type CampaignTrigger = "NEW_CUSTOMER" | "NEW_PARTNER" | "NEW_META_LEAD";
 
 export type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "FAILED";
 
@@ -770,11 +781,30 @@ export interface CampaignRow {
   templateLanguage: string | null;
   templateParams: string[] | null;
   dailyCap: number | null;
+  /** Set on the three automatic campaigns; null for a normal blast. */
+  trigger: CampaignTrigger | null;
+  /** Automatic campaigns only: switched on, arrivals are messaged. */
+  enabled: boolean;
   createdBy?: { userId: number; name: string | null } | null;
   createdAt: string;
 }
 
 export type CampaignList = CrmPage & { campaigns: CampaignRow[] };
+
+/** An automatic campaign with its ledger totals, for the panel. */
+export type AutoCampaignRow = CampaignRow & {
+  trigger: CampaignTrigger;
+  counts: {
+    total: number;
+    pending: number;
+    sent: number;
+    delivered: number;
+    read: number;
+    failed: number;
+    skipped: number;
+  };
+  sentLast7Days: number;
+};
 
 /** Live counts for a running blast, polled while a campaign is SENDING. */
 export interface CampaignProgress {
@@ -935,6 +965,8 @@ export const crmCampaignsApi = {
   }) =>
     apiClient.get<CampaignList>(`/v1/crm/campaigns${toQueryString(params)}`),
   get: (id: number) => apiClient.get<CampaignRow>(`/v1/crm/campaigns/${id}`),
+  /** The three automatic campaigns (new customer / partner / Meta lead) with totals. */
+  listAuto: () => apiClient.get<AutoCampaignRow[]>("/v1/crm/campaigns/auto"),
   previewSegment: (segment: string, channel?: string) =>
     apiClient.get<SegmentPreview>(
       `/v1/crm/campaigns/segments/preview${toQueryString({ segment, channel })}`,
@@ -967,6 +999,10 @@ export const crmCampaignsApi = {
       templateLanguage?: string;
       templateParams?: string[];
       dailyCap?: number;
+      headerMediaUrl?: string;
+      couponCode?: string;
+      /** Automatic campaigns only. */
+      enabled?: boolean;
     },
   ) => apiClient.patch<CampaignRow>(`/v1/crm/campaigns/${id}`, body),
   remove: (id: number) =>
@@ -1269,6 +1305,7 @@ export const crmQueryKeys = {
   tickets: (p: object) => ["crm", "tickets", p] as const,
   ticket: (id: number) => ["crm", "ticket", id] as const,
   campaigns: (p: object) => ["crm", "campaigns", p] as const,
+  autoCampaigns: ["crm", "campaigns", "auto"] as const,
   campaign: (id: number) => ["crm", "campaign", id] as const,
   segmentPreview: (segment: string, channel?: string) =>
     ["crm", "segment-preview", segment, channel] as const,

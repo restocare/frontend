@@ -30,6 +30,12 @@ export const ONBOARDING_STATUS_META: Record<
     dot: "bg-danger",
     border: "border-danger/40",
   },
+  MANUAL_IMPORTED: {
+    label: "Imported",
+    badge: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground",
+    border: "border-border",
+  },
 };
 
 export function PartnerStatusBadge({ status }: { status: PartnerOnboardingStatus }) {
