@@ -554,6 +554,38 @@ const CRM_NAV: NavGroup = {
   ],
 };
 
+// Partner staff plan: Restocare employs a restaurant's chefs, waiters, helpers and housekeeping
+// staff for a monthly fee. The ops pages that set a restaurant up and run it day to day. Not to be
+// confused with "HR Management" below, which is Restocare's own employee HR. The parent switch is
+// hr-plan.view; changing things needs hr-plan.manage (the server enforces both).
+const HR_PLAN_NAV: NavGroup = {
+  label: "Staff Plan",
+  icon: UsersIcon,
+  permission: "hr-plan.view",
+  section: "operations",
+  order: 20,
+  children: [
+    { label: "Today board", href: "/dashboard/hr/today", icon: ClockIcon, permission: "hr-plan.view" },
+    { label: "Tasks", href: "/dashboard/hr/tasks", icon: ClipboardIcon, permission: "hr-plan.view" },
+    { label: "Leave", href: "/dashboard/hr/leave", icon: CalendarIcon, permission: "hr-plan.view" },
+    {
+      label: "Organizations",
+      href: "/dashboard/hr/organizations",
+      icon: BuildingIcon,
+      permission: "hr-plan.view",
+    },
+    { label: "Contracts", href: "/dashboard/hr/contracts", icon: FileTextIcon, permission: "hr-plan.view" },
+    { label: "Staff", href: "/dashboard/hr/staff", icon: UsersIcon, permission: "hr-plan.view" },
+    { label: "Invoices", href: "/dashboard/hr/invoices", icon: WalletIcon, permission: "hr-plan.view" },
+    {
+      label: "Invites and members",
+      href: "/dashboard/hr/members",
+      icon: MailIcon,
+      permission: "hr-plan.view",
+    },
+  ],
+};
+
 // Keka-style employee self-service. Every leaf is gated on ess.view — assign
 // the "employee" role to a staff login and this becomes their whole panel.
 const MY_SPACE_NAV: NavGroup = {
@@ -785,7 +817,7 @@ function buildNav(): NavEntry[] {
   // roles.view / staff.view. What a delegate can see and grant inside it is
   // scoped server-side to their own permissions, so handing over this module
   // never hands over the others with it.
-  const groups = [MY_SPACE_NAV, CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
+  const groups = [MY_SPACE_NAV, CRM_NAV, HR_PLAN_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
     .filter(groupAllowed)
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
