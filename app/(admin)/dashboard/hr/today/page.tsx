@@ -28,13 +28,20 @@ import {
   initialParam,
   Loading,
   OrgSelect,
+  Portal,
   ROLE_GROUP_LABEL,
   StatusBadge,
   Toolbar,
   useDebounced,
   useRefreshHr,
 } from "@/src/components/hr-plan/shared";
-import { formatDay, istDateTime, istDayOf, istTime, pretty } from "@/src/lib/hr-format";
+import {
+  formatDay,
+  istDateTime,
+  istDayOf,
+  istTime,
+  pretty,
+} from "@/src/lib/hr-format";
 
 /** How the status column reads on the board. */
 const CHIP_LABEL: Record<string, string> = {
@@ -50,8 +57,10 @@ const CHIP_LABEL: Record<string, string> = {
 
 const BOOKING_OUTCOME: Record<string, string> = {
   booked: "A partner job was created and offered to partners.",
-  disabled: "Partner booking is switched off (HR_JOBS_ENABLED), so nobody is being sent yet.",
-  deferred: "The shift is more than a day away: a partner is booked closer to the time.",
+  disabled:
+    "Partner booking is switched off (HR_JOBS_ENABLED), so nobody is being sent yet.",
+  deferred:
+    "The shift is more than a day away: a partner is booked closer to the time.",
   not_needed: "Too little of the shift is left to be worth sending a partner.",
   failed: "Booking a partner failed; see the replacement.",
 };
@@ -69,7 +78,8 @@ export default function TodayBoardPage() {
   });
   const inFlight = useQuery({
     queryKey: ["hr", "replacements", "active", { orgId }],
-    queryFn: () => hrPlanApi.replacements({ orgId: orgId || undefined, limit: 100 }),
+    queryFn: () =>
+      hrPlanApi.replacements({ orgId: orgId || undefined, limit: 100 }),
     refetchInterval: 30_000,
   });
 
@@ -97,13 +107,24 @@ export default function TodayBoardPage() {
           <Btn tone="ghost" small onClick={() => setDate(istDayOf())}>
             Today
           </Btn>
-          <OrgSelect value={orgId} onChange={setOrgId} allLabel="All organizations" className="max-w-xs" />
-          <span className="text-sm text-muted-foreground">{formatDay(date)}</span>
+          <OrgSelect
+            value={orgId}
+            onChange={setOrgId}
+            allLabel="All organizations"
+            className="max-w-xs"
+          />
+          <span className="text-sm text-muted-foreground">
+            {formatDay(date)}
+          </span>
         </Toolbar>
         {s && (
           <div className="flex flex-wrap gap-2 px-4 py-3">
-            <Badge tone={s.notMarked ? "warning" : "muted"}>{s.notMarked} not marked</Badge>
-            <Badge tone={s.absent ? "danger" : "muted"}>{s.absent} absent, no replacement</Badge>
+            <Badge tone={s.notMarked ? "warning" : "muted"}>
+              {s.notMarked} not marked
+            </Badge>
+            <Badge tone={s.absent ? "danger" : "muted"}>
+              {s.absent} absent, no replacement
+            </Badge>
             <Badge tone="primary">{s.covered} covered</Badge>
             <Badge tone="success">
               {s.present} present{s.late ? ` (${s.late} late)` : ""}
@@ -122,8 +143,8 @@ export default function TodayBoardPage() {
       ) : board.data && board.data.outlets.length === 0 ? (
         <Card>
           <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No shifts on {formatDay(date)}. Shifts exist for staff deployed on an active contract, for
-            today and the next two weeks.
+            No shifts on {formatDay(date)}. Shifts exist for staff deployed on
+            an active contract, for today and the next two weeks.
           </p>
         </Card>
       ) : (
@@ -131,10 +152,15 @@ export default function TodayBoardPage() {
           <Card key={o.outletId}>
             <div className="px-4 py-3">
               <h3 className="font-semibold text-foreground">
-                {o.name} <span className="font-normal text-muted-foreground">· {o.orgName}</span>
+                {o.name}{" "}
+                <span className="font-normal text-muted-foreground">
+                  · {o.orgName}
+                </span>
               </h3>
             </div>
-            <TableShell head={["Staff", "Shift", "Status", "Marked", "Replacement", ""]}>
+            <TableShell
+              head={["Staff", "Shift", "Status", "Marked", "Replacement", ""]}
+            >
               {o.shifts.map((sh) => (
                 <ShiftRow key={sh.shiftId} sh={sh} />
               ))}
@@ -145,9 +171,12 @@ export default function TodayBoardPage() {
 
       <Card>
         <div className="px-4 py-3">
-          <h3 className="font-semibold text-foreground">Replacements in flight</h3>
+          <h3 className="font-semibold text-foreground">
+            Replacements in flight
+          </h3>
           <p className="text-xs text-muted-foreground">
-            Every replacement still being sent, on any day (leave days included), oldest first.
+            Every replacement still being sent, on any day (leave days
+            included), oldest first.
           </p>
         </div>
         {inFlight.isLoading ? (
@@ -155,14 +184,18 @@ export default function TodayBoardPage() {
         ) : inFlight.error ? (
           <ErrorBox error={inFlight.error} onRetry={() => inFlight.refetch()} />
         ) : (
-          <TableShell head={["Covering", "Day and shift", "Status", "Partner", ""]}>
+          <TableShell
+            head={["Covering", "Day and shift", "Status", "Partner", ""]}
+          >
             {inFlight.data?.items.length === 0 && (
               <EmptyRow cols={5} label="Nothing in flight." />
             )}
             {inFlight.data?.items.map((r) => (
               <tr key={r.replacementId}>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-foreground">{r.shift.staff.name}</div>
+                  <div className="font-medium text-foreground">
+                    {r.shift.staff.name}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {r.outlet.name} · {r.org.name}
                   </div>
@@ -196,12 +229,20 @@ function ReplacementStatus({ r }: { r: HrReplacement }) {
     <div className="space-y-1">
       <StatusBadge status={r.status} />
       {r.waitingMinutes !== null && r.bookingId !== null && (
-        <div className="text-xs text-muted-foreground">waiting {r.waitingMinutes} min</div>
+        <div className="text-xs text-muted-foreground">
+          waiting {r.waitingMinutes} min
+        </div>
       )}
       {r.bookingId === null && r.status === "requested" && (
-        <div className="text-xs text-muted-foreground">no partner booked yet</div>
+        <div className="text-xs text-muted-foreground">
+          no partner booked yet
+        </div>
       )}
-      {r.bookingError && <div className="max-w-[16rem] text-xs text-danger">{r.bookingError}</div>}
+      {r.bookingError && (
+        <div className="max-w-[16rem] text-xs text-danger">
+          {r.bookingError}
+        </div>
+      )}
     </div>
   );
 }
@@ -210,13 +251,19 @@ function PartnerCell({ r }: { r: HrReplacement }) {
   if (!r.partner) return <span className="text-muted-foreground">—</span>;
   return (
     <>
-      <div className="font-medium text-foreground">{r.partner.name ?? `Partner ${r.partner.partnerId}`}</div>
+      <div className="font-medium text-foreground">
+        {r.partner.name ?? `Partner ${r.partner.partnerId}`}
+      </div>
       {r.partner.mobile && (
         <a href={`tel:${r.partner.mobile}`} className="text-primary">
           {r.partner.mobile}
         </a>
       )}
-      {r.eta && <div className="text-muted-foreground">arrives about {istTime(r.eta)}</div>}
+      {r.eta && (
+        <div className="text-muted-foreground">
+          arrives about {istTime(r.eta)}
+        </div>
+      )}
     </>
   );
 }
@@ -233,7 +280,11 @@ function ShiftRow({ sh }: { sh: HrBoardShift }) {
       const res = await hrPlanApi.mark(sh.shiftId, { status });
       await refresh();
       res.warnings.forEach((w) => toast.warning(w));
-      toast.success(status === "present" ? `${sh.staff.name} marked present` : "Mark cleared");
+      toast.success(
+        status === "present"
+          ? `${sh.staff.name} marked present`
+          : "Mark cleared",
+      );
     } catch (err) {
       toast.error(errorText(err));
     } finally {
@@ -248,16 +299,23 @@ function ShiftRow({ sh }: { sh: HrBoardShift }) {
         <div className="font-medium text-foreground">{sh.staff.name}</div>
         <div className="text-xs text-muted-foreground">
           {sh.staff.skill}
-          {sh.staff.roleGroup ? ` · ${ROLE_GROUP_LABEL[sh.staff.roleGroup]}` : ""}
+          {sh.staff.roleGroup
+            ? ` · ${ROLE_GROUP_LABEL[sh.staff.roleGroup]}`
+            : ""}
         </div>
       </td>
       <td className="px-4 py-3 text-xs">
         {istTime(sh.startAt)} to {istTime(sh.endAt)}
       </td>
       <td className="px-4 py-3">
-        <StatusBadge status={sh.chip} label={CHIP_LABEL[sh.chip] ?? pretty(sh.chip)} />
+        <StatusBadge
+          status={sh.chip}
+          label={CHIP_LABEL[sh.chip] ?? pretty(sh.chip)}
+        />
         {sh.lateMinutes ? (
-          <div className="mt-1 text-xs text-muted-foreground">{sh.lateMinutes} min late</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {sh.lateMinutes} min late
+          </div>
         ) : null}
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -285,17 +343,32 @@ function ShiftRow({ sh }: { sh: HrBoardShift }) {
           {manage && working && (
             <span className="inline-flex flex-wrap justify-end gap-1.5">
               {sh.status !== "present" && (
-                <Btn tone="success" small busy={busy} onClick={() => mark("present")}>
+                <Btn
+                  tone="success"
+                  small
+                  busy={busy}
+                  onClick={() => mark("present")}
+                >
                   Present
                 </Btn>
               )}
               {sh.status !== "absent" && (
-                <Btn tone="danger" small disabled={busy} onClick={() => setAbsent(true)}>
+                <Btn
+                  tone="danger"
+                  small
+                  disabled={busy}
+                  onClick={() => setAbsent(true)}
+                >
                   Absent
                 </Btn>
               )}
               {sh.status !== "scheduled" && (
-                <Btn tone="ghost" small disabled={busy} onClick={() => mark("scheduled")}>
+                <Btn
+                  tone="ghost"
+                  small
+                  disabled={busy}
+                  onClick={() => mark("scheduled")}
+                >
                   Clear
                 </Btn>
               )}
@@ -304,14 +377,16 @@ function ShiftRow({ sh }: { sh: HrBoardShift }) {
           {sh.replacement && <ReplacementActions r={sh.replacement} />}
         </div>
         {absent && (
-          <AbsentModal
-            sh={sh}
-            onClose={() => setAbsent(false)}
-            onDone={() => {
-              setAbsent(false);
-              refresh();
-            }}
-          />
+          <Portal>
+            <AbsentModal
+              sh={sh}
+              onClose={() => setAbsent(false)}
+              onDone={() => {
+                setAbsent(false);
+                refresh();
+              }}
+            />
+          </Portal>
         )}
       </td>
     </tr>
@@ -336,7 +411,10 @@ function AbsentModal({
       onClose={onClose}
       onSubmit={async () => {
         if (!reason.trim()) throw new Error("Say why they are absent");
-        const res = await hrPlanApi.mark(sh.shiftId, { status: "absent", reason: reason.trim() });
+        const res = await hrPlanApi.mark(sh.shiftId, {
+          status: "absent",
+          reason: reason.trim(),
+        });
         res.warnings.forEach((w) => toast.warning(w));
         toast.success(
           res.bookingOutcome
@@ -347,8 +425,9 @@ function AbsentModal({
       }}
     >
       <p className="text-sm text-muted-foreground">
-        A replacement is requested for {formatDay(sh.date)}, {istTime(sh.startAt)} to {istTime(sh.endAt)}, exactly
-        as when the restaurant&apos;s manager marks an absence.
+        A replacement is requested for {formatDay(sh.date)},{" "}
+        {istTime(sh.startAt)} to {istTime(sh.endAt)}, exactly as when the
+        restaurant&apos;s manager marks an absence.
       </p>
       <Field label="Reason">
         <input
@@ -385,37 +464,41 @@ function ReplacementActions({ r }: { r: HrReplacement }) {
         )}
       </span>
       {reassign && (
-        <ReassignModal
-          r={r}
-          onClose={() => setReassign(false)}
-          onDone={() => {
-            setReassign(false);
-            refresh();
-          }}
-        />
+        <Portal>
+          <ReassignModal
+            r={r}
+            onClose={() => setReassign(false)}
+            onDone={() => {
+              setReassign(false);
+              refresh();
+            }}
+          />
+        </Portal>
       )}
       {cancel && (
-        <ConfirmDialog
-          title="Cancel this replacement?"
-          danger
-          busy={busy}
-          confirmLabel="Cancel replacement"
-          message={`${r.partner ? `${r.partner.name ?? "The partner"} is told and their lead fee is refunded. ` : ""}The partner job is cancelled and ${r.shift.staff.name}'s shift stays marked absent.`}
-          onCancel={() => setCancel(false)}
-          onConfirm={async () => {
-            setBusy(true);
-            try {
-              await hrPlanApi.cancelReplacement(r.replacementId);
-              await refresh();
-              toast.success("Replacement cancelled");
-              setCancel(false);
-            } catch (err) {
-              toast.error(errorText(err));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
+        <Portal>
+          <ConfirmDialog
+            title="Cancel this replacement?"
+            danger
+            busy={busy}
+            confirmLabel="Cancel replacement"
+            message={`${r.partner ? `${r.partner.name ?? "The partner"} is told and their lead fee is refunded. ` : ""}The partner job is cancelled and ${r.shift.staff.name}'s shift stays marked absent.`}
+            onCancel={() => setCancel(false)}
+            onConfirm={async () => {
+              setBusy(true);
+              try {
+                await hrPlanApi.cancelReplacement(r.replacementId);
+                await refresh();
+                toast.success("Replacement cancelled");
+                setCancel(false);
+              } catch (err) {
+                toast.error(errorText(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </Portal>
       )}
     </>
   );
@@ -441,11 +524,22 @@ function ReassignModal({
   return (
     <FormModal
       title={`Reassign the replacement for ${r.shift.staff.name}`}
-      submitLabel={partner ? `Send ${partner.name ?? "this partner"}` : "Offer to partners again"}
+      submitLabel={
+        partner
+          ? `Send ${partner.name ?? "this partner"}`
+          : "Offer to partners again"
+      }
       onClose={onClose}
       onSubmit={async () => {
-        await hrPlanApi.reassignReplacement(r.replacementId, partner?.partnerId);
-        toast.success(partner ? `${partner.name ?? "Partner"} assigned` : "Offered to partners again");
+        await hrPlanApi.reassignReplacement(
+          r.replacementId,
+          partner?.partnerId,
+        );
+        toast.success(
+          partner
+            ? `${partner.name ?? "Partner"} assigned`
+            : "Offered to partners again",
+        );
         onDone();
       }}
     >
@@ -453,16 +547,28 @@ function ReassignModal({
         {r.partner
           ? `${r.partner.name ?? "The current partner"} is taken off the job (their lead fee is refunded). `
           : ""}
-        Pick a partner to send, or leave it empty to offer the job to partners again.
+        Pick a partner to send, or leave it empty to offer the job to partners
+        again.
       </p>
-      <Field label="Partner to send (optional)" hint="Search active partners by name or mobile.">
+      <Field
+        label="Partner to send (optional)"
+        hint="Search active partners by name or mobile."
+      >
         {partner ? (
           <div className="flex items-center justify-between rounded-xl border border-border px-3.5 py-2.5 text-sm">
             <span>
-              <span className="font-medium">{partner.name ?? `Partner ${partner.partnerId}`}</span>
-              <span className="ml-2 text-muted-foreground">{partner.mobile}</span>
+              <span className="font-medium">
+                {partner.name ?? `Partner ${partner.partnerId}`}
+              </span>
+              <span className="ml-2 text-muted-foreground">
+                {partner.mobile}
+              </span>
             </span>
-            <button type="button" className="text-xs text-primary" onClick={() => setPartner(null)}>
+            <button
+              type="button"
+              className="text-xs text-primary"
+              onClick={() => setPartner(null)}
+            >
               Change
             </button>
           </div>
@@ -474,7 +580,9 @@ function ReassignModal({
               placeholder="Type at least 2 letters or digits"
               className={inputCls}
             />
-            {found.isFetching && <p className="mt-2 text-xs text-muted-foreground">Searching…</p>}
+            {found.isFetching && (
+              <p className="mt-2 text-xs text-muted-foreground">Searching…</p>
+            )}
             <ul className="mt-2 divide-y divide-border rounded-xl border border-border empty:hidden">
               {found.data?.partners.map((p) => (
                 <li key={p.partnerId}>

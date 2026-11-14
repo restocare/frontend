@@ -6,6 +6,7 @@
  * The look is the console's own (src/components/crm/ui.tsx); nothing here is new chrome.
  */
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
 import { hrPlanApi } from "@/src/api/hr-plan";
@@ -42,6 +43,15 @@ export function useDebounced<T>(value: T, ms = 300): T {
 export function initialParam(name: string): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get(name) ?? "";
+}
+
+/**
+ * Renders a modal on the page body. A dialog opened from inside a table cell would otherwise inherit
+ * the cell's alignment (the action column is right-aligned) and sit inside a <td>, which is not valid HTML.
+ * Only ever rendered after a click, so `document` exists.
+ */
+export function Portal({ children }: { children: ReactNode }) {
+  return createPortal(children, document.body);
 }
 
 export function Loading({ label = "Loading…" }: { label?: string }) {

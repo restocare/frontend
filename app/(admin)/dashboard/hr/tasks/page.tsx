@@ -136,14 +136,14 @@ function TaskQueue() {
     <>
       <Card>
         <Toolbar>
-          <Select value={status} onChange={reset(setStatus)} className="max-w-[11rem]" ariaLabel="Status">
+          <Select value={status} onChange={reset(setStatus)} className="w-52" ariaLabel="Status">
             <option value="active">Open and in progress</option>
             <option value="open">Open</option>
             <option value="in_progress">In progress</option>
             <option value="done">Closed</option>
             <option value="all">All</option>
           </Select>
-          <Select value={type} onChange={reset(setType)} className="max-w-[12rem]" ariaLabel="Type">
+          <Select value={type} onChange={reset(setType)} className="w-52" ariaLabel="Type">
             <option value="">Any type</option>
             {(Object.keys(TYPE_LABEL) as HrTaskType[]).map((t) => (
               <option key={t} value={t}>
