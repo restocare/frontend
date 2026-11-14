@@ -1,0 +1,1 @@
+Screenshots from a LOCAL click-through of the staff-plan ops pages (restocare/frontend PR "feat(admin): staff plan ops pages under /dashboard/hr"), backend restocare/backend#153, on a throwaway Docker Postgres with HR_JOBS_ENABLED unset. Not staging: there is none. Branch for evidence only, safe to delete after the PR merges.
