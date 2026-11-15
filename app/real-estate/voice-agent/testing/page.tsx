@@ -4,6 +4,8 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 
 import apiClient from "@/app/api/apiClient";
+import { getToken } from "@/src/api/apiClient";
+import { useAuthStore } from "@/store/authStore";
 
 const PhoneInput = dynamic(() => import("@/app/real-estate/components/PhoneInputClient"), {
     ssr: false,
@@ -651,7 +653,17 @@ export default function AIAgentMonitor() {
     addLog(`Connecting — phone: ${ph}`);
     setPillState({ state: "connecting", label: "Connecting..." });
 
-    const wsUrl = `${BACKEND_WS}?phone=${encodeURIComponent(ph)}`;
+    // The monitor socket needs the admin's JWT (?token=): a browser WebSocket
+    // cannot send an Authorization header. Same token source as apiClient.
+    const token = getToken() ?? useAuthStore.getState().accessToken;
+    if (!token) {
+      addLog("Not signed in — log in again, then reconnect", "e");
+      setPillState({ state: "error", label: "Not signed in" });
+      return;
+    }
+    const wsUrl =
+      `${BACKEND_WS}?phone=${encodeURIComponent(ph)}` +
+      `&token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
     wsRef.current = ws;
