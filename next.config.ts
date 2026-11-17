@@ -46,6 +46,12 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
       },
+      {
+        // New uploads: the backend's media location (Nginx serves /media/ from the VPS volume).
+        protocol: 'https',
+        hostname: 'api.restocare.in',
+        pathname: '/media/**',
+      },
     ],
   },
 };

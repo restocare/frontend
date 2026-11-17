@@ -24,6 +24,7 @@ import {
 import { ClockIcon, SpinnerIcon, StarIcon } from "@/src/components/icons";
 import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
 import { PartnerSkillsCard } from "@/src/components/dashboard/partner-skills-card";
+import { DocumentPreview } from "@/src/components/dashboard/document-preview";
 import { classifyLedgerEntry, rupeesOrOwes } from "@/src/lib/wallet-ledger";
 
 export default function PartnerDetailPage() {
@@ -859,15 +860,7 @@ function DocumentTile({
   }
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border transition hover:border-primary">
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={`Open ${label}`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- external KYC document */}
-        <img src={url} alt={label} className="h-28 w-full object-cover" />
-      </a>
+      <DocumentPreview url={url} label={label} />
       <div className="px-2 py-1.5 text-xs font-medium text-foreground">
         {label}
       </div>
