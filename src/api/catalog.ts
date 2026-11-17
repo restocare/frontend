@@ -263,7 +263,7 @@ export const serviceApi = {
   remove: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/service/${id}`),
 
-  /** POST /v1/service/:id/image — multipart image upload to Cloudinary. */
+  /** POST /v1/service/:id/image — multipart image upload (stored on the media volume). */
   uploadImage: (id: number, image: File) => {
     const fd = new FormData();
     fd.append("serviceImage", image);

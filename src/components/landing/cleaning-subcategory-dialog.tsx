@@ -14,13 +14,7 @@ import { categoryHref } from "@/lib/category-slugs";
 import { subSlugOf } from "@/src/lib/booking-v2/cleaning";
 import { SubIcon, subIconFor } from "@/src/components/booking-v2/cleaning-catalog";
 import { CloseIcon } from "@/src/components/icons";
-
-/** Ask Cloudinary for a small copy: the icon shows at up to 44px. */
-function thumb(url: string): string {
-  return url.includes("/image/upload/")
-    ? url.replace("/image/upload/", "/image/upload/w_96,h_96,c_fit,f_auto,q_auto/")
-    : url;
-}
+import { mediaSized } from "@/src/lib/media-url";
 
 export function CleaningSubcategoryDialog({
   category,
@@ -128,7 +122,7 @@ function AreaButton({ group, onPick }: { group: CategoryTreeGroup; onPick: () =>
         {group.profileImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- small catalogue icon
           <img
-            src={thumb(group.profileImage)}
+            src={mediaSized(group.profileImage, 96)}
             alt=""
             width={44}
             height={44}

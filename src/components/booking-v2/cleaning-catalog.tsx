@@ -97,7 +97,7 @@ export function SafeImage({
   const [failed, setFailed] = useState<string | null>(null);
   if (!src || failed === src) return <>{fallback}</>;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- external catalog images (Cloudinary or URLs from Excel)
+    // eslint-disable-next-line @next/next/no-img-element -- external catalog images (uploaded files or URLs from Excel)
     <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(src)} />
   );
 }

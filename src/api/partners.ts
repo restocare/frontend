@@ -6,6 +6,7 @@
 
 import { apiClient, downloadFile, uploadFile } from "./apiClient";
 import { toQueryString } from "./_shared";
+import { privateMediaApiPath } from "@/src/lib/media-url";
 
 /* ----------------------------- Dispatcher ------------------------------- */
 
@@ -594,3 +595,12 @@ export const referralApi = {
       `/v1/admin/referrals${toQueryString({ search })}`,
     ),
 };
+
+/**
+ * GET a private partner file (KYC document or grooming photo) as a Blob.
+ * `path` is the stored value, e.g. "/api/v1/media/private/kyc/<file>"; the
+ * backend only serves it to an admin who may view partners (or the owner).
+ */
+export function fetchPrivateMedia(path: string): Promise<Blob> {
+  return downloadFile(privateMediaApiPath(path));
+}
