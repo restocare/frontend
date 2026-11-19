@@ -119,7 +119,9 @@ export default function WhatsappInboxPage() {
     const origin = new URL(API_BASE_URL, window.location.origin).origin;
     const socket = io(origin, {
       transports: ["websocket", "polling"],
-      auth: { token },
+      // A function, so every (re)connect sends the token stored NOW: the access
+      // token is renewed every 15 minutes and a socket can outlive several.
+      auth: (cb) => cb({ token: getToken() }),
     });
     const join = () => socket.emit("join", { admin: true });
     socket.on("connect", join);
