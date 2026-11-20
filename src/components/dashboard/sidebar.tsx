@@ -273,6 +273,13 @@ const ADMIN_NAV: NavEntry[] = [
         permission: "dispatcher.view",
       },
       {
+        // The Tally-format GST invoices issued to client venues.
+        label: "Tax Invoices",
+        href: "/dashboard/invoices",
+        icon: WalletIcon,
+        permission: "invoices.view",
+      },
+      {
         label: "Pricing Rules",
         href: "/dashboard/dispatcher/pricing",
         icon: TagIcon,
