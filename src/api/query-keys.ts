@@ -80,6 +80,7 @@ export const queryKeys = {
   pricingRates: ["pricing", "rates"] as const,
   customerNotifications: ["dispatcher", "customer-notifications"] as const,
   paymentEvents: (outcome: string) => ["dispatcher", "payments", outcome] as const,
+  taxInvoices: (search: string) => ["tax-invoices", search] as const,
   auraOverview: ["aura", "overview"] as const,
   auraUsers: (params: Record<string, unknown>) =>
     ["aura", "users", params] as const,
