@@ -210,12 +210,30 @@ async function downloadBookingsCsv(
   );
 }
 
-function openInvoice(bookingId: number): void {
-  window.open(
-    `${API_BASE_URL}/v1/booking/${bookingId}/invoice`,
-    "_blank",
-    "noopener,noreferrer",
-  );
+/**
+ * Open the invoice through a signed, expiring link (BAC-0026): the invoice
+ * route itself is a plain link that cannot carry our Bearer header, so we
+ * first ask the authenticated invoice-link route for a 15-minute token. An
+ * older backend without that route falls back to the bare URL, which keeps
+ * working until INVOICE_LINK_REQUIRED is switched on.
+ */
+async function openInvoice(bookingId: number): Promise<void> {
+  let url = `${API_BASE_URL}/v1/booking/${bookingId}/invoice`;
+  try {
+    const res = await fetch(`${API_BASE_URL}/v1/booking/${bookingId}/invoice-link`, {
+      headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { data?: { path?: string }; path?: string };
+      const path = body.data?.path ?? body.path;
+      if (typeof path === "string" && path.startsWith("/booking/")) {
+        url = `${API_BASE_URL}/v1${path}`;
+      }
+    }
+  } catch {
+    // Network blip: the bare URL still works until enforcement is on.
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export function BookingsView() {
