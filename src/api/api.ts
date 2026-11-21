@@ -7,6 +7,7 @@
  * in new code, e.g. `@/src/api/bookings`.
  */
 export * from "./admin";
+export * from "./area-requests";
 export * from "./ai";
 export * from "./aura";
 export * from "./auth";

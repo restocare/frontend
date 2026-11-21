@@ -115,6 +115,14 @@ const ADMIN_NAV: NavEntry[] = [
     permission: "bookings.view",
     section: "main",
   },
+  {
+    // Out-of-area "Notify me when you launch here" demand (BUG-011).
+    label: "Area Requests",
+    href: "/dashboard/area-requests",
+    icon: MapPinIcon,
+    permission: "bookings.view",
+    section: "main",
+  },
   // The roster ops works from every day. The full partner list — including the
   // pending review queue — stays under Dispatcher.
   {
