@@ -20,7 +20,7 @@ import {
   type BillRates,
 } from "./pricing";
 import type { DraftAddress } from "./draft";
-import type { Clock } from "./schedule";
+import { earliestStart, type Clock } from "./schedule";
 
 export const MAX_LINE_QTY = 10;
 const KEY_PREFIX = "rc.cleaningCart.v1:";
@@ -273,18 +273,22 @@ export const ARRIVAL_WINDOWS: ArrivalWindow[] = [
   { id: "evening", label: "Evening", start: 16 * 60, end: 20 * 60 },
 ];
 
-/** Notice the crew needs before a same-day window opens. */
-export const SAME_DAY_NOTICE = 60;
-
 export function windowById(id: ArrivalWindowId | null): ArrivalWindow | null {
   return ARRIVAL_WINDOWS.find((w) => w.id === id) ?? null;
 }
 
-/** A window on `dateISO` can still be booked at `clock`. */
+/**
+ * A window on `dateISO` can still be booked at `clock`.
+ *
+ * The same-day rule is the hourly flow's (`earliestStart`: now plus 2 hours, to the
+ * nearest hour), so a window opens only when its start is at least the server's 90
+ * minutes away. It used to be 60 minutes, and a window starting 60 to 89 minutes
+ * ahead was offered and then refused by the server (BUG-009).
+ */
 export function windowOpen(dateISO: string, w: ArrivalWindow, clock: Clock): boolean {
   if (dateISO > clock.dateISO) return true;
   if (dateISO < clock.dateISO) return false;
-  return w.start >= clock.minutes + SAME_DAY_NOTICE;
+  return w.start >= earliestStart(dateISO, clock);
 }
 
 /* --------------------------------- money -------------------------------- */
