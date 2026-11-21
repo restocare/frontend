@@ -374,7 +374,6 @@ function InvoiceDetailModal({
 
   const money: [string, number][] = [
     ["Service amount", invoice.serviceAmount],
-    ["Platform fee", invoice.platformFee],
     ["Tax", invoice.taxAmount],
     ["Discount", invoice.discountAmount],
     ["Total", invoice.totalAmount],

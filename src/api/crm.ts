@@ -1097,7 +1097,6 @@ export interface InvoiceRow {
   bookingId: number;
   invoiceNumber: string;
   serviceAmount: number;
-  platformFee: number;
   taxAmount: number;
   discountAmount: number;
   totalAmount: number;
