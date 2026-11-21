@@ -184,8 +184,11 @@ function FormPreview({ slug }: { slug: string }) {
             setLoading(true);
             setNotFound(false);
             try {
-                // Primary: fetch by slug/id directly
-                const res = await publicApiClient.get(`/api/meta-forms/${slug}`);
+                // The backend resolves the link's token (the form's id, its slug or the
+                // "Form ID" the form manager puts in the link) to one form. The page no
+                // longer downloads every form to find its own: GET /api/meta-forms needs
+                // a sign-in (BAC-0122).
+                const res = await publicApiClient.get(`/api/meta-forms/${encodeURIComponent(slug)}`);
 
                 if (res.status === 200) {
                     const form = res.data;
@@ -194,21 +197,6 @@ function FormPreview({ slug }: { slug: string }) {
                     return;
                 }
             } catch (error) {
-                // Fallback: fetch all forms and find matching by id or slug
-                try {
-                    const listRes = await publicApiClient.get(`/api/meta-forms`);
-                    if (listRes.status === 200) {
-                        const allForms = listRes.data as MetaForm[];
-                        const matched = allForms.find((f) => f.id === slug || (Array.isArray(f.schema) && f.schema[0]?.["Form ID"] === slug));
-                        if (matched) {
-                            setFormId(matched.id);
-                            applyForm(matched);
-                            return;
-                        }
-                    }
-                } catch (fallbackError) {
-                    console.error("Failed to load form in fallback:", fallbackError);
-                }
                 console.error("Failed to load form:", error);
                 setNotFound(true);
                 toast.error("Failed to load form.");
