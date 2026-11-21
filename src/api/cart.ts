@@ -52,6 +52,9 @@ export interface UpdateCartBody {
   variantId?: number | null;
   quantity: number;
   action: "increment" | "decrement";
+  /** Guest cart session id: proves ownership of a guest cart (backend
+   *  UpdateCartDto.sessionId). A logged-in user is identified by the token. */
+  sessionId: string;
 }
 
 export const cartApi = {
@@ -80,7 +83,8 @@ export const cartApi = {
 
   /** PATCH /v1/manage-cart/update?cartId — change an item's quantity.
    *  NOT skipAuth: like get/add, a logged-in user edits their own cart (resolved
-   *  from the token); guests have no token and keep using the session cart. */
+   *  from the token); guests have no token and prove ownership of the cart by
+   *  sending its sessionId in the body. The token is still sent as before. */
   updateQuantity: (cartId: number, body: UpdateCartBody) =>
     apiClient.patch<unknown>(
       `/v1/manage-cart/update${toQueryString({ cartId })}`,
@@ -88,9 +92,10 @@ export const cartApi = {
     ),
 
   /** DELETE /v1/manage-cart/delete/:cartItemId — remove one line item.
-   *  NOT skipAuth, for the same reason as updateQuantity. */
-  deleteItem: (cartItemId: number) =>
+   *  NOT skipAuth, for the same reason as updateQuantity. Guests prove
+   *  ownership with the `?sessionId=` query. */
+  deleteItem: (cartItemId: number, sessionId: string) =>
     apiClient.delete<{ message: string }>(
-      `/v1/manage-cart/delete/${cartItemId}`,
+      `/v1/manage-cart/delete/${cartItemId}${toQueryString({ sessionId })}`,
     ),
 };

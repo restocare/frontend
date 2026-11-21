@@ -143,12 +143,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         variantId: item.variantId ?? undefined,
         quantity: action === "increment" ? item.quantity + 1 : item.quantity - 1,
         action,
+        sessionId,
       }),
     onSuccess: invalidate,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (cartItemId: number) => cartApi.deleteItem(cartItemId),
+    mutationFn: (cartItemId: number) => cartApi.deleteItem(cartItemId, sessionId),
     onSuccess: invalidate,
   });
 
