@@ -288,12 +288,6 @@ const ADMIN_NAV: NavEntry[] = [
         permission: "invoices.view",
       },
       {
-        label: "Pricing Rules",
-        href: "/dashboard/dispatcher/pricing",
-        icon: TagIcon,
-        permission: "dispatcher.view",
-      },
-      {
         label: "Partner Wallets",
         href: "/dashboard/dispatcher/wallets",
         icon: WalletIcon,

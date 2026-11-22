@@ -234,37 +234,6 @@ export interface AllocationSettings {
   updatedAt: string;
 }
 
-export interface PricingRuleRow {
-  ruleId: number;
-  name: string;
-  baseFare: number;
-  baseDistanceKm: number;
-  perKmFare: number;
-  perMinuteFare: number;
-  waitingFarePerMin: number;
-  minFare: number | null;
-  teamId: number | null;
-  geofenceId: number | null;
-  team: { teamId: number; name: string } | null;
-  geofence: { geofenceId: number; name: string } | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PricingRuleInput {
-  name: string;
-  baseFare: number;
-  baseDistanceKm?: number;
-  perKmFare?: number;
-  perMinuteFare?: number;
-  waitingFarePerMin?: number;
-  minFare?: number;
-  teamId?: number | null;
-  geofenceId?: number | null;
-  isActive?: boolean;
-}
-
 export interface LivePartnerPoint {
   professionalId: number;
   name: string;
@@ -400,25 +369,4 @@ export const dispatchApi = {
   /** PUT /v1/admin/dispatch/payment-settings — update the lead fee and partner share. */
   updatePaymentSettings: (body: PaymentSettingsInput) =>
     apiClient.put<PaymentSettings>(`/v1/admin/dispatch/payment-settings`, body),
-
-  /** GET /v1/admin/dispatch/pricing-rules */
-  listPricingRules: () =>
-    apiClient.get<PricingRuleRow[]>(`/v1/admin/dispatch/pricing-rules`),
-
-  /** POST /v1/admin/dispatch/pricing-rules */
-  createPricingRule: (body: PricingRuleInput) =>
-    apiClient.post<PricingRuleRow>(`/v1/admin/dispatch/pricing-rules`, body),
-
-  /** PATCH /v1/admin/dispatch/pricing-rules/:id */
-  updatePricingRule: (ruleId: number, body: Partial<PricingRuleInput>) =>
-    apiClient.patch<PricingRuleRow>(
-      `/v1/admin/dispatch/pricing-rules/${ruleId}`,
-      body,
-    ),
-
-  /** DELETE /v1/admin/dispatch/pricing-rules/:id */
-  deletePricingRule: (ruleId: number) =>
-    apiClient.delete<{ message: string }>(
-      `/v1/admin/dispatch/pricing-rules/${ruleId}`,
-    ),
 };
