@@ -104,6 +104,10 @@ export interface AdminBooking {
   /** True when the booking fell outside every active service zone — recorded as
    *  demand (customer saw "Coming soon in your area"), not dispatched to a partner. */
   outOfServiceArea: boolean;
+  /** Multi-staff party (BUG-014): how many people the checkout line was for.
+   *  Its sibling bookings share `partyKey`. 1 + null = a normal booking. */
+  partySize: number;
+  partyKey: string | null;
   /** When the customer placed the booking (ISO). */
   createdAt: string;
   /** Set only on cancelled bookings: when and why the customer cancelled. */
