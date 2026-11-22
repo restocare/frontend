@@ -43,7 +43,6 @@ export const queryKeys = {
   warehouses: (search: string) => ["dispatcher", "warehouses", search] as const,
   allocationSettings: ["dispatcher", "allocation"] as const,
   paymentSettings: ["dispatcher", "payment-settings"] as const,
-  pricingRules: ["dispatcher", "pricing-rules"] as const,
   customers: (search: string) => ["customers", search] as const,
   customer: (id: number) => ["customer", id] as const,
   customerCoupons: (id: number) => ["customer", id, "coupons"] as const,
