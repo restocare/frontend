@@ -844,7 +844,17 @@ export function BookingsView() {
                               {b.mobile ?? "—"}
                             </td>
                             <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
-                              {b.service}
+                              <div className="flex items-center gap-2">
+                                <span>{b.service}</span>
+                                {(b.partySize ?? 1) > 1 && (
+                                  <span
+                                    className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                                    title={`One checkout for ${b.partySize} people — this is one of ${b.partySize} sibling bookings, each needing its own partner.`}
+                                  >
+                                    {b.partySize} staff
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-5 py-3">
                               {b.startTime || b.shift ? (
@@ -2374,7 +2384,10 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
             <Detail label="GST number">{b.gstNumber ?? "—"}</Detail>
             <Detail label="Mobile">{b.mobile ?? "—"}</Detail>
 
-            <Detail label="Service">{b.service}</Detail>
+            <Detail label="Service">
+              {b.service}
+              {(b.partySize ?? 1) > 1 ? ` · party of ${b.partySize}` : ""}
+            </Detail>
             <Detail label="Shift">{b.shift ?? "—"}</Detail>
             <Detail label="Slot">
               {b.startTime && b.endTime ? `${b.startTime} – ${b.endTime}` : "—"}
