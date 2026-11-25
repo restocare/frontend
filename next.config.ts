@@ -3,6 +3,9 @@ import { REDIRECT_RULES } from "./lib/redirects";
 import { publishedLegalPaths } from "./lib/legal-pages";
 
 const nextConfig: NextConfig = {
+  // Only the self-hosted Docker build (see Dockerfile) emits a standalone server.
+  // Vercel builds leave this unset and are unaffected.
+  ...(process.env.BUILD_STANDALONE === "1" ? { output: "standalone" as const } : {}),
   env: {
     PUBLISHED_LEGAL_PATHS: publishedLegalPaths().join(","),
   },

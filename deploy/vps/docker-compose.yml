@@ -1,0 +1,26 @@
+# Compose project `frontend` on the Hostinger VPS (see docs/self-hosting.md).
+# Separate from the `backend` project on purpose: re-creating this one never
+# touches the Postgres volume.
+services:
+  frontend:
+    image: ghcr.io/restocare/frontend:latest
+    container_name: frontend
+    restart: unless-stopped
+    # Loopback only: host nginx terminates TLS and proxies to this port.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      # Runtime-only server secrets (Meta Conversions API route). Provide the real
+      # values as project environment variables; never commit them.
+      META_CAPI_ACCESS_TOKEN: ${META_CAPI_ACCESS_TOKEN:-}
+      META_TEST_EVENT_CODE: ${META_TEST_EVENT_CODE:-}
+    labels:
+      # Watchtower (project `watchtower`) only updates containers it is told to watch.
+      com.centurylinklabs.watchtower.enable: "true"
+    mem_limit: 2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

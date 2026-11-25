@@ -1,0 +1,19 @@
+.git
+.github
+.githooks
+.claude
+.orchestra
+.vercel
+.next
+node_modules
+graphify-out
+*.tsbuildinfo
+*.csv
+
+# Env files: keep only the committed, public .env.production.
+.env*
+!.env.production
+
+Dockerfile
+.dockerignore
+deploy
