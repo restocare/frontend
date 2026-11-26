@@ -322,6 +322,13 @@ const ADMIN_NAV: NavEntry[] = [
     section: "setup",
   },
   {
+    label: "Brands",
+    href: "/dashboard/brands",
+    icon: ImageIcon,
+    permission: "brands.view",
+    section: "setup",
+  },
+  {
     label: "Chat",
     icon: MailIcon,
     section: "people",

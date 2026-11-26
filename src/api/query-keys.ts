@@ -70,6 +70,8 @@ export const queryKeys = {
     ] as const,
   banners: ["banners"] as const,
   bannersActive: ["banners", "active"] as const,
+  brands: ["brands"] as const,
+  brandsActive: ["brands", "active"] as const,
   cart: (sessionId: string) => ["cart", sessionId] as const,
   userAddresses: (userId: string | number) => ["addresses", userId] as const,
   userBookings: (userId: string | number) =>
