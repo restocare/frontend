@@ -2,31 +2,11 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import "swiper/css";
-
-interface Brand {
-  name: string;
-  logo: string;
-  /** Square badge-style artwork fills the tile; wide wordmarks sit inside it. */
-  fit?: "cover" | "contain";
-}
-
-// Logos live in /public/brands.
-const BRANDS: Brand[] = [
-  { name: "Tourism & Hospitality Skill Council", logo: "/brands/thsc.png", fit: "contain" },
-  { name: "Amaira", logo: "/brands/Amaira.jpeg" },
-  { name: "Bistro Fifty Seven", logo: "/brands/Bistro.jpeg" },
-  { name: "The Crazy Chef", logo: "/brands/Crazy.jpeg" },
-  { name: "Crispy Cartel", logo: "/brands/Crispy_Cartel.jpeg" },
-  { name: "Engineer's Tandoori Chai", logo: "/brands/E_Tandoor_Chai.jpeg" },
-  { name: "Shree Govardhan Sweets", logo: "/brands/Govardhan.jpeg" },
-  { name: "Naan Dukaan", logo: "/brands/Naan.jpeg" },
-  { name: "Postfix Coffee", logo: "/brands/Postfix.jpeg" },
-  { name: "Rollin", logo: "/brands/Rollin.jpeg" },
-  { name: "Unaav", logo: "/brands/Unaav.jpeg" },
-];
+import { brandApi, queryKeys, type Brand } from "@/src/api/api";
 
 const REVEAL = {
   hidden: { opacity: 0, y: 18 },
@@ -34,6 +14,16 @@ const REVEAL = {
 };
 
 export function Brands() {
+  const { data } = useQuery({
+    queryKey: queryKeys.brandsActive,
+    queryFn: () => brandApi.listActive(),
+  });
+  const brands = data ?? [];
+
+  // Nothing to show once the admin has no active brand logos — the section
+  // simply doesn't render rather than showing an empty marquee.
+  if (brands.length === 0) return null;
+
   return (
     <section className="overflow-hidden bg-linear-to-b from-white to-gray-50 py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -77,8 +67,8 @@ export function Brands() {
             allowTouchMove={false}
             className="ease-linear! [&_.swiper-wrapper]:ease-linear!"
           >
-            {[...BRANDS, ...BRANDS].map((brand, i) => (
-              <SwiperSlide key={`${brand.logo}-${i}`} className="w-auto!">
+            {[...brands, ...brands].map((brand, i) => (
+              <SwiperSlide key={`${brand.brandId}-${i}`} className="w-auto!">
                 <BrandLogo brand={brand} />
               </SwiperSlide>
             ))}
@@ -90,20 +80,17 @@ export function Brands() {
 }
 
 function BrandLogo({ brand }: { brand: Brand }) {
-  const contain = brand.fit === "contain";
   return (
     <div className="group flex w-32 flex-col items-center px-1 py-3 sm:w-36">
       <div
         className="relative h-24 w-24 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/80 transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-xl group-hover:shadow-gray-900/10 group-hover:ring-orange-200 sm:h-28 sm:w-28"
       >
         <Image
-          src={brand.logo}
+          src={brand.imageUrl}
           alt={brand.name}
           fill
           sizes="112px"
-          className={`transition-transform duration-500 group-hover:scale-105 ${
-            contain ? "object-contain p-3" : "object-cover"
-          }`}
+          className="object-contain p-3 transition-transform duration-500 group-hover:scale-105"
         />
       </div>
       <p className="mt-3 line-clamp-2 h-8 w-full text-center text-xs font-medium leading-4 text-gray-500 transition-colors group-hover:text-gray-900">

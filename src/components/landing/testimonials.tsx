@@ -46,7 +46,9 @@ export function PartnerCTA() {
 
 interface Review {
   brand: string;
-  /** Brand logo from /public/brands, shown as the reviewer avatar. */
+  /** Brand logo from /public/brands, shown as the reviewer avatar. (The
+   *  "Our associated brands" marquee is admin-managed via the Brand API; these
+   *  six stay as static files because the reviews themselves are static.) */
   logo: string;
   /** Person who gave the review; omitted when the brand replied as a team. */
   name?: string;

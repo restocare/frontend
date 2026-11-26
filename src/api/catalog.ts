@@ -550,3 +550,66 @@ export const bannerApi = {
   remove: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/banner/${id}`),
 };
+
+/** Associated-brand logo shown in the storefront's "Our associated brands" marquee. */
+export interface Brand {
+  brandId: number;
+  name: string;
+  title: string | null;
+  description: string | null;
+  imageUrl: string;
+  imagePublicId: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrandInput {
+  name: string;
+  title?: string;
+  description?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  /** Logo file — required on create, optional on update. */
+  image?: File | null;
+}
+
+/** Recommended brand logo size: square badge, keeps the landing marquee tidy. */
+export const BRAND_SPEC = {
+  width: 400,
+  height: 400,
+  minWidth: 128,
+  maxBytes: 2 * 1024 * 1024,
+  aspect: "1:1",
+  label: "400 × 400 px (1:1), max 2 MB",
+};
+
+function brandFormData(body: BrandInput): FormData {
+  const fd = new FormData();
+  fd.append("name", body.name);
+  if (body.title !== undefined) fd.append("title", body.title);
+  if (body.description !== undefined) fd.append("description", body.description);
+  if (body.isActive !== undefined) fd.append("isActive", String(body.isActive));
+  if (body.sortOrder !== undefined) fd.append("sortOrder", String(body.sortOrder));
+  if (body.image) fd.append("brandImage", body.image);
+  return fd;
+}
+
+export const brandApi = {
+  /** GET /v1/brand — all brands (admin). */
+  list: () => apiClient.get<Brand[]>("/v1/brand"),
+
+  /** GET /v1/brand/active — active brands for the landing page (public). */
+  listActive: () => apiClient.get<Brand[]>("/v1/brand/active", { skipAuth: true }),
+
+  /** POST /v1/brand — multipart, image required. */
+  create: (body: BrandInput) => uploadFile<Brand>("/v1/brand", brandFormData(body)),
+
+  /** PATCH /v1/brand/:id — multipart, image optional. */
+  update: (id: number, body: BrandInput) =>
+    uploadFile<Brand>(`/v1/brand/${id}`, brandFormData(body), "PATCH"),
+
+  /** DELETE /v1/brand/:id */
+  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/brand/${id}`),
+};
