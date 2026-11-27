@@ -561,6 +561,11 @@ export interface Brand {
   imagePublicId: string | null;
   isActive: boolean;
   sortOrder: number;
+  /** Customer review; a brand with one also shows in the testimonials carousel. */
+  review: string | null;
+  reviewerName: string | null;
+  /** Star rating 1–5, shown with the review. */
+  rating: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -571,6 +576,11 @@ export interface BrandInput {
   description?: string;
   isActive?: boolean;
   sortOrder?: number;
+  /** Customer review ("" clears it); a brand with one shows in the testimonials carousel. */
+  review?: string;
+  reviewerName?: string;
+  /** Star rating 1–5. */
+  rating?: number;
   /** Logo file — required on create, optional on update. */
   image?: File | null;
 }
@@ -592,6 +602,9 @@ function brandFormData(body: BrandInput): FormData {
   if (body.description !== undefined) fd.append("description", body.description);
   if (body.isActive !== undefined) fd.append("isActive", String(body.isActive));
   if (body.sortOrder !== undefined) fd.append("sortOrder", String(body.sortOrder));
+  if (body.review !== undefined) fd.append("review", body.review);
+  if (body.reviewerName !== undefined) fd.append("reviewerName", body.reviewerName);
+  if (body.rating !== undefined) fd.append("rating", String(body.rating));
   if (body.image) fd.append("brandImage", body.image);
   return fd;
 }

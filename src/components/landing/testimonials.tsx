@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { brandApi, queryKeys, type Brand } from "@/src/api/api";
 import { ArrowRightIcon } from "@/src/components/icons";
 
 export function PartnerCTA() {
@@ -46,16 +48,26 @@ export function PartnerCTA() {
 
 interface Review {
   brand: string;
-  /** Brand logo from /public/brands, shown as the reviewer avatar. (The
-   *  "Our associated brands" marquee is admin-managed via the Brand API; these
-   *  six stay as static files because the reviews themselves are static.) */
+  /** Brand logo, shown as the reviewer avatar. */
   logo: string;
   /** Person who gave the review; omitted when the brand replied as a team. */
   name?: string;
-  rating: 4 | 5;
+  rating: number;
   quote: string;
 }
 
+/** An active brand whose admin filled in a review becomes a carousel slide. */
+function toReview(b: Brand): Review {
+  return {
+    brand: b.name,
+    logo: b.imageUrl,
+    name: b.reviewerName?.trim() || undefined,
+    rating: Math.min(5, Math.max(1, b.rating ?? 5)),
+    quote: b.review?.trim() ?? "",
+  };
+}
+
+/** Static fallback (logos in /public/brands) until reviews exist in the admin panel. */
 const REVIEWS: Review[] = [
   {
     brand: "Govardhan",
@@ -133,12 +145,24 @@ function Star({ filled }: { filled: boolean }) {
   );
 }
 
-export function Testimonials({ reviews = REVIEWS }: { reviews?: Review[] }) {
+export function Testimonials() {
+  // Same cache entry as the brands marquee, so the homepage fetches brands once.
+  const { data } = useQuery({
+    queryKey: queryKeys.brandsActive,
+    queryFn: () => brandApi.listActive(),
+  });
+  const apiReviews = (data ?? []).filter((b) => b.review?.trim()).map(toReview);
+  // Admin-entered reviews win; the static six only cover the gap until then.
+  const reviews = apiReviews.length > 0 ? apiReviews : REVIEWS;
+
   const reduceMotion = useReducedMotion();
-  const [[index, dir], setSlide] = useState<[number, number]>([0, 1]);
+  const [[rawIndex, dir], setSlide] = useState<[number, number]>([0, 1]);
   const [paused, setPaused] = useState(false);
-  const review = reviews[index];
   const total = reviews.length;
+  // The list can shrink when the API answer replaces the static fallback
+  // mid-view, so the index is clamped instead of trusted.
+  const index = total > 0 ? rawIndex % total : 0;
+  const review = reviews[index];
   // With a single review there is nothing to page through: no counter, arrows, dots or autoplay.
   const multiple = total > 1;
 

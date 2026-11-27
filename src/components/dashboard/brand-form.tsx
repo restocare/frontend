@@ -21,6 +21,9 @@ export function BrandForm({ brand, onClose }: BrandFormProps) {
   const [description, setDescription] = useState(brand?.description ?? "");
   const [isActive, setIsActive] = useState(brand?.isActive ?? true);
   const [sortOrder, setSortOrder] = useState<string>(String(brand?.sortOrder ?? 0));
+  const [review, setReview] = useState(brand?.review ?? "");
+  const [reviewerName, setReviewerName] = useState(brand?.reviewerName ?? "");
+  const [rating, setRating] = useState<number>(brand?.rating ?? 5);
   const [image, setImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -38,6 +41,10 @@ export function BrandForm({ brand, onClose }: BrandFormProps) {
         description: description.trim(),
         isActive,
         sortOrder: Number(sortOrder) || 0,
+        // "" clears the review on the backend; rating rides along with it.
+        review: review.trim(),
+        reviewerName: reviewerName.trim(),
+        rating,
         image: compressed,
       };
       return brand ? brandApi.update(brand.brandId, payload) : brandApi.create(payload);
@@ -175,6 +182,52 @@ export function BrandForm({ brand, onClose }: BrandFormProps) {
               className={inputClass}
             />
           </label>
+          {/* Optional customer review — a brand with one also shows in the
+              website's "What our customers say" carousel. */}
+          <div className="space-y-3 rounded-xl border border-border bg-background/40 p-4">
+            <p className="text-sm font-medium text-foreground">
+              Customer review{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional — shows in &ldquo;What our customers say&rdquo;)
+              </span>
+            </p>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-muted-foreground">Review</span>
+              <textarea
+                value={review}
+                onChange={(e) => setReview(e.target.value)}
+                placeholder="RestoCare has been a dependable partner for us…"
+                rows={3}
+                className={inputClass}
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-muted-foreground">Reviewer name</span>
+                <input
+                  value={reviewerName}
+                  onChange={(e) => setReviewerName(e.target.value)}
+                  placeholder="Nityam Gupta"
+                  className={inputClass}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-muted-foreground">Rating</span>
+                <select
+                  value={rating}
+                  onChange={(e) => setRating(Number(e.target.value))}
+                  className={inputClass}
+                >
+                  {[5, 4, 3, 2, 1].map((r) => (
+                    <option key={r} value={r}>
+                      {"★".repeat(r)} ({r})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-muted-foreground">Sort order</span>
             <input

@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Dev only: the local backend serves media from localhost:8092, which the
+    // optimizer's private-IP guard (Next 16+) would otherwise block. Stays off
+    // in production builds, keeping the SSRF protection there.
+    ...(process.env.NODE_ENV === "development"
+      ? { dangerouslyAllowLocalIP: true }
+      : {}),
     remotePatterns: [
       {
         protocol: 'https',
@@ -54,6 +60,12 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'api.restocare.in',
         pathname: '/media/**',
+      },
+      {
+        // Local backend's media URLs (any port: 8092 media server, 8000 dev) so
+        // admin-uploaded images render when developing against localhost.
+        protocol: 'http',
+        hostname: 'localhost',
       },
     ],
   },
