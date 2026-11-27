@@ -123,7 +123,10 @@ export default function BrandsPage() {
                   {brand.title && (
                     <p className="truncate text-sm text-muted-foreground">{brand.title}</p>
                   )}
-                  <p className="mt-1 text-xs text-muted-foreground">Order: {brand.sortOrder}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Order: {brand.sortOrder}
+                    {brand.review ? ` · ★ ${brand.rating ?? 5} review` : ""}
+                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button
