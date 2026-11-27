@@ -72,6 +72,8 @@ export const queryKeys = {
   bannersActive: ["banners", "active"] as const,
   brands: ["brands"] as const,
   brandsActive: ["brands", "active"] as const,
+  siteVideos: ["site-videos"] as const,
+  siteVideosActive: (section: string) => ["site-videos", "active", section] as const,
   cart: (sessionId: string) => ["cart", sessionId] as const,
   userAddresses: (userId: string | number) => ["addresses", userId] as const,
   userBookings: (userId: string | number) =>
