@@ -67,57 +67,6 @@ function toReview(b: Brand): Review {
   };
 }
 
-/** Static fallback (logos in /public/brands) until reviews exist in the admin panel. */
-const REVIEWS: Review[] = [
-  {
-    brand: "Govardhan",
-    logo: "/brands/Govardhan.jpeg",
-    name: "Rajeev Sharma",
-    rating: 5,
-    quote:
-      "RestoCare has been a dependable partner for us. The waiters and housekeeping staff have been professional, well-mannered, and responsible in their work. We've had a smooth experience working with the RestoCare team.",
-  },
-  {
-    brand: "Naan Baan Shaan",
-    logo: "/brands/Naan.jpeg",
-    rating: 5,
-    quote:
-      "Working with RestoCare has been a pleasant experience for our restaurant. The housekeeping and utility team has been sincere, cooperative, and efficient in handling their responsibilities. We appreciate the professionalism of the RestoCare team.",
-  },
-  {
-    brand: "Crazy Chef",
-    logo: "/brands/Crazy.jpeg",
-    name: "Manish",
-    rating: 4,
-    quote:
-      "RestoCare has been a good experience for our team. The staff have been hardworking, polite, and quick to understand our requirements. We've found the team consistent and professional in their work.",
-  },
-  {
-    brand: "Postfix Coffee",
-    logo: "/brands/Postfix.jpeg",
-    name: "Sarthak",
-    rating: 5,
-    quote:
-      "RestoCare has been a valuable support for our day-to-day operations. The staff provided have been responsible, well-behaved, and sincere with their work. We're happy with the service and professionalism shown by the RestoCare team.",
-  },
-  {
-    brand: "Cafe Bistro 57",
-    logo: "/brands/Bistro.jpeg",
-    name: "Nityam Gupta",
-    rating: 5,
-    quote:
-      "RestoCare has been a dependable choice for our staffing needs. The staff have been punctual, courteous, and dedicated towards their responsibilities. We've had a positive experience with the quality of service provided by the RestoCare team.",
-  },
-  {
-    brand: "Amaira",
-    logo: "/brands/Amaira.jpeg",
-    name: "Yash",
-    rating: 4,
-    quote:
-      "RestoCare has been a reliable part of our day-to-day staffing. The team has been sincere, well-mannered, and responsible with their work. We appreciate the consistent service and support provided by RestoCare.",
-  },
-];
-
 /** Time each review stays on screen before the carousel advances. */
 const AUTOPLAY_MS = 6500;
 const SWIPE_PX = 60;
@@ -151,9 +100,8 @@ export function Testimonials() {
     queryKey: queryKeys.brandsActive,
     queryFn: () => brandApi.listActive(),
   });
-  const apiReviews = (data ?? []).filter((b) => b.review?.trim()).map(toReview);
-  // Admin-entered reviews win; the static six only cover the gap until then.
-  const reviews = apiReviews.length > 0 ? apiReviews : REVIEWS;
+  // No reviews in the admin panel means no section (it returns null below).
+  const reviews = (data ?? []).filter((b) => b.review?.trim()).map(toReview);
 
   const reduceMotion = useReducedMotion();
   const [[rawIndex, dir], setSlide] = useState<[number, number]>([0, 1]);
