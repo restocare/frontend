@@ -609,6 +609,57 @@ function brandFormData(body: BrandInput): FormData {
   return fd;
 }
 
+/** Where a storefront YouTube clip is shown. */
+export type SiteVideoSection = "REELS" | "BANNER" | "COLLAGE";
+
+/** Admin-managed YouTube clip for a storefront video section. */
+export interface SiteVideo {
+  videoId: number;
+  section: SiteVideoSection;
+  /** 11-char YouTube video id, extracted server-side from youtubeUrl. */
+  youtubeId: string;
+  youtubeUrl: string;
+  title: string | null;
+  tag: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteVideoInput {
+  /** Any YouTube link (watch, share, shorts, embed). Required on create. */
+  youtubeUrl?: string;
+  section?: SiteVideoSection;
+  /** "" clears it. */
+  title?: string;
+  /** "" clears it. */
+  tag?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export const siteVideoApi = {
+  /** GET /v1/site-video — all videos (admin). */
+  list: () => apiClient.get<SiteVideo[]>("/v1/site-video"),
+
+  /** GET /v1/site-video/active?section= — active videos for a section (public). */
+  listActive: (section: SiteVideoSection) =>
+    apiClient.get<SiteVideo[]>(`/v1/site-video/active${toQueryString({ section })}`, {
+      skipAuth: true,
+    }),
+
+  /** POST /v1/site-video */
+  create: (body: SiteVideoInput) => apiClient.post<SiteVideo>("/v1/site-video", body),
+
+  /** PATCH /v1/site-video/:id */
+  update: (id: number, body: SiteVideoInput) =>
+    apiClient.patch<SiteVideo>(`/v1/site-video/${id}`, body),
+
+  /** DELETE /v1/site-video/:id */
+  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/site-video/${id}`),
+};
+
 export const brandApi = {
   /** GET /v1/brand — all brands (admin). */
   list: () => apiClient.get<Brand[]>("/v1/brand"),

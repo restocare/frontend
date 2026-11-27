@@ -329,6 +329,13 @@ const ADMIN_NAV: NavEntry[] = [
     section: "setup",
   },
   {
+    label: "Videos",
+    href: "/dashboard/videos",
+    icon: MonitorIcon,
+    permission: "site-videos.view",
+    section: "setup",
+  },
+  {
     label: "Chat",
     icon: MailIcon,
     section: "people",
