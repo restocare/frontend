@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Dev only: the local backend serves media from localhost:8092, which the
+    // optimizer's private-IP guard (Next 16+) would otherwise block. Stays off
+    // in production builds, keeping the SSRF protection there.
+    ...(process.env.NODE_ENV === "development"
+      ? { dangerouslyAllowLocalIP: true }
+      : {}),
     remotePatterns: [
       {
         protocol: 'https',
