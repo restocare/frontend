@@ -55,6 +55,12 @@ const nextConfig: NextConfig = {
         hostname: 'api.restocare.in',
         pathname: '/media/**',
       },
+      {
+        // Local backend's media URLs (any port: 8092 media server, 8000 dev) so
+        // admin-uploaded images render when developing against localhost.
+        protocol: 'http',
+        hostname: 'localhost',
+      },
     ],
   },
 };
